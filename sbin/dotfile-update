@@ -1,36 +1,19 @@
-#!/bin/sh
+#!/bin/bash -e
 
 #LN_FLAGS=${LN_FLAGS:--f}
 
-cd ~
+ROOT=$(dirname $(dirname $(realpath "$0")))
+REL_ROOT=${ROOT#$HOME/}
+cd $HOME
 
-if ! [ -d opt/reece-base ]; then
-   echo '~/opt/reece-base not found; no changes' 1>&2
-   exit 1
+if ! [ -d "$REL_ROOT" ]; then
+	echo '$REL_ROOT ($ROOT) not found; no changes' 1>&2
+	exit 1
 fi
 
-find opt/reece-base/etc \
-    -mindepth 1 -maxdepth 1 \
-    \! \( -name .svn -o -name *~ \) \
+find ${REL_ROOT}/etc -mindepth 1 -maxdepth 1 \! -name *~ \
 | sort \
 | while read f; do
-  t=".$(basename "$f")"
-
-  if [ -h "$t" ]; then
-     if [ "$(readlink "$t")" = "$f" ]; then
-     	continue
-     fi
-     /bin/rm -v "$t"
-  else if [ -e "$t" ]; then
-     /bin/mv -v "$t" "$t.bak"
-	 fi
-  fi
-
-  if [ -e "$t" ]; then
-     echo "=== COULDN'T SYMLINK:" `/bin/ls -ld "$t"`
-     continue
-  fi
-
-  ln $LN_FLAGS -nsv "$f" "$t"
+	t=".$(basename "$f")"
+	ln -bfnsv "$f" "$t"
 done
-

@@ -1,0 +1,115 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Text::CSV_XS;
+use Getopt::Long qw(:config gnu_getopt);
+use Data::Dumper;
+
+
+sub infer_colspec($\%);
+sub legal_id($);
+
+
+my %opts =
+  (
+   table_name => undef,
+  );
+
+GetOptions(\%opts,
+		   'table_name|t=s')
+  || die("usage error");
+
+
+my %colspec_regexps =
+  (
+   null => '^$',
+   integer => '^\d+$',
+   decimal => '^(\d+(?:\.\d*)?|\d*\.\d+)$',
+   # date
+   # time
+   # datetime
+  );
+my (@colspec_keys) = sort keys %colspec_regexps;
+my %colspec_counts_init = map {$_=>0} @colspec_keys;
+
+
+
+my $csv = Text::CSV_XS->new();
+my @columns;
+my @colspecs;
+my @data;
+my @col_mask = qw( 1 1 1 1 1 1 1 0 0 );
+my @del_cols = reverse( grep {$col_mask[$_]==0} 0..$#col_mask );
+
+while( my $line = <> ) {
+  $csv->parse($line)
+	|| die("line $.: parse failure:\n  $line");
+  my @fields = $csv->fields();
+
+  splice(@fields,$_,1) for @del_cols;
+  
+  if ($. == 1) {
+	@columns = @fields;
+	$opts{table_name} = legal_id($ARGV) unless defined $opts{table_name};
+	next;
+  }
+
+  push(@data,[@fields]);
+}
+
+@columns = map {legal_id($_)} @columns;
+
+for(my $ci=0; $ci<=$#columns; $ci++) {
+  my %colspec = %colspec_counts_init;
+  for(my $di=0; $di<=$#data; $di++) {
+	my $datum = $data[$di][$ci];
+	foreach my $spec (@colspec_keys) {
+	  $colspec{$spec}++ if $datum =~ $colspec_regexps{$spec};
+	}
+  }
+  printf(STDERR "%2d.  %-30.30s  %s\n",
+		 $ci, $columns[$ci],
+		 join(' ', map {sprintf("$_:%5d",$colspec{$_})} @colspec_keys));
+  $colspecs[$ci] = \%colspec;
+}
+
+
+
+print( "DROP TABLE $opts{table_name};" );
+print( "CREATE TABLE $opts{table_name} (\n" );
+print( join(",\n", (map { sprintf("\t%-25s %-25s", 
+								 legal_id($columns[$_]),
+								 infer_colspec($#data+1,%{$colspecs[$_]})) }
+					0..$#colspecs )
+		   ), "\n" );
+print( ");\n" );
+
+print( "COPY $opts{table_name} FROM STDIN;\n" );
+print( join("\t", @$_), "\n" ) for @data;
+print( "\\.\n" );
+
+
+exit(0);
+
+
+sub infer_colspec($\%) {
+  my $ncols = shift;
+  my $colspec = shift;
+  my $type = ( $colspec->{integer} == $ncols ? 'INTEGER'
+			   : $colspec->{decimal} == $ncols ? 'REAL'
+			   : 'TEXT' );
+  my $nullable = ( $colspec->{null} == 0 ? 'NOT NULL' : '' );
+  return "$type $nullable";
+}
+
+sub legal_id($) {
+  my $id = shift;
+  $id =~ s%\.csv$%%i;
+  $id =~ s/\s/_/g;
+  $id =~ s%[./]%%g;
+  $id =~ s%[_-]+%_%g;
+  $id = lc($id);
+  return $id;
+  #return '"'.$id.'"';
+}
