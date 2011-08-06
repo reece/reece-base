@@ -1,0 +1,30 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 4.0//EN">
+<!--
+Author: Reece Hart http://www.in-machina.com/~reece/ <reece@in-machina.com>
+$RCSfile: html,v $
+$Revision: 1.1 $
+$Date: 2000/08/14 02:33:02 $
+-->
+
+<html>
+
+<head>
+<title></title>
+<META NAME="author" CONTENT="Reece Hart <reece@in-machina.com>"> 
+<META NAME="Reply-To" CONTENT="Reece Hart <reece@in-machina.com>"> 
+<META NAME="keywords" CONTENT=""> 
+<META NAME="description" CONTENT="last updated $Date: 2000/08/14 02:33:02 $"> 
+<META HTTP-EQUIV="expires" CONTENT="Tue, 20 Aug 1996 14:25:27 GMT"> 
+</head>
+
+<body>
+
+<hr>URL of this document: http://www.in-machina.com/
+<br>last update: $Date: 2000/08/14 02:33:02 $
+<br><address>maintainer: Reece Hart &lt;reece@in-machina.com&gt;
+[ <a href="http://www.in-machina.com/~reece/">home page</a>
+| <a href="mailto:reece@in-machina.com">send mail</a> ]
+</address>
+</body>
+
+</html>

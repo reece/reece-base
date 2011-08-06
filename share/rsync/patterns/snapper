@@ -1,0 +1,7 @@
+*.pyc
+*.toc.bin
+/dev/
+/media/
+/proc/
+/sys/
+/var/run/

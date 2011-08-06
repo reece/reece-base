@@ -1,0 +1,15 @@
+c     =======================================================================
+c     $RCSfile: f,v $
+c     $Revision: 1.1 $
+c     $Date: 2000/08/14 02:33:02 $
+c     - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+c     @@banner@@
+c     ======================================|==============================*/
+
+	  program / subroutine / function 
+	  implicit none
+c     interface
+c	  global variables
+c     local variables
+c     externals
+	  end

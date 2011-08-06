@@ -1,0 +1,114 @@
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 0 0
+%%Creator: 
+%%Pages: 0
+%%Title: 
+%%Invocation:
+%%CreationDate:
+%%For: 
+%%Magnification: 1
+%%Orientation: Portrait
+%%EndComments
+
+
+%% Begin Reece\'s PostScript header
+/BD   {bind def} bind def
+/CP   {closepath} BD
+/CPt  {currentpoint} BD
+/F    {fill} BD
+/FF   {findfont} BD
+/GS   {gsave} BD
+/GR   {grestore} BD
+/L    {lineto} BD
+/M    {moveto} BD
+/NP   {newpath} BD
+/RL   {rlineto} BD
+/RM   {rmoveto} BD
+/S    {stroke} BD
+/SF   {setfont} BD
+/SG   {setgray} BD
+/SLW  {setlinewidth} BD
+/SW   {stringwidth} BD
+/ScF  {scalefont} BD
+/TS   {show} BD
+/LJ   {} BD
+/RJ   {dup SW neg exch neg exch RM} BD
+/CH   {dup SW exch 2 div neg exch RM} BD
+/CIRC { 0 360 arc fill } BD
+/RECT {1 index 3 index 6 -2 roll 1 index 5 index NP M L L L CP} BD
+%% End Reece\'s PostScript header
+
+
+/CROSS {
+  dup dup dup dup dup dup
+  neg 0 rm 2 mul 0 rl
+  neg neg rm 0 2 mul rl
+  0 neg rm
+  }
+
+
+mark             
+/ISOLatin1Encoding 
+  8#000 1 8#054 {StandardEncoding exch get} for 
+  /minus 
+  8#056 1 8#217 {StandardEncoding exch get} for 
+  /dotlessi 
+  8#301 1 8#317 {StandardEncoding exch get} for 
+  /space /exclamdown /cent /sterling /currency /yen /brokenbar /section 
+  /dieresis /copyright /ordfeminine /guillemotleft /logicalnot /hyphen 
+  /registered /macron /degree /plusminus /twosuperior /threesuperior /acute 
+  /mu /paragraph /periodcentered /cedilla /onesuperior /ordmasculine 
+  /guillemotright /onequarter /onehalf /threequarters /questiondown /Agrave 
+  /Aacute /Acircumflex /Atilde /Adieresis /Aring /AE /Ccedilla /Egrave /Eacute 
+  /Ecircumflex /Edieresis /Igrave /Iacute /Icircumflex /Idieresis /Eth /Ntilde 
+  /Ograve /Oacute /Ocircumflex /Otilde /Odieresis /multiply /Oslash /Ugrave 
+  /Uacute /Ucircumflex /Udieresis /Yacute /Thorn /germandbls /agrave /aacute 
+  /acircumflex /atilde /adieresis /aring /ae /ccedilla /egrave /eacute 
+  /ecircumflex /edieresis /igrave /iacute /icircumflex /idieresis /eth /ntilde 
+  /ograve /oacute /ocircumflex /otilde /odieresis /divide /oslash /ugrave 
+  /uacute /ucircumflex /udieresis /yacute /thorn /ydieresis 
+  /ISOLatin1Encoding where not {256 array astore def} if 
+ cleartomark 
+
+/makeISOEncoded 
+{ findfont /curfont exch def 
+  /newfont curfont maxlength dict def  
+  /ISOLatin1 (-ISOLatin1) def
+  /curfontname curfont /FontName get dup length string cvs def 
+  /newfontname curfontname length ISOLatin1 length add string 
+     dup 0                  curfontname putinterval 
+     dup curfontname length ISOLatin1   putinterval 
+  def 
+  curfont   
+  { exch dup /FID ne  
+    { dup /Encoding eq  
+      { exch pop ISOLatin1Encoding exch }  
+      if  
+      dup /FontName eq  
+      { exch pop newfontname exch }  
+      if  
+      exch newfont 3 1 roll put  
+    }  
+    { pop pop }  
+    ifelse  
+  }  
+  forall 
+  newfontname newfont definefont 
+} def 
+
+/Times-Roman makeISOEncoded pop 
+/Times-Bold makeISOEncoded pop 
+/Times-Italic makeISOEncoded pop 
+/Times-BoldItalic makeISOEncoded pop 
+/Helvetica makeISOEncoded pop 
+/Helvetica-Bold makeISOEncoded pop 
+/Helvetica-Oblique makeISOEncoded pop 
+/Helvetica-BoldOblique makeISOEncoded pop 
+0.000000 0.000000 0.000000 setrgbcolor
+
+/Times-Roman findfont 60 scalefont setfont
+300 100 m 10 cross (Reece) show
+300 300 m 10 cross (Reece) CS
+300 500 m 10 cross (Reece) RJ
+
+showpage

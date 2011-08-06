@@ -1,0 +1,31 @@
+/* =============================================================================
+// $RCSfile: c,v $
+// $Revision: 1.1 $
+// $Date: 2000/08/14 02:33:02 $
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// Please see comments in <file>.h for a description of these routines.
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// @@banner@@
+// =========================================|=================================*/
+
+static const char
+RCSId[]="$Id: c,v 1.1 2000/08/14 02:33:02 reece Exp $";
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+static char* jemappelle;                    /* what's my name (executable) */
+
+int
+main(int argc, char* argv[], char* env[])
+  {
+  
+  /* set jemappelle, the name of the program as invoked */
+  jemappelle = strrchr(argv[0],'/');
+  if (jemappelle != NULL)
+    jemappelle++;
+  else
+    jemappelle = argv[0];
+
+  }

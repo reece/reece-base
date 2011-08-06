@@ -1,0 +1,4 @@
+bind + resize +5
+bind - resize -5
+
+screen -t 'apache logs'  1 sh -c 'tail -F /var/log/apache2/csb-dev/{access,error}_log | grep -v ^192\.168\.204\.'

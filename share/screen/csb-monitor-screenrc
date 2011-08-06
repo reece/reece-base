@@ -1,0 +1,36 @@
+# screen setup for monitoring thunderdome and csb
+# usage:
+# ssh -n csb xterm -geometry 120x80 -e screen -c ~/.csb-monitor-screenrc &
+
+include .screen-common
+
+startup_message off
+
+split
+split
+split
+split
+split
+
+resize 19
+screen -t 'PBS queue'		1 watch -n10 /usr/pbs/bin/qstat
+
+focus down
+resize 19
+screen -t top				2 /usr/bin/nice -n10 top -ci
+
+focus down
+resize 9
+screen -t iostat			3 iostat -xt sda sdb 10
+
+focus down
+resize 9
+screen -t 'postgresql log' 	4 tail -F /var/log/postgresql.d/postgresql.log%
+
+focus down
+resize 9
+screen -t 'apache access' 	5 sh -c 'tail -F /var/log/apache2/csb-dev/access_log | grep -v ^192\.168\.204\.'
+
+focus down
+#resize 9
+screen -t 'apache error' 	6 tail -F /var/log/apache2/csb-dev/error_log

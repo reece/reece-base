@@ -1,0 +1,75 @@
+# pm -- a perl package template
+# $Id$
+# @@banner@@
+
+package pm;
+
+# Loading preface
+BEGIN
+  {
+  $RCSId = '$Id: pm,v 1.2 2001/06/12 05:38:24 reece Exp $ ';
+  print('#',__PACKAGE__,": $RCSId\n") if (defined $ENV{'DEBUG'});
+  }
+
+use 5.6.1;
+use strict;
+use vars qw($RCSId $VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
+
+($VERSION) = $RCSId =~ m/^\$Id: .+,v ([\d\.]+)/;
+
+# ISA:
+use base 'Exporter';
+#use base 'AutoLoader';
+@EXPORT = qw( );
+@EXPORT_OK = qw( );
+%EXPORT_TAGS = qw( );
+
+# uses:
+use Carp;
+use File::Basename;
+use Getopt::Long;
+use IO::File;
+use POSIX;
+use vars qw( );
+
+
+# sub new
+# 	{
+# 	my $self = shift;
+# 	#$self = fields::new($self) unless ref $self;
+# 	$self->SUPER::new(@_);
+# 	return $self;
+# 	}
+
+#sub DESTROY
+#	{
+#	}
+
+#sub AUTOLOAD
+#	{
+#	}
+
+1;
+
+=head1 NAME
+
+pm -- a perl package template
+
+S<$Id: pm,v 1.2 2001/06/12 05:38:24 reece Exp $>
+
+=head1 SYNOPSIS
+
+C<pm [options]>
+
+=head1 DESCRIPTION
+
+B<program> does nothing particularly useful.
+
+=head1 INSTALLATION
+
+Put this file in your perl lib directory (usually /usr/local/perl5/lib) or
+one of the directories in B<$PERL5LIB>.
+
+@@banner@@
+
+=cut

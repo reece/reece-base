@@ -1,0 +1,24 @@
+#!/usr/bin/perl -w
+##
+## $RCSfile: sh,v $
+## $Revision: 1.1 $
+## $Date: 2000/08/14 02:33:02 $
+##
+## NAME
+##
+## SYNOPSIS
+##
+## DESCRIPTION
+##
+## EXAMPLE
+##
+## REQUIREMENTS
+##
+## INSTALLATION
+##
+## @@banner@@
+## 
+
+$RCSId = '$Id: sh,v 1.1 2000/08/14 02:33:02 reece Exp $ ';
+$RCSId =~ s/\$//g; $RCSId =~ s/\s+$//;
+($jemappelle=$0) =~ s,^.*/,,;

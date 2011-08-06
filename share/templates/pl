@@ -1,0 +1,105 @@
+#!/usr/bin/perl -w
+## $Id: pl,v 1.1 2000/08/14 02:33:02 reece Exp $
+## Documentation appears below in pod format.  It is best viewed by typing
+## $ perldoc <thisfile>
+
+##############################################################################
+## Customize here
+##############################################################################
+
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+=head1 NAME
+
+tflush -- hydrostatic flow controller
+
+S<$Id: pl,v 1.1 2000/08/14 02:33:02 reece Exp $>
+
+=head1 SYNOPSIS
+
+C<tflush [time]>
+
+=head1 OPTIONS
+
+=item B<--alpha> level, B<--Arpha> level, B<-a> level
+
+This option specifies a relatively useless modification of
+the frobonowitz algorithm, which, of course, does
+essentially nothing useful.
+
+=item B<--help>, B<-\?>
+
+print commentary to stderr
+
+=item B<--verbose>, B<-v>
+
+print commentary to stderr
+
+=item B<--version>, B<-V>
+
+print version information and exit
+
+=head1 DESCRIPTION
+
+B<tflush> flushes toilet remotely in case you realize that you forgot this
+morning and your mother-in-law is arriving before you'll get home.
+
+=head1 RETURN VALUES
+
+=head1 EXAMPLES ($ is your prompt)
+
+=item 1. full backup
+
+$ backup --bd /mnt/backups --full /home
+
+=head1 FILES
+
+=head1 BUGS, CAVEATS, MISFEATURES
+
+=head1 INSTALLATION
+
+Put this file in your perl lib directory (usually /usr/local/perl5/lib) or
+one of the directories in B<$PERL5LIB>.
+
+@@banner@@
+
+=cut
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+BEGIN  {$RCSId = '$Id: pl,v 1.1 2000/08/14 02:33:02 reece Exp $ ';
+		print(STDERR "# $RCSId\n");}
+
+use Carp;
+use strict;
+use IO::File;
+use File::Basename;
+use POSIX;
+use Getopt::Mixed 1.006;
+use vars qw( $RCSId $jemappelle );
+
+($jemappelle=$0) =~ s,^.*/,,;
+unshift(@ARGV,$ENV{$jemappelle}) if (defined($ENV{$jemappelle}));
+$invocation = join( ' ', map( sprintf("'$_'"), @ARGV) );
+
+my(@OPTS)=
+  (
+   'help        ?>help',
+   'quiet       q>quiet',
+   'verbose     v>verbose',
+   'version     V>version',
+  );
+Getopt::Mixed::getOptions(@OPTS);
+print(STDERR '# ', $RCSId, "\n");
+if ($opt_version) 
+  {
+  print($RCSId,"\n");
+  exit(0);
+  }
+
+unshift(@ARGV,'-') unless ($#ARGV >= 0);
