@@ -25,7 +25,17 @@
 # restore your database from a backup:
 # eg$ bzip2 -cd ~/wp-backups/.../blog.sql.bz2 \
 #     | mysql -h localhost -u bloguser -D blogdb -pblogpasswd
-# 
+#
+# fetch node ids out of posts to help build a redirect file:
+# eg$ mysql ...
+# mysql> select concat('RedirectPermanent ', 
+#    replace(replace(substring_index(post_content,"\n",1),
+#		'<!--imported from drupal node ','/node/'),'-->',''),
+# 	 ' ', replace(guid,'test/','')) from wp_posts
+#    where post_content like '<!--imported%';
+# returns lines like:
+#   RedirectPermanent /node/54 http://www.myblog.com/2010/05/penguins
+# Put those in a .htaccess in your blog directory.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # 
 # Thanks to Leo Charre for the excellent WordPress-API module, without
