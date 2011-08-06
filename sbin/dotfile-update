@@ -1,0 +1,36 @@
+#!/bin/sh
+
+#LN_FLAGS=${LN_FLAGS:--f}
+
+cd ~
+
+if ! [ -d opt/reece-base ]; then
+   echo '~/opt/reece-base not found; no changes' 1>&2
+   exit 1
+fi
+
+find opt/reece-base/etc \
+    -mindepth 1 -maxdepth 1 \
+    \! \( -name .svn -o -name *~ \) \
+| sort \
+| while read f; do
+  t=".$(basename "$f")"
+
+  if [ -h "$t" ]; then
+     if [ "$(readlink "$t")" = "$f" ]; then
+     	continue
+     fi
+     /bin/rm -v "$t"
+  else if [ -e "$t" ]; then
+     /bin/mv -v "$t" "$t.bak"
+	 fi
+  fi
+
+  if [ -e "$t" ]; then
+     echo "=== COULDN'T SYMLINK:" `/bin/ls -ld "$t"`
+     continue
+  fi
+
+  ln $LN_FLAGS -nsv "$f" "$t"
+done
+
