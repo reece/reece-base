@@ -1,0 +1,78 @@
+## aliases -- Reece's bash aliases -*-sh-*-
+
+alias ..='cd ..; awd'
+alias .=awd
+alias bp='less "+/^(>.*|Query.*)"'
+alias dp='less "+/^[0-9][0-9,]*[acd].*|^diff .+|^Only in .+|^Common subd.+|^Binary files|^--- .+|^\+\+\+ .+|^@@ .+"'
+alias cp='cp -bi'
+alias h=head
+alias j='jobs -l'
+alias ll='ls $LS_FLAGS -Flh --si'
+alias lla='ls $LS_FLAGS -FlhA --si'
+alias lld='ls $LS_FLAGS -Flhd --si'
+alias llz='ls $LS_FLAGS -Flh --sort=size --si'
+alias ls='ls $LS_FLAGS -F'
+alias lsa='ls $LS_FLAGS -FA'
+alias p='${PAGER:-cat}'
+alias mv='mv -bi'
+alias pcd='pushd'
+alias pd='popd'
+alias pst='pstree -Glpua | p -r'
+#alias pst='ps --forest -u$USER -fw'
+alias qdelall='qdel `qstat -urkh | fgrep "^[0-9]" | cut -f1 -d.`'
+alias rm='rm -i'
+alias rm~='rm -f -- *~ .*~ *.bak .*.bak'
+alias rpm-version-strip="perl -pe 's/-\d+[-.\d]+$//'"
+alias svn-diff='svn diff --diff-cmd diff -x -uw'
+alias t=tail
+alias tf='tail --follow=name --retry'
+alias qsubI='qsub -qexpress -I -lwalltime=168:00:00,nodes=1:ppn=2'
+alias qsubIx='qsub -qexpress -I -lwalltime=168:00:00,nodes=1:ppn=2:xeon'
+alias w='type -p'			# wheresit?
+
+
+# control whether galeon remote loads URLs in new window or new tab
+alias browsernx="gconftool-2 -s /desktop/gnome/url-handlers/unknown/command -t string 'galeon -nx \"%s\"'"
+alias browsernw="gconftool-2 -s /desktop/gnome/url-handlers/unknown/command -t string 'galeon -nw \"%s\"'"
+
+# bs = blank slate -- a scrubbed environment for package building
+# bsx = ditto, with X
+alias bs='env - HOME=$HOME TERM=$TERM PATH=/usr/bin:/bin bash --norc'
+alias bsx='env - DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY TERM=$TERM HOME=$HOME PATH=/usr/bin:/bin bash --norc'
+
+# csbq: send query to PGHOST (or use -h) and PGDATABASE (or use -d)
+alias csbq='psql -h${PGHOST:-csb} -d${PGDATABASE:-csb-dev} -At -c'
+#csbq () { psql -At -c "$*"; }
+
+# dpkg-status
+alias dpkg-status="dpkg-query --showformat='\${Status;3} \${Version;25} \${Package}\n' -W"
+
+# make a patch file from two files/directories
+# usage: makepatch <oldsource> <newsource>
+# based on recommendation in patch(1)
+alias make-patch='LC_ALL=C TZ=UTC0 diff -ru --exclude=\*.rej --exclude=\*.log --exclude=\*.so --exclude=\*.o --exclude=\*.orig'
+
+# cvs to whoville (home machine); whoville alias is handled by ssh
+alias cvs-w='cvs -d:ext:rkh@whoville:/home/rkh/cvs'
+
+# href-extract: extract hrefs from files when formatted like
+# .... href="<URL>" ... where the href, =, and " are literal
+alias href-extract='perl -lne '"'"'print $1 while m/href="([^"]+)"/gi'"'"
+
+# qsub helpers
+# qsubI starts an interactive shell
+# qdo <commandline> submits commandline to qsub
+alias qsubI='qsub -I -lwalltime=168:00:00,nodes=1:ppn=2'
+qdo () { (echo "cd $PWD"; echo "$@") | qsub -lwalltime=168:00:00,nodes=1:ppn=2 -V; }
+
+# some timestamp helpers, e.g., $ do_something > `D`.log
+alias D='date +%Y-%m-%d'
+alias T='date +%H:%M:%S'
+alias DT='date +%Y-%m-%d-%H:%M:%S'
+
+# uniqpath -- rewrite :-delim path uniquely, preserving order
+# eg. export PATH="`echo $PATH | uniqpath`"
+alias uniq-path='tr : \\012 | nl -w1 | sort -k2 -k1n | uniq -f1 | sort -n | cut -f2 | tr \\012 :; echo DUMMY'
+
+# node-status -- summarize pbs nodes
+alias node-status="pbsnodes -a | perl -ne 'BEGIN{$/=\"\n\n\"} printf(\"%-10s %-20s %s\n\",\$1,\$2,\$3) if (m/^(comp\d\d).+state = (\S+)(?:.+jobs = ([^\n]+))?/ms)'"

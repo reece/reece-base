@@ -1,0 +1,11 @@
+# One-time environment changes should appear here
+
+source $HOME/.bash/bootstrap
+
+source_dot_bash gne
+source_dot_bash env-csh
+source_dot_bash env
+source_dot_bash host-specific
+source_dot_bash env-mine
+
+source_dot_bash ssh

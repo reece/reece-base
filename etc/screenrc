@@ -1,0 +1,4 @@
+bind + resize +5
+bind - resize -5
+
+bind q quit

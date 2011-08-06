@@ -1,0 +1,88 @@
+# bootstrap code for Reece's bash setup -*-sh-*-
+
+# provides:
+#   source_if_exists
+#   source_dot_bash
+#   notify
+#   warn
+#   obsolete <fxname>
+#   bashlog <log items...>
+
+
+# define BASHDIR, the location for bash sub-configs
+if [ -z "$BASHDIR" ]; then
+    for d in "$HOME/.bash.d"; do
+	if [ -d "$d" ]; then BASHDIR="$d"; break; fi
+    done
+    if [ -z "$BASHDIR" ]; then
+	echo "WARNING: couldn't find .bash.d/!  This will suck..." 1>&2
+    fi
+else
+    if [ \! -d "$BASHDIR" ]; then
+	echo "$BASHDIR: Not a directory!"
+    fi
+fi
+
+
+
+_burp () {
+	[ -t 0 ] || return;
+	c="$1"; shift
+	cl="$1"; shift
+    if [ "$COLORIZE" = 1 ]; then
+		echo -e "\033[1;1;${c}m$cl: $@\033[0m" 1>&2
+    else
+		echo "NOTICE: $@" 1>&2
+    fi
+}
+
+notify () { _burp '47;37' NOTICE  "$@"; }
+warn   () { _burp '41;37' WARNING "$@"; }
+error  () { _burp '41;37' ERROR   "$@"; }
+
+obsolete () { warn 'This function ($1) is obsolete!'; }
+
+
+
+_BASHLOG=/tmp/bash.log
+bashlog () {
+    if [ -f "$_BASHLOG" ]; then
+		local TS=`/bin/date "+%F-%T: bash[$$]"`
+		if [ $# = 0 ]; then 
+			while read line; do
+				echo "$TS: $line"; 
+			done
+		else echo "$TS: $*"; 
+		fi >>"$_BASHLOG"
+    fi
+}
+
+source_if_exists () {
+    if [ -f "$1" ]; then
+		bashlog "source_if_exists: source'd $1"
+		source "$1"
+    elif [ "$2" != "nowarn" ]; then
+		notify "$1 not found"
+    else
+		bashlog "source_if_exists: $1 doesn't exist"
+    fi
+}
+
+source_dot_bash () {
+    source_if_exists "$BASHDIR/$1"
+}
+
+
+path_prepend () {
+	eval "$1='$2'\${$1:+:\$$1}"
+}
+path_prepend_ie () {
+	[ -d "$2" ] && path_prepend "$@"
+}
+
+path_append () {
+	eval "$1=\${$1:+\$$1:}'$2'"
+}
+path_append_ie () {
+	[ -d "$2" ] && path_append "$@"
+}

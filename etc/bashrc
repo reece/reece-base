@@ -1,0 +1,7 @@
+BASH_CONF_DIR="$HOME/.bash.d"
+
+if [ -d "$BASH_CONF_DIR" ]; then
+   source "$BASH_CONF_DIR/INIT"
+else
+   echo "WARNING: $BASH_CONF_DIR doesn't exist." 1>&2
+fi

@@ -1,0 +1,70 @@
+# This caused infrequent hangs for me when suspending/resuming on
+# various wireless nets
+#Host *
+#	 ControlMaster auto
+#	 ControlPath ~/.ssh/master-%r@%h:%p
+
+
+# FORCED DEFAULTS
+ForwardAgent yes
+ConnectionAttempts 3
+HashKnownHosts no
+StrictHostKeyChecking no
+ForwardX11 yes
+IdentityFile ~/.ssh/id
+ControlPath ~/.ssh/controlmaster-%r@%h:%p
+
+
+Host whoville-localhost
+	 HostName 127.0.0.1
+	 HostKeyAlias whoville
+Host whoville-internal
+	 HostName 192.168.0.175
+	 HostKeyAlias whoville
+Host whoville-external whoville w
+	 HostName whoville.homelinux.net
+	 HostKeyAlias whoville
+
+
+Host hn unison-relay unison-relay-wget
+	 HostName harts.net
+	 User hartsnet
+
+
+
+Host bitbucket.org
+	 IdentityFile ~/.ssh/bitbucket
+
+Host sf
+	 HostName shell.sf.net
+	 User reece
+
+
+Host cgl unison-relay-psql
+	 HostName socrates.cgl.ucsf.edu
+	 User rkh
+
+Host cgl-proxy
+	 Hostname socrates.cgl.ucsf.edu
+	 User rkh
+	 DynamicForward 1078
+
+
+Host sage
+	 Hostname sage.locusdev.net
+
+Host outcast outcast.locusdx.com 
+	 HostKeyAlias outcast
+	 Hostname outcast.locusdx.com
+	 #
+	 # ControlMaster auto
+	 StrictHostKeyChecking no
+	 UserKnownHostsFile=/dev/null
+	 ForwardX11 no
+
+Host ec2-*.amazonaws.com
+	 IdentityFile ~/.ssh/keys/locus.pem
+	 User ubuntu
+	 StrictHostKeyChecking no
+	 UserKnownHostsFile=/dev/null
+	 ForwardX11 no

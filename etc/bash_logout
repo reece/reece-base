@@ -1,0 +1,11 @@
+# ~/.bash_logout: executed by bash(1) when login shell exits.
+
+# when leaving the console clear the screen to increase privacy
+if [ "$SHLVL" = 1 ]; then
+    [ -x /usr/bin/clear_console ] && /usr/bin/clear_console -q
+fi
+
+if [ -n "$SSH_AGENT_STARTED" -a -z "$SSH_KEEP_ALIVE" ]; then
+    kill $SSH_AGENT_STARTED
+    [ -t 0 ] && echo "killed ssh-agent $SSH_AGENT_STARTED" 1>&2
+fi

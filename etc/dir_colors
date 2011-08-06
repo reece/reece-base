@@ -1,0 +1,113 @@
+# COLOR needs one of these arguments:
+#	'tty' 			color output to tty's only
+#	'all' or 'yes'	color output to tty's and pipes
+#	'none' or 'no'	shuts colorization off completely
+COLOR tty
+
+
+# OPTIONS allows you to specify additional commandline options for
+# the ls command.  These can be any options (check 'man ls' for details)
+#  	-F  	show '/' for dirs, '*' for executables, etc.
+#  	-T 0 	don't trust tab spacing when formatting ls output.
+OPTIONS -T 0
+
+
+# TERM specifies which terminal types are to be colorized.  There can
+#	be multiple entries.
+TERM linux
+TERM console
+TERM con132x25
+TERM con132x30
+TERM con132x43
+TERM con132x60
+TERM con80x25
+TERM con80x28
+TERM con80x30
+TERM con80x43
+TERM con80x50
+TERM con80x60
+TERM xterm
+TERM vt100
+TERM kterm
+
+
+# EIGHTBIT specifies whether to enable display of eight-bit ISO 8859
+#	characters.  This is set to either:
+#
+#	'yes' or '1'	displays eight-bit characters
+#	'no' or '0'	prevents display of eight-bit characters
+EIGHTBIT 1
+
+
+# The following entries define the color specifications based on either
+# file type or suffix.  The format is
+#   [type | suffix] [formatting]
+#
+# Type is indicated by an all-caps keyword (allowable keywords are given
+# below).  Suffixes are specified by the form '.sfx' or '*sfx'.  Use of
+# asterisks allows you to specify extensions that are not necessarily
+# preceeded by a period.
+#
+# Formatting spec is a semicolon delimited list of colors and attributes
+# in the following table:
+# COLOR			TEXT	BKGD      ATTRIBUTES      
+# black			30		40		  none          00
+# red			31		41		  bold          01
+# green			32		42		  underscore    04
+# yellow/brown	33		43		  blink         05
+# blue			34		44		  reverse       07
+# magenta		35		45		  concealed     08
+# cyan			36		46
+# white/gray	37		47
+#
+# E.g., 01;33;44 specifies bold yellow text on blue background
+
+
+NORMAL 00			# global default, although everything should be something.
+FILE   00 			# normal file
+BLK    40;33;01		# block device driver
+CHR    40;33;01 	# character device driver
+DIR    01;33 		# directory
+FIFO   40;33		# pipe
+LINK   00	 		# symbolic link
+ORPHAN 01;37;41		# orphaned symbolic link - points to non-existent file
+SOCK   01;35		# socket
+
+EXEC   01;32 	    # file with executable attribute set
+
+# backups
+*~   00;35
+.bak 00;35
+*-orig 00;35
+
+# archives and compressed files
+.Z   01;36
+.gz  01;36
+.bz2 01;36
+.lzh 01;36
+.tar 01;36
+.taz 01;36
+.tgz 01;36
+.z   01;36
+.zip 01;36
+
+
+
+#.sh  01;32
+#.ksh 01;32
+#.pl  01;32
+#.py  01;32
+#.avi 01;36
+#.bmp 01;36
+#.dvi 01;36
+#.eps 01;36
+#.gif 01;36
+#.jpg 01;36
+#.mpg 01;36
+#.ppm 01;36
+#.ps  01;36
+#.tex 01;35
+#.tga 01;36
+#.tif 01;36
+#.xbm 01;36
+#.xpm 01;36

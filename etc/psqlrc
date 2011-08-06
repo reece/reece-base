@@ -1,0 +1,9 @@
+\set HISTSIZE 1000
+\pset pager always
+
+-- colorized prompt with xtitle:
+-- \set PROMPT1 '%[]2;%n@%/%R%#%]%[%033[1;33;44m%]%n@%/%R%#%[%033[0m%] '
+
+--SET statement_timeout = 0;
+
+\timing

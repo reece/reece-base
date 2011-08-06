@@ -1,0 +1,208 @@
+## functions -- Reece's bash functions -*-sh-*-
+
+
+# addprefix/addsuffix: add *fix to items from command line or stdin
+# e.g.1, addprefix fix pre1 pre2 pre3
+# e.g.2, /bin/echo "pre1\npre2\npre3" | addsuffix fix
+addprefix () {
+    fix="$1"; shift;
+    if [ -n "$1" ]; then
+	while [ "$#" -gt "0" ]; do echo "$fix$1"; shift; done;
+    else
+	while read x;           do echo "$fix$x"; shift; done;
+    fi;
+}
+addsuffix () {
+    fix="$1"; shift;
+    if [ -n "$1" ]; then
+	while [ "$#" -gt "0" ]; do echo "$1$fix"; shift; done;
+    else
+	while read x;           do echo "$x$fix"; shift; done;
+    fi; 
+}
+
+
+# diff .bak files against their new versions
+# I use this after a bulk replacement with 'perl -i.bak -p0e ...'
+bakdiff () { for f in "$@"; do diff -u "$f" "${f%.bak}"; done; }
+
+# abbreviated and relative working directory
+# don't collapse $HOME|$HOME/* to $HOME* -- consider user rk cd'ing to /home/rkh
+awd () { case $PWD in $HOME|$HOME/*) echo '~'${PWD#$HOME};; *) echo $PWD;; esac; }
+rwd () { case $PWD in $HOME) echo;; $HOME/*) echo ${PWD#$HOME/};; *) echo $PWD;; esac; }
+
+# common files in directories
+# usage: commd d1 d2 [-1|-2|-3|-12|-13|-23]
+commd1 () { 
+	comm $3 \
+	<(builtin cd "$1"; /usr/bin/find . -maxdepth 1|sort) \
+	<(builtin cd "$2"; /usr/bin/find . -maxdepth 1|sort);
+}
+commd () { 
+	comm $3 \
+	<(builtin cd "$1"; /usr/bin/find .|sort) \
+	<(builtin cd "$2"; /usr/bin/find .|sort);
+}
+
+
+
+# cvsrm -- rm specified files and remove them from cvs control
+cvsrm () { for f in "$@"; do /bin/mv "$f" "$f".bak && cvs rm "$f"; done; }
+
+# diff files common to two directories given as args
+diffd () {
+    commd "$1" "$2" -12 \
+		| tail -n+2 \
+		| while read fn; do (set -x; diff -c "$1/$fn" "$2/$fn") done
+}
+
+# emacs -- use existing emacs via emacsclient, if possible
+emacs () {
+    emacsclient -n "$@" 2>/dev/null \
+	|| emacsclient -f server-start -n "$@" 2>/dev/null \
+	|| command $EDITOR "$@"; 
+}
+
+# link-subtract -- list files in $2,$3,... that are linked in $1
+link-subtract () { 
+	local V
+	V=
+	if [ "$1" = "-v" ]; then
+		V="-v2"
+		shift
+	fi
+	if [ $# -lt 2 ]; then
+		error "usage: link-subtract refdir dupdir [dupdir...]"
+		return
+	fi
+	local d="$1"
+	shift
+	join -t"$(echo '\t')" --check-order -o 2.2 $V \
+		<(find "$d" -type f -links +1 -printf "%i\t%p\n" | sort -k1b,1) \
+		<(find "$@" -type f -links +1 -printf "%i\t%p\n" | sort -k1b,1);
+}
+
+
+# md5cmp: compare specified dirents with those in another directory
+# usage: md5c otherdir [dirents...]
+md5cmp () { d="$1"; shift; md5dir "$@" | (builtin cd "$d" && md5sum -c); }
+
+# md5dir: generate md5 checksums for all files in the args
+# usage: md5d [dirents...]
+# -print0 not avail on all platforms
+md5dir () { find "$@" -type f | tr \\n \\0 | xargs -0r md5sum; }
+
+# md5ok/nok: extract the pathname part of md5sum -c output
+# I commonly do this:
+# $ md5c targetdir srcdir >md5c
+# $ md5nok md5c
+md5ok () { perl -lne 'print if s/: OK$//'; }
+md5nok () { perl -lne 'print unless s/: OK//'; }
+md5failed () { perl -lne 'print if s/: FAILED$//'; }
+md5missing () { perl -lne 'print if s/: FAILED open or read//'; }
+
+# page executable (a script, we hope)
+pe () { $PAGER `type -p "$@"`; }
+
+# perl-locate -- find perl modules with current perl
+perl-locate () {
+    perl -l -e 'foreach my $m (@ARGV) {' \
+	-e 'eval "use $m";' \
+	-e 'if ($@) ' \
+	-e '  { warn("$m: $!\n"); }'  \
+	-e 'else { ($n=$m)=~s%::%/%g; print("$m: ",$INC{"$n.pm"});}' \
+	-e '}' "$@"
+}
+
+# palm backup
+pilot-backup () {
+    D=`date "+$HOME/palm/backups/%Y%m%d"`;
+    echo backup to $D;
+    /bin/mkdir -p $D;
+    pilot-xfer -p usb: -b $D;
+}
+
+# ps+pgrep
+psp () { ps -f `pgrep -f "$1"`; }
+
+# rcschanged: filter files which have changed wrt ,v
+rcschanged ()
+{ for f in "$@"; do 
+	if [ -f $f,v -o -f RCS/$f,v ]; then	rcsdiff $f >/dev/null 2>/dev/null || echo $f
+	else echo "$f" ": noarchive?"; fi; done; }
+
+# unzip files into a directory with the same root name as the file
+uz () { (set -x; unzip "$1" -d "${1%.zip}";) }
+
+# verbose execution
+VEPFX='#* '
+ve  () { echo "${VEPFX:=+}$@" 1>&2; eval "$@";      }
+vet () { echo "${VEPFX:=+}$@" 1>&2; eval "uname -a; uptime; time $@"; }
+
+
+# wait(w) for file(f)/process(p) to exist(e) or notexist(ne)
+# polling at specified intervals
+# eg$ wfe file [sleep time]
+wfe  () { while [ \! -e "$1" 		]; do sleep ${2:-60}; done; }
+wfne () { while [    -e "$1"		]; do sleep ${2:-60}; done; }
+if [ -d /proc ]; then
+    wpne () { while [ -d "/proc/$1/" ]; do sleep ${2:-60}; done; }
+fi
+
+# xrm: delete cr-delimited filenames
+# e.g., md5ok <foo.md5c | xrm -tn5
+# (and you thought George Bush was dangerous...)
+xrm () { tr \\012 \\0 | xargs -0r "$@" /bin/rm; }
+
+# convert specified zip files to gzip
+zip2gz () { for f in "$@"; do unzip -p $f | gzip -c >"${f%.zip}.gz"; done; }
+
+
+# functions useful only in xterms
+if [ "$TERM05" = "xterm" ]; then
+    xtitle() { echo -n "]2;$1"; }
+fi
+
+
+SEQLOGO='-abceMnY -k0 -w20 -h20'
+logo-png () { seqlogo $SEQLOGO -t"$1" -f"$1" -Fpng; }
+logo-ps  () { seqlogo $SEQLOGO -t"$1" -f"$1";       }
+
+
+# sync Photo directory and f-spot database to whoville
+photo-sync () {
+    (
+	cd ~;
+	set -x;
+	ssh-config-update-location;
+	rsync -HRav ${1+"$@"} Photos .gnome2/f-spot/ w:;
+	)
+}
+
+
+# find files that look like leftovers from failed rsync transfers
+find-rsync-orphans () {
+    find "$@" -name .*.[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9];
+}
+
+# edit a file (ef) or executable (ee) in PATH
+ef () { $EDITOR "$@"; }
+ee () { ef `type -p "$@"`; }
+
+# svn-grep: grep, but exclude the .svn dirs
+svn-grep () { 
+	egrep -r --exclude-dir=.svn "$@"
+# above only works with egrep >=2.5.3
+#	local re; re="$1"; shift;
+#	set -x;
+#	find "$@" -name .svn -prune -o -type f \! -name \*\~ -print0 \
+#		| xargs -0r egrep "$re" ;
+}
+
+# swap-names -- exchange file/directory names for given name pairs
+swap-names () {
+	local id=$RANDOM;
+	/bin/mv -v "$1" "$1-$id" \
+		&& /bin/mv -v "$2" "$1" \
+		&& /bin/mv -v "$1-$id" "$2"; 
+}

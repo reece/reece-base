@@ -1,0 +1,9 @@
+# host-specific -- do various host-specific stuff here -*-sh-*-
+
+
+#case "$HOSTNAME" in
+#	...
+#esac
+
+source_dot_bash host.d/"$HOSTNAME"
+

@@ -1,0 +1,13 @@
+# http://mercurial.selenic.com/wiki/ColorExtension
+
+
+[ui]
+username = Reece Hart <reecehart@gmail.com>
+
+[extensions]
+hgext.convert=
+hgext.graphlog=
+#hgsubversion = ~/opt/hgsubversion/hgsubversion
+#color=
+
+

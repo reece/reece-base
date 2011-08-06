@@ -1,0 +1,50 @@
+set bell-style visible
+set completion-query-items 25
+set convert-meta On
+set editing-mode emacs
+set input-meta On
+set output-meta On
+set visible-stats On
+#set mark-modified-lines On
+
+
+Meta-Control-h:	backward-kill-word
+TAB: complete
+C-q: quoted-insert
+C-w: kill-region
+C-?: delete-char
+#C-h: backward-delete-char
+"\C-xr": redraw-current-line
+
+# single or double quote current word
+"\C-x'": "\eb'\ef'"
+"\C-x\"": "\eb\"\ef\""
+
+
+$if not CPAN
+# Arrow keys in ANSI mode... I can't remember why CPAN.pm doesn't like these
+"\M-[D"        backward-char
+"\M-[C"        forward-char
+"\M-[A"        previous-history
+"\M-[B"        next-history
+$endif
+
+
+$if Bash
+"\C-xp": "PATH=${PATH}\e\C-e\C-a\ef\C-f" 	# edit the path
+"\C-x\C-r": "reset\n"
+
+$else
+$if Psql
+"\C-x\C-r": "\\!reset\n"
+
+$else
+$if Ftp
+"\C-xg": "get \M-?"
+"\C-xt": "put \M-?"
+"\M-.": yank-last-arg
+
+$endif
+$endif
+$endif
+

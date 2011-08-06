@@ -1,0 +1,42 @@
+# prompt -- set prompt string -*-sh-*-
+
+if [ "$USER" = "rkh" -o "$USER" = "reece" ]; then
+	p='\h\$'; 
+else
+	p='\u@\h\$';
+fi
+
+case "$TERM" in
+xterm*|linux|vt220)
+	if [ "$COLORIZE" = 1 ]; then
+		if [ "$UID" = 0 ]; then
+			fi='\033[1;41;33m'
+		else
+			fi='\033[1;42;33m'
+		fi
+		ff='\033[0m'
+	else
+		if [ "$UID" = 0 ]; then
+			export -n fi=`tput smso` ff=`tput rmso`;
+		else
+			export -n fi=`tput smso` ff=`tput rmso`;
+		fi
+	fi
+	PS1="\\[$fi\\]$p\\[$ff\\] "
+	unset fi ff
+
+	if [ "$TERM05" = "xterm" ]; then
+		# X window title and icon, ESC ] 2 ; title C-g
+		PS1="\\[]2;\u@\h:\w\\]$PS1"
+	fi
+	;;
+
+emacs|dumb)
+	PS1="$ "
+	;;
+
+*)
+	PS1="$p "
+	;;
+esac
+
