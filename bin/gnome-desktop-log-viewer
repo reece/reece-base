@@ -1,0 +1,10 @@
+#!/bin/sh
+
+LOCKFILE=/tmp/$(basename "$0").lock
+
+if ! flock -x -w 1 $LOCKFILE \
+	gnome-terminal --disable-factory --geometry 120x8-0-0 --profile 'desktop log' \
+	--execute $(dirname "$0")/log-watcher; then
+
+	notify-send $(basename "$0") 'Failed to get lock. Is another instance running?'
+fi

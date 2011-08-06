@@ -1,0 +1,8 @@
+#!/bin/sh
+
+n="$1"; shift;
+cmd="$1"; shift;
+keys="$1"; shift;
+
+gconftool -s "/apps/metacity/keybinding_commands/command_$n" -t string "$cmd"
+gconftool -s "/apps/metacity/global_keybindings/run_command_$n" -t string "$keys"

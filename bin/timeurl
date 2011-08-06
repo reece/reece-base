@@ -1,0 +1,58 @@
+#!/usr/bin/env perl
+# timeurl - time each url given on the command line and report summary stats
+
+use strict;
+use Benchmark ':hireswallclock';
+use LWP::UserAgent;
+use Statistics::Descriptive;
+
+select(STDERR); $|++;
+select(STDOUT);
+
+#(defined $ENV{USER})
+#  || die("USER not defined\n");
+#(defined $ENV{GNEPASS})
+#  || die("GNEPASS not defined\n");
+
+my $opt_t = 3;
+my $opt_u = $ENV{USER};
+my $opt_p = $ENV{GNEPASS};
+my $iter  = 5;
+my $sleep = 1;
+
+my $ua = new LWP::UserAgent;
+$ua->timeout($opt_t);
+my $h = new HTTP::Headers;
+#$h->authorization_basic($opt_u, $opt_p) if $opt_u ne '';
+my $req = new HTTP::Request 'GET', undef, $h;
+
+
+URL:
+while( my $url = shift ) {
+  $req->uri($url);
+
+  my @times;
+  for(my $i=1; $i<=$iter; $i++) {
+	print(STDERR "\r$url $i...");
+	my $t0 = new Benchmark;
+	my $res = $ua->request($req);
+	my $t1 = new Benchmark;
+	if (not $res->is_success()) {
+	  warn ("$url failed: ",$res->message(),"\n");
+	  next URL;
+	}
+	my ($dt) = timestr(timediff($t1, $t0),'all') =~ /^([.0-9]+)\s+wallclock/;
+	push(@times,$dt);
+	sleep $sleep;
+  }
+  print(STDERR "\n");
+
+  my $stat = Statistics::Descriptive::Full->new();
+  $stat->add_data(@times);
+
+#  printf("* N=%2d  [%5.1f,%5.1f]  mdn=%5.1f  m±sd = %5.1f±%5.1f  $url\n",
+  printf("* N=%2d  [%5.1f,%5.1f]  mdn=%5.1f  m+/-sd = %5.1f+/-%5.1f  $url\n",
+		 $stat->count(), $stat->min(), $stat->max(), $stat->median(),
+		 $stat->mean(), $stat->standard_deviation());
+  #print('  ', join(',', @times), "\n");
+}

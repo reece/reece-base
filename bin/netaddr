@@ -1,0 +1,10 @@
+#!/bin/sh
+# netaddr: return current ip address for given device (or first in ifconfig) 
+
+A=`ifconfig $1 | grep 'inet addr' | head -1`
+D=`expr "$A" : '.*inet addr:\([.0-9]*\)'`
+
+if [ -z "$D" ]; then exit 1; fi
+
+echo "$D"
+exit 0

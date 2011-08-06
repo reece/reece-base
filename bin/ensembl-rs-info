@@ -1,0 +1,45 @@
+#!/bin/sh
+# ensembl-rs-info -- print some summary info for given rs IDs
+
+qcs () {
+	sed "s/^/'/;s/$/'/" | tr \\012 , | sed 's/,$//'
+}
+
+if [ $# = 0 ]; then
+	QCS=$(qcs)					# from stdin
+else 
+	QCS=$(echo -n "$@" | tr ' ' \\012 | qcs)
+fi
+
+echo $QCS
+
+mysql --quick \
+	-hensembldb.ensembl.org -uanonymous -P5306 \
+	-Dhomo_sapiens_variation_61_37f <<EOF
+
+SELECT VA.variation_id 
+	   , VF.seq_region_id
+	   , SR.name as chr
+	   , VF.seq_region_strand as strand
+	   , VF.seq_region_start as start
+	   , VF.seq_region_end as "end"
+	   , VF.variation_name
+	   , VF.allele_string
+	   , VA.study
+	   , VA.associated_variant_risk_allele
+	   , VA.p_value
+	   , VA.associated_gene
+	   , VF.consequence_type
+	   , P.description
+
+JOIN variation V on VA.variation_id=V.variation_id
+LEFT JOIN variation_feature VF on VA.variation_id=VF.variation_id
+LEFT JOIN seq_region SR on VF.seq_region_id=SR.seq_region_id
+LEFT JOIN variation_annotation VA on VA.phenotype_id=P.phenotype_id
+LEFT JOIN phenotype P
+
+WHERE V.name in ($QCS)
+
+ORDER BY 1,2;
+
+EOF

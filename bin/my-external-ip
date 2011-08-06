@@ -1,0 +1,2 @@
+#!/bin/sh
+exec curl http://harts.net/cgi-bin/nph-myip.sh

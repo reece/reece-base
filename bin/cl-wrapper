@@ -1,0 +1,65 @@
+#!/bin/sh
+# cl-wrapper -- run command line, report stdout/err via zenity+libnotify
+
+log=
+cleanup () {
+	[ -n "$log" ] && /bin/rm -fv "$log"
+}
+trap cleanup EXIT
+
+die () {
+	echo "Usage: $0 [opts] -- [command] [optartgs]" 1>&2
+	notify-send -i error "Error running $(basename "$0")" \
+		"Run on the command line for more info"
+	exit 1
+}
+
+display_errors=
+_getopt=`/usr/bin/getopt -o 'dt:' -- "$@"`
+[ $? != 0 ] && die				# no return
+eval set -- "$_getopt"
+
+while true; do
+	case "$1" in
+		-d) shift; display_errors=1;;
+		-t) shift; title="$1"; shift;;
+		--) shift; break;;
+		*) die;; # no return
+	esac
+done
+
+title=${title:-$(basename "$1")}
+log=$(mktemp)
+("$@") >"$log" 2>&1
+status=$?
+
+icon=info
+if [ "$status" != "0" ]; then
+	icon=error; 
+	if [ "$display_errors" ]; then
+		zenity --text-info --title "$title" --filename="$log" &
+	else
+		unset log					# don't delete log file
+	fi
+fi
+
+# nb = "notify body"; max 3 lines from stdout+err, <br> sep
+
+log_format () {
+	local status="$1"; shift
+	local log="$1"; shift
+	local max_lines=5
+	(
+		if [ "$status" != "0" ]; then 
+			echo "errors in $log"; 
+		fi;
+		cat "$log"
+	) |	sed -ne '2,$s/^/<br>/;' -e "1,${max_lines}p"
+}
+
+notify-send -i icon "$title" "$(log_format $status "$log")"
+
+
+
+# testing:
+# cl-wrapper -d -- sh -c 'seq 1 2; seq 11 20 1>&2'

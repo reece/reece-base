@@ -1,0 +1,5 @@
+#!/bin/bash
+
+exec tail -F \
+	/var/log/{auth,daemon,kern,lpr,mail,pm-powersave,pm-suspend,user,Xorg.0}.log \
+	/var/log/{messages,syslog}

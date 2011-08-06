@@ -1,0 +1,10 @@
+#!/bin/sh
+# mimetest -- simple mime test script
+# Reece Hart <reece@in-machina.com, rkh@gene.com>
+exec >>/tmp/mimetest.log 2>&1
+echo ================================================================
+echo `date +"%F %T"` "args: $@" 
+set -x
+echo "$1" has `wc -l <"$1"` lines, the first 10 are:
+head "$1"
+env|sort

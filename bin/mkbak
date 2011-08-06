@@ -1,0 +1,72 @@
+#!/usr/bin/perl
+# mkbak -- make a numbered backup of a file
+
+use strict;
+use warnings;
+use File::Basename;
+use IO::Dir;
+
+sub latest_version ($$$);
+
+my %opts = (
+			verbose => 1,
+			notify => not -t 2,
+			);
+
+my @bakd;
+
+while(my $fn = shift) {
+  if (not -f $fn) {
+	warn("$0: $fn: Not a regular file; skipping.\n");
+	next;
+  }
+  my ($root,$dirname,$sepsfx) = File::Basename::fileparse($fn, qr/\.[^.]+$/);
+  my $bakdir = "${dirname}bak";
+
+  if ($opts{verbose} >=2 ) {
+	print("$fn -> $root :: $dirname :: $sepsfx\n");
+	print("bakdir: $bakdir\n");
+  }
+
+  ( -d $bakdir )
+	|| mkdir($bakdir)
+	|| die("$bakdir: $!\n");
+  my $new_version = (latest_version($bakdir,$root,$sepsfx) || 0) + 1;
+  my $new_fn = sprintf("$bakdir/$root#%02d$sepsfx",$new_version);
+  die ("target $new_fn already exists... aborting\n") if (-e $new_fn);
+  system( '/bin/cp', '-av', $fn, $new_fn);
+  my $new_perm = (stat $new_fn)[2] & 07555;	# drop write bits
+  chmod($new_perm, $new_fn);
+  push(@bakd, $fn);
+}
+
+if ($opts{notify}) {
+  system( 'notify-send',
+		  '-i', 'dialog-information',
+		  sprintf('mkbak succeeded on %d files', $#bakd+1),
+		  join("\n",@bakd));
+}
+
+
+exit(0);
+
+
+######################################################################
+## INTERNAL
+sub latest_version ($$$) {
+  # return latest version number of file, or undef if no versioned files
+  my ($bakdir,$root,$sepsfx) = @_;
+  my $latest;
+  my $dir = IO::Dir->new($bakdir);
+  if (not defined $dir) {
+	die("$0: $dir: $!\n");
+  }
+  my $re = qr/$root\#(\d+)$sepsfx/;
+  while( defined( my $dirent = $dir->read() ) ) {
+	if (my ($n) = $dirent =~ $re) {
+	  $latest = $n if (not defined $latest or $n>$latest);
+	}
+  }
+  return $latest;
+}
+

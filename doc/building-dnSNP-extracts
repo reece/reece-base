@@ -1,0 +1,15 @@
+chXXX files where generated something like this:
+
+curl ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606/XML/ds_ch2.xml.gz | gzip -cdq | head -20000 >|ch2extract.xml
+perl -i.bak -p0e 's%^\s+<Ss ssId.+?</Ss>\n%%mgs;' ch2extract.xml 
+Then manual cleanup to remove the dangling bottom Rs block and add the completely bogus block:
+
+bogus block <<EOBOGUS
+    <Summary numRsIds="83997" totalSeqLength="75654146" numContigHits="695330" numGeneHits="7970" numGiHits="25138" num3dStructs="57" numStsHits="1277"/>
+    <BaseURL urlId="1" resourceName="RefSNP" resourceId="snp_id">http://www.ncbi.nlm.nih.gov/SNP/snp_ref.cgi?rs=</BaseURL>
+    <BaseURL urlId="2" resourceName="SubSNP" resourceId="subsnp_id">http://www.ncbi.nlm.nih.gov/SNP/snp_retrieve.cgi?subsnp_id=</BaseURL>
+    <BaseURL urlId="3" resourceName="LocusLink" resourceId="locus_id">http://www.ncbi.nlm.nih.gov/LocusLink/LocRpt.cgi?l=</BaseURL>
+    <BaseURL urlId="4" resourceName="dbSTS" resourceId="uid">http://www.ncbi.nlm.nih.gov/genome/sts/sts.cgi?uid=</BaseURL>
+    <BaseURL urlId="5" resourceName="PubMed" resourceId="pmid">http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?cmd=Search&amp;db=PubMed&amp;term=</BaseURL>
+</ExchangeSet>
+EOBOGUS

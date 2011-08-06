@@ -1,0 +1,77 @@
+#!/bin/bash -e
+# platform -- return a cannoncial descriptor for the current 
+# machine type, operating system, and OS version.
+# I use this to set PATH, LD_LIBRARY_PATH, and any other platform
+# dependent information.
+
+#TODO: use arrays
+
+
+tolower () {
+  sed -e 'y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/';
+}
+
+# tac (reverse cat) doesn't exist on Solaris (and perhaps others)
+if ! type tac >/dev/null 2>/dev/null; then
+		# you won't get uglier than this:
+		eval "tac () { nl -ba -nln | sort -rn | cut -f2-; }"
+fi
+
+
+
+os=`uname -s`
+osversion=`uname -r`; osversion=`expr "$osversion" : '[^0-9]*\([0-9]*\.*[0-9]*\)'`
+machine=`uname -m`
+
+# the "basic" platform tag, e.g., x86_64-linux-2.6
+platform=`echo "$machine-$os-$osversion" | sed -e 's/  */-/g' | tolower`
+
+# when invoked as 'platforms -b', returning only "base" platform
+if [ "$1" = "-b" ]; then
+    echo "$platform"
+    exit 0
+fi
+
+# distribution-specific platform
+d_platform=
+if [ -f /etc/SuSE-release ]; then
+		line1=`/usr/bin/head -1 /etc/SuSE-release`
+		case "$line1" in
+				"SUSE LINUX Enterprise Server 9"*|"Novell Linux Desktop 9"*)
+						d_platform="$platform-sles9";;
+				"SUSE Linux Enterprise Server 10"*)		d_platform="$platform-sles10";;
+				"SUSE LINUX 10.0"*)										d_platform="$platform-suse10.0";;
+				"SUSE LINUX 10.1"*)										d_platform="$platform-suse10.1";;
+				*) echo "!! WARNING: unknown release ($line1) in /etc/SuSE-release" 1>&2;;
+		esac
+elif grep -s 'Red Hat Linux release 7.3' /etc/issue 2>/dev/null; 	then
+		d_platform="$platform-rh7.3";
+fi
+
+# if -d is given, then print only the distribution platform
+if [ "$1" = "-d" ]; then
+		if [ -n "$d_platform" ]; then
+				echo "$d_platform"
+				exit 0
+		else
+				echo "No distribution-specific tag for this platform" 1>&2
+				exit 1
+		fi
+fi
+
+
+# compatible platforms
+c_platforms=
+case "$platform" in
+    x86_64-linux-2.6) c_platforms="i686-linux-2.6";;
+esac
+
+platforms="$d_platform $platform $c_platforms arch-indep"
+
+if [ "$1" = "-r" ]; then
+		echo "$platforms" | tr ' ' '\012' | tac | tr '\012' ' '; echo
+else
+		echo $platforms
+fi
+
+exit 0

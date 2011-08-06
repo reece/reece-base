@@ -1,0 +1,82 @@
+#!/bin/bash
+# dropboxen -- manage multiple Dropboxen
+# http://dropbox.com/
+# Author: Reece Hart <reece@harts.net>
+
+DROPBOXEN_DIR=$HOME/.dropboxen
+ACCOUNTS=($(cd $DROPBOXEN_DIR; /bin/ls -1d *@berk* 2>/dev/null))
+
+do_for_all_accounts () {
+	cmd=${1+"$@"}
+	for acct in ${ACCOUNTS[@]}; do
+		echo "# $acct: $cmd"
+		HOME="$DROPBOXEN_DIR/$acct" /usr/bin/dropbox $cmd;
+	done
+
+	if [ -x /usr/bin/notify-send ]; then
+		(
+			IFS='';
+			notify-send -i /usr/share/icons/hicolor/48x48/apps/dropbox.png \
+				"$(basename $0): $1 on ${#ACCOUNTS[@]} accounts" \
+				"${ACCOUNTS[*]}"
+		)
+	fi
+}
+
+install_autostart () {
+	local AS_DIR="$HOME/.config/autostart"
+	if ! [ -d "$AS_DIR" ]; then
+		echo "$0: $AS_DIR doesn't exist; can't install autostart for you." 1>&2
+		exit 2;
+	fi
+	cat <<EOF >"$HOME/.config/autostart/dropboxen.desktop"
+[Desktop Entry]
+Name=Dropboxen
+GenericName=File Synchronizer
+Comment=Start multiple Dropbox instances in ~/.dropboxen; see http://dropbox.com.
+Exec=$0
+Terminal=false
+Type=Application
+Icon=dropbox
+Categories=Network;FileTransfer;
+StartupNotify=false
+EOF
+}
+
+
+
+mkdir -p "$DROPBOXEN_DIR"
+for acct in $ACCOUNTS; do mkdir -p $DROPBOXEN_DIR/$acct; done
+
+
+if [ $# -eq 0 ]; then
+	echo 2>&1 "Usage: $0 [start|puburl|status|stop]"
+	exit 1
+fi
+
+case "$1" in
+	start)
+		do_for_all_accounts start -i;;
+
+	puburl|status|stop)
+		do_for_all_accounts "$1";;
+	
+	help|filestatus|ls|autostart)
+		echo "$0: command $1 not supported" 1>&2; exit 1;;
+
+	accounts)
+		s=s; t=:
+		if [ ${#ACCOUNTS[@]} == 0 ]; then t=.;
+		else if [ ${#ACCOUNTS[@]} == 1 ]; then s=;
+		fi; fi
+		echo "${#ACCOUNTS[@]} account$s in $DROPBOXEN_DIR$t"
+		echo -n "${ACCOUNTS[@]}" | tr ' ' \\012 | nl
+		;;
+
+	install-autostart)
+		install_autostart;;
+
+	*) 
+		echo "$0: command $1 not valid" 1>&2; exit 1;;
+esac
+

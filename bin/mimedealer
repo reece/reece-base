@@ -1,0 +1,41 @@
+#!/bin/sh
+# sample .mailcap entry:
+# application/msword;mimedealer %F %s
+# * 2002/03/29 (Fri) 14:31 PST  Reece Hart
+
+exec >>$HOME/tmp/mimedealer.log
+
+echo
+echo =============================
+echo `date` $0 "$@"
+
+type=`echo "$1" | tr '[:upper:]'  '[:lower:]'`
+shift
+
+file=$1
+shift
+
+
+case "$type" in
+	application/msword)
+		newfile=$file.doc; cmd=oowriter;;
+
+	application/msexcel|application/x-msexcel)
+		newfile=$file.doc; cmd=oocalc;;
+esac
+
+
+if [ -z "$cmd" ]; then
+   msg="mimedealer: couldn't deal with $file ($type)"
+   if [ -n "$DISPLAY" ]; then
+	   xmessage "$msg"
+   else
+	   echo "$msg" 1>&2;
+   fi
+   exit 1
+fi
+
+
+/bin/mv "$file" "$newfile"
+echo "exec'ing" "$cmd" "$newfile"
+exec "$cmd" "$newfile"

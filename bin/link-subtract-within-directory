@@ -1,0 +1,21 @@
+#!/bin/bash
+
+d="$1"
+shift
+
+# 40 char sha1 with <=6 char suffix
+finder () {
+	N="$1"; shift
+	find \
+		"$@" \
+		-regextype posix-extended \
+		$N -regex '.*/[0-9a-f]{40}.[a-z]{,6}$' \
+		-type f \
+		-links +1 \
+		-printf "%i\t%p\n" \
+	| sort -k1b,1
+}
+
+join -t'	' --check-order -o 2.2 \
+	 <(finder ''  "$d") \
+	 <(finder '!' "$d")

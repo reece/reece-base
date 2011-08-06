@@ -1,0 +1,41 @@
+#!/usr/bin/env perl
+# avg 'time -p' results from stdin
+
+use strict;
+use warnings;
+use IO::File;
+use Statistics::Descriptive;
+
+sub avg_stddev(@);
+
+
+my $fh = new IO::File;
+$fh->open('-')
+  || die("couldn't open STDIN\n");
+
+my (@R,@U,@S);
+while( my $l = <$fh> )
+  {
+  next unless $l =~ m/^real\s+(\S+)/;
+  my $r = $1;
+  $l = <$fh>;
+  next unless $l =~ m/^user\s+(\S+)/;
+  my $u = $1;
+  $l = <$fh>;
+  next unless $l =~ m/^sys\s+(\S+)/;
+  my $s = $1;
+  push(@R,$r);
+  push(@U,$u);
+  push(@S,$s);
+  }
+
+printf("N=%8d  real=%5.2f±%5.2f   user=%5.2f±%5.2f   sys=%5.2f±%5.2f\n",
+	   $#R+1, avg_stddev(@R), avg_stddev(@U), avg_stddev(@S));
+
+
+sub avg_stddev(@)
+  {
+  my $s = Statistics::Descriptive::Sparse->new();
+  $s->add_data(@_);
+  return( $s->mean(), $s->standard_deviation() );
+  }

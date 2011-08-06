@@ -1,0 +1,414 @@
+#!/usr/bin/perl
+# find-duplicate-files -- find (non-linked) identical files by file digest
+
+# This script implements two non-trivial ideas for finding duplicate
+# files.  The first is that checksums are used only if the sizes differ,
+# obviating expensive checksumming in typical filesets.  The second is to
+# compare based on inodes, not filenames, so that (hard) linked files are
+# stat'd and checksummed only once.
+
+# USAGE:
+# $ find-duplicate-files [dirents ...]
+# $ find-duplicate-files <dirents.ls
+
+use strict;
+use warnings;
+use Digest::SHA;
+use File::Find;
+use Number::Format qw(format_bytes);
+use File::Spec;
+
+sub compute_sha($$);
+sub hash_stat_data(\@);
+sub do_find($@);
+sub random_string;
+sub fn_excerpt($$);
+
+my $sha_digest = 1; # or 224, 256, 384, 512
+my $feedback_period = ( -t 2 ? 7 : 200 ); # progress if STDERR is tty
+
+
+my %size_inodes;						    # filesize -> @inodes
+my %inode_filenames;						# inode -> @filenames
+my %inode_stats;							# inode -> @stats (ie stat())
+my %digest_inodes;							# digest -> @inodes
+my %inode_digest;							# inode -> digest
+my %filename_find_iter;						# filename -> pass found
+my $n_filenames = 0;
+
+my %opts = (
+  'min_size' => undef, #1e3,
+  'max_size' => undef, #1e9,
+ );
+
+
+#### BUILD INTERNAL FILE STAT AND INODE DATA
+my $find_iter = 0;
+if (@ARGV) {
+  while ( my $fn = shift(@ARGV) ) {
+	do_find($find_iter++,$fn);
+  }
+} else {
+  while ( my $fn = <> ) {
+	chomp($fn);
+	do_find($find_iter++,$fn);
+  }
+}
+
+
+#### DETERMINE INODES THAT REQUIRE CHECKSUMMING
+my @sizes		= keys %size_inodes;
+my @dup_sizes	= grep { scalar(keys %{$size_inodes{$_}}) > 1 } @sizes;
+my @inodes		= map { keys %{$size_inodes{$_}} } @dup_sizes;
+@inodes = sort { $inode_stats{$b}[7] <=> $inode_stats{$a}[7] } @inodes;
+
+
+printf(STDERR "# %d filenames, %d distinct inodes, %d distinct sizes\n",
+	   $n_filenames, scalar keys %inode_stats, $#sizes+1);
+printf(STDERR "# %d size buckets with >=2 inodes (%d inodes total)\n",
+	   $#dup_sizes+1, $#inodes+1);
+
+
+#### GENERATE DIGESTS
+# ...for every inode with non-unique size
+# consider looping over size buckets (@dup_sizes), then over inodes within
+# this would allow deduping during digesting when each bucket is completed
+my $N = $#inodes+1;
+printf(STDERR "# computing %d digests...", $N) if not defined $feedback_period;
+for(my $i=0; $i<=$#inodes; $i++) {
+  my $inode = $inodes[$i];
+  my $first_fn = $inode_filenames{$inode}[0];
+  my $digest = compute_sha($first_fn,$sha_digest);
+  $inode_digest{$inode}{$digest}++;
+  $digest_inodes{$digest}{$inode}++;
+  if ( defined $feedback_period
+		 and ($i % $feedback_period == 0 or $i == $#inodes) ) {
+	printf(STDERR "\r# %d/%d (%.1f%%; %-10s) %-60.60s",
+		   $i+1, $N, ($i+1)/$N*100, 
+		   format_bytes($inode_stats{$inode}[7]),
+		   fn_excerpt($first_fn,60)
+		  );
+  }
+}
+print(STDERR " done\n");
+
+
+#### PRINT RESULTS
+my @digests 	= keys %digest_inodes;
+my @dup_digests = grep { scalar(keys %{$digest_inodes{$_}}) > 1 } @digests;
+my @dup_digests_inodes = map { keys %{$digest_inodes{$_}} } @dup_digests;
+
+printf(STDERR "# %d distinct digests, %d w>=2 inodes, %d inodes duplicated\n",
+	   $#digests+1, $#dup_digests+1, $#dup_digests_inodes+1);
+
+
+
+# should loop like this:
+# size
+#  digest
+#   inode
+#    files
+
+
+foreach my $digest (sort @dup_digests) {
+  # Goal: link the oldest inode, referenced by the first associated
+  # filename, to *all* of the filenames of *all* inodes that have an
+  # identical digest.
+
+  my @inodes = keys %{$digest_inodes{$digest}};
+
+  # sort by mtime
+  @inodes = sort { $inode_stats{$a}[9] <=> $inode_stats{$b}[9] } @inodes;
+
+  # all filenames for all inodes
+  my @filenames = map { @{$inode_filenames{$_}} } @inodes;
+  @filenames = sort { $filename_find_iter{$a} <=> $filename_find_iter{$b} } @filenames;
+
+  my $size = $inode_stats{$inodes[0]}[7];
+
+  printf("size=%d; digest=%s; #i=%d #fn=%d %s\n",
+		 $size,$digest,$#inodes+1,$#filenames+1,
+		 join(',',@filenames));
+
+  my $seed = shift @filenames;				# N.B. oldest mtime
+  foreach my $dst (@filenames) {
+	my $dst_bak;
+	do {
+	  # truncate string if >220 (for max path len)
+	  $dst_bak = substr($dst,0,220) . '#' . random_string(10)
+	} until (not -f $dst_bak);
+	if ( not rename($dst,$dst_bak) ) {
+	  warn("rename of $dst: $!\n");
+	  next;
+	}
+	link($seed,$dst)
+	  || die("link($seed,$dst): $!\n");
+	unlink($dst_bak);
+	printf("# link($seed,$dst): okay\n");
+  }
+}
+
+
+
+exit(0);
+
+
+
+
+# print as outline list
+foreach my $digest (sort @dup_digests) {
+  my @inodes = keys %{$digest_inodes{$digest}};
+  my $size = $inode_stats{$inodes[0]}[7];
+  printf("* %d inodes w/size=%d & digest=%s\n",
+		 $#inodes+1, $size, $digest);
+  foreach my $inode (sort @inodes) {
+	# unlink duplicates, or link to one here
+	printf("  %8d: %s\n", $inode, join(' ', @{$inode_filenames{$inode}}));
+  }
+}
+
+
+############################################################################
+#### INTERNAL FUNCTIONS
+
+sub fn_excerpt($$) {
+  my $fn = shift;
+  my $len = shift || 60;
+
+  if (length($fn) > $len) {
+	my $sz = int($len/2) - 2;
+	$fn = substr($fn, 0, $sz) . '...' . substr($fn, -$sz);
+  }
+
+  return $fn;
+
+  #my @e = File::Spec->splitdir($fn);
+  #while (path_len(@e)>$len and $#e>2) {
+  #}
+}
+
+sub path_len {
+  my $l = $#_;								# no. of path separators
+  $l += length($_) for @_;
+  return $l; 
+}
+
+
+sub compute_sha($$) {
+  my ($fn,$sha_length) = @_;
+  my $ctx = Digest::SHA->new($sha_length);
+  eval { $ctx->addfile("$fn") };
+  if ($@) {
+	die("$fn: $!\n");
+  }
+  return $ctx->hexdigest();
+}
+
+## do_find
+sub do_find ($@) {
+  my $find_iter = shift;
+  find( {
+		 follow => 0,
+		 no_chdir => 1,
+		 wanted => sub { process1file($_,$find_iter) if (-f $_ and not -l $_) },
+		},
+		@_
+	  );
+  if ( defined $feedback_period ) {
+	printf("\r# files: %d (@_)\n", $n_filenames);
+  }
+}
+
+## process1file -- process one file
+## side effects: populate inode_filenames, inode_stats, and size_inode;
+sub process1file {
+  my $fn = shift;
+  my $find_iter = shift;
+
+  return if ($fn =~ m%/(?:\.local|\.svn|\.git)/%); # skip files in these dirs
+  return if (-z $fn);						# skip 0-length files
+
+  die("$fn") if $fn =~ m%/\.svn/%;			# sanity check
+
+  ## File::Find has already validated these as files (not devs, dirs, symlinks)
+  if (-l $fn) {
+	warn("$fn: is a symlink\n");
+	return;
+  }
+  if (not -f $fn) {
+	warn("$fn: not a file\n");
+	return;
+  }
+
+  my @stats = stat($fn);
+  my ($inode,$size) = @stats[1,7];
+
+  die if $size == 0;
+  return if defined $opts{min_size} and $size < $opts{min_size}; # min <= size < max
+  return if defined $opts{max_size} and $size >= $opts{max_size};
+
+  $n_filenames++;
+  if ( defined $feedback_period
+		 and ($n_filenames % $feedback_period == 0) ) {
+	printf(STDERR "\r# files: %d", $n_filenames);
+  }
+
+  push( @{$inode_filenames{$inode}}, $fn );
+  if (not exists $inode_stats{$inode}) {
+	@{$inode_stats{$inode}} = @stats;
+	$size_inodes{$size}{$inode}++;
+  }
+
+  $filename_find_iter{$fn} ||= $find_iter;	# lowest pass on which found
+}
+
+
+sub random_string {
+  my $len = shift || 10;
+  my @alpha = ( 'a'..'z', 0..9 );
+  join('', map {$alpha[rand($#alpha)]} 1..$len);
+}
+
+
+
+__DATA__
+
+# TODO:
+# * process directories recursively
+# * delete filter: for set A and sets B1,B2,...Bn, output *only* dups of
+# Bi on A
+# * ability to store intermediates (sqlite?)
+# * Prefer to use the oldest file among identical files as the original
+# * same owners, perms, basename
+
+#       f1 f2 f3 f4 f5
+# files   o o o o  o   f1: filename with unique digest c1
+#         | | |/  /    f2: filename with one inode and digest c2
+# inodes  o o o  o     f3,f4: filenames with hard linked inode and digest c2
+#         | |/  /      f5: filname of same size as f2,f3,f4 but digest c3
+# sizes   o o---       c1: digest with one inode and filename f1
+#         | |\         c2: digest with two inodes and filenames f2,f3,f4
+# digests o o o
+#        c1 c2 c3
+
+# find | f-d-f
+# filter by: size, regexp (e.g., '\.svn'),
+# aggregate on: size, mtime, basename, perms -- creates candidates
+# divide on: fingerprint, md5 -- refutes candidates
+# link within/across: arg root
+# use iterators/generators/filters
+# files | samefiles | dosomething
+# can only link within same dev -- check dev no
+
+# NOTES:
+# * Size is used as a prefilter for content similarity to obviate more
+# expensive whole-file digests.
+# * Consider intermediate filters/hashes. Probably better for filters to
+# assert non-identity than identity, as with sizes. That is, unequal sizes
+# => not identical; however, the negation of this is not true: equal sizes
+# does not => identity.
+# * Digests are based on the assumption that unique digests implies unique
+# content over the domain of content being compared.  If collisions are
+# possible then one should use digests as a prefilter.  (As set up above,
+# the size AND digest must match.)
+# * Careful about cross-device links! (e.g., don't unlink redundants then
+# fail on hard linking). Either predict failures (hard), or merely rename,
+# attempt, and unrename if failure
+# * Should skip certain files, like those in .svn dirs
+# * Show space saved
+# * Linking may currently upset perms -- should check for equality
+# * equivalence might be generally based on 1 or more of: basename, size,
+# mtime, some fast fingerprint (e.g. hash of first and last block),
+# sha/md5, device, 
+# * support immediate and deferred action
+# * should find across devices (but actions might be limited, eg, can't
+# hard link)
+
+
+# USES:
+# 1) preserve structure, save space (hard link)
+# 2) identify dups, keep 1 (and especially keep 1 from dirA if dup in
+# dirB...)
+# 3) eliminate duplicate files, perhaps already hard linked?
+
+
+############################################################################
+files in -> eq-class
+
+
+############################################################################
+
+The flow should go like this
+
+
+@files -1-> @files -2-> duplist -3-> 
+
+1. order files (optional)
+This will influence operations on duplicates in step 3
+
+2. compute duplicates
+- handle directories (optional?)
+- deref symlinks (optional) -- achtung! must delete symlink, not real file
+- distinguish by inode (see below)
+- cross filesystems?
+- how to handle hardlinks, and hardlinks outside of given trees (e.g., stat[nlinks] != @inode_filenames)
+
+Imagine...
+
+Inode I1 with dirents D1A,D1B,D1C
+Inode I2 with dirents D2A,D2B
+And that file contents of I1 and I2 are identical
+
+with distinguish by inode, the equivalence classes are
+D1A D1B D1C
+D2A D2B
+Without distinguishing by inode, they are
+D1A D1B D1C D2A D2B
+
+The only problem is that I cannot figure out why I should care about this.
+
+
+3. operate
+For eq classes like
+D1A D1B D1C
+D2A D2B
+
+perform ONE of these:
+3a) rm redundant files
+rm D1B D1C D2B (and D2A if dist by inode). These leaves only one copy
+of the file and one reference.
+
+3b) link equivalent files
+ln D1A D2A and ln D1A D2B
+
+3c) symlink equivalent files
+
+
+
+
+
+
+
+#!/bin/sh -e
+
+mkdir /tmp/f-d-f-test
+cd /tmp/f-d-f-test
+
+mkdir -p top{1,2}
+>top1/file echo unique
+
+>top1/dtui echo dup text, unique inode
+>top2/dtui echo dup text, unique inode
+
+>top1/dtdi echo dup text, dup inode
+ln top1/dtdi top2/dtdi
+
+>top1/dtdi2 echo dup text, dup inode
+ln top1/dtdi2 top2/dtdi2
+
+
+
+
+# 0-th order pipeline
+find -type f | xargs md5sum | md5bin | dosomething
+			  {--- binning tool ----}

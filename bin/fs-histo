@@ -1,0 +1,239 @@
+#!/usr/bin/perl
+# fs-histo -- collects stats on named directories
+
+# TODO
+# - formats: csv, html table, csv, tree w/rollup
+# - cumulative bins
+# - custom bins
+# - fractions
+# - SI/not-SI
+# - new stats: cum(files) (esp. w tree)
+
+
+use strict;
+use warnings;
+use Benchmark ':hireswallclock';
+use IO::Handle;
+use IO::Dir;
+use Getopt::Long qw(:config gnu_getopt);
+use Data::Dumper;
+use English;
+#use Statistics::Descriptive;
+
+# prototypes:
+sub collect($$$);
+sub update_file_stats($$@);
+sub update_dir_stats($$@);
+sub log10($);
+sub log10bin($);
+sub timebin($);
+sub push_path($$$);
+sub print_stats($);
+sub print_file_sz_stats($@);
+
+
+my @time_bins = ( 1, 7, 28, 180, 365, 365*2, 365*3, 365*4, 365*5 );
+@time_bins = ( 7, 180, 365, 365*3, 365*5 );
+# should have size bins
+
+
+my %opts =
+  (
+   'cross-filesystems' => 0,
+   'max-exemplars' => 10,
+   'datum' => time(),
+  );
+
+
+my @dir_stack = @ARGV;
+my %stats = ( dir => {
+					  N => 0,
+					  N_dirents => 0,
+					 },
+			  file => {
+					  } );
+my $t0 = new Benchmark;
+while ( my $path = shift(@dir_stack) ) {
+  $opts{'starting-dev'} = (stat($path))[0];
+  collect($path,\%stats,\@dir_stack);
+}
+my $t1 = new Benchmark;
+my $elapsed = @{timediff($t1, $t0)}[0];
+
+print_stats(\%stats);
+printf("elapsed: %d seconds (%5.1f min)\n", $elapsed, $elapsed/60);
+exit(0);
+
+#print Dumper(\%stats);
+
+
+
+sub collect($$$) {
+  my ($dpath,$stats,$dir_stack) = @_;
+  my $N_dirents = 0;
+
+  my $dh = new IO::Dir($dpath);
+  if ( not defined $dh ) {
+	warn("$dpath: $!\n");
+	return;
+  }
+  while ( my $e = $dh->read() ) {
+	next if ($e eq '.' or $e eq '..');
+	$N_dirents++;
+	my $epath = "$dpath/$e";
+	next if (-l $epath);
+	next if not (-f $epath or -d $epath);
+
+	my @stat = stat($epath);
+	if ( -d $epath ) {
+	  if ($stat[0] != $opts{'starting-dev'}) {
+		warn("$epath: on a different filesystem; skipping.\n");
+	  } else {
+		push(@$dir_stack,$epath);
+	  }
+	} elsif ( -f $epath ) {
+	  update_file_stats($epath,$stats->{file},@stat);
+	}
+  }
+  $dh->close();
+
+  update_dir_stats($dpath,$stats->{dir},$N_dirents);
+}
+
+
+sub update_dir_stats($$@) {
+  my ($dpath,$dstats,$N_dirents) = @_;
+  my $logde = log10bin($N_dirents);
+
+  $dstats->{total}->{N_dirs}++;
+  $dstats->{total}->{N_dirents} += $N_dirents;
+
+  $dstats->{logde}->{$logde}->{N}++;
+  push_path(\@{$dstats->{logde}->{$logde}->{exemplars}},$dpath,$opts{'max-exemplars'});
+
+  if (not defined $dstats->{max_dirents}
+	  or $dstats->{max_dirents}->{N_dirents} < $N_dirents) {
+	$dstats->{max_dirents}->{N_dirents} = $N_dirents;
+	delete $dstats->{max_dirents}->{exemplars};
+  }
+  if ($dstats->{max_dirents}->{N_dirents} == $N_dirents) {
+	push_path(\@{$dstats->{max_dirents}->{exemplars}},$dpath,$opts{'max-exemplars'});
+  }
+}
+
+
+sub update_file_stats($$@) {
+  my ($fpath,$fstats,@stat) = @_;
+  my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$sz,$at,$mt,$ct,$blksz,$blks) = @stat;
+  my $ns;
+
+  my $szl = $sz/$nlink;
+  my $logsz = log10bin($sz);
+  my $logszl = log10bin($szl);
+
+  my $mtbin = timebin($mt);
+  my $atbin = timebin($at);
+
+  # we collect the same info (#, sum(sz), sum(szl), and exemplars) for
+  # all files as well as binned by logsz, logszl, mtime, and atime
+  foreach my $bin (
+				  $fstats->{total},
+				  $fstats->{logsz}->{$logsz},
+				  $fstats->{logszl}->{$logszl},
+				  $fstats->{mtime}->{$mtbin},
+				  $fstats->{atime}->{$atbin}
+				 ) {
+	$bin->{N}++;
+	$bin->{sz} += $sz;
+	$bin->{szl} += $szl;
+	push_path(\@{$bin->{exemplars}},$fpath,$opts{'max-exemplars'});
+  }
+}
+
+
+
+sub print_stats($) {
+  my $stats = shift;
+  print("* file statistics, log10(size)\n");
+  print_file_stats($stats->{file}->{logsz},
+				   [ map { [$_, '<'.size_pp(10**($_+1))] } 0..10]);
+  print("* file statistics, log10(size/links)\n");
+  print_file_stats($stats->{file}->{logszl}, 
+				   [ map { [$_, '<'.size_pp(10**($_+1))] } 0..10]);
+  print("* file statistics, mtime\n");
+  print_file_stats($stats->{file}->{mtime},
+				   [ (map { [$_, '<'.daybin_pp($_)] } @time_bins) , ['epoch','epoch'] ] );
+  print("* file statistics, atime\n");
+  print_file_stats($stats->{file}->{atime},
+				   [ (map { [$_, '<'.daybin_pp($_)] } @time_bins) , ['epoch','epoch'] ] );
+}
+
+
+sub print_file_stats($$@) {
+  my ($binset,$bins) = @_;
+  my @headings = qw(bin N size example);
+  my $fmt = "%10s %10s %10s %s\n";
+  printf($fmt,@headings);
+  foreach my $b (@$bins) {
+	my ($key,$label) = ref($b) ? @$b : ($b,$b);
+	my ($N,$sz,$ex) = ('','','');
+	if (defined $binset->{$key}) {
+	  ($N,$sz,$ex) = ($binset->{$key}->{N},
+					  size_pp($binset->{$key}->{sz}),
+					  @{$binset->{$key}->{exemplars}}[0]);
+	}
+	printf($fmt, $label, $N, $sz, $ex);
+  }
+}
+
+
+
+
+
+sub push_path($$$) {
+  my ($aref, $path, $max) = @_;
+  push(@$aref,$path) if $#$aref+1<$max;
+}
+
+
+sub log10($) { return log($_[0])/log(10) }
+sub log10bin($) { return $_[0] == 0 ? 0 : int( log10($_[0]) ) }
+sub timebin($) {
+  my $delta = $opts{datum} - $_[0];
+  $delta = 0 if $delta<0;
+  my $secs_per_day = 60*60*24;
+  foreach my $b (@time_bins) {
+	return $b if ($delta < $b * $secs_per_day);
+  }
+  return 'epoch';
+}
+
+sub size_pp($) {
+  my @units = ( ## SI units
+			   [ 10** 0, 'B'  ],
+			   [ 10** 3, 'kB' ],
+			   [ 10** 6, 'MB' ],
+			   [ 10** 9, 'GB' ],
+			   [ 10**12, 'TB' ],
+			   [ 10**15, 'PB' ],
+			   [ 10**18, 'EB' ],
+			   [ 10**21, 'ZB' ],
+			   [ 10**24, 'YB' ],
+			  );
+  for(my $i=0; $i<$#units; $i++) {
+	return sprintf("%.0f%s",$_[0]/$units[$i][0],$units[$i][1]) if $_[0]<$units[$i+1][0];
+  }
+}
+
+sub daybin_pp($) {
+  my @units = (
+			   [ 1,   'd'  ],
+			   [ 7,   'wk' ],
+			   [ 28,  'mo' ],
+			   [ 365, 'yr' ],
+			  );
+  return 'epoch' if ($_[0] > 365*5);
+  for(my $i=$#units; $i>=0; $i--) {
+	return sprintf("%d%s",$_[0]/$units[$i][0],$units[$i][1]) if $_[0]>=$units[$i][0];
+  }
+}

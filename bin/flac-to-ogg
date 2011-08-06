@@ -1,0 +1,115 @@
+#!/usr/bin/perl
+# flac2ogg -- convert flac audio to ogg
+#
+# Usage:
+# cd /local/audio/flac
+
+# TODO:
+# - trap INTR to remove tmp file
+# - consder flac2x (x=ogg, mp3)
+
+
+use strict;
+use warnings;
+use Getopt::Long qw(:config gnu_getopt);
+use File::Path qw(mkpath);
+use File::Basename qw(fileparse dirname);
+
+
+my %opts =
+  (
+   quality => 5,
+   force => 0,
+   dest_dir => undef,
+   verbose => 0
+  );
+
+GetOptions( \%opts,
+			'quality|q=i',
+			'force|f+',
+			'update|u+',
+			'dest_dir|d=s',
+			'verbose|v+'
+		  )
+  || die("$0: usage probs\n");
+
+
+if (defined $opts{dest_dir}
+	and not -d $opts{dest_dir} ) {
+  die("$0: $opts{dest_dir}: No such directory.\n");
+}
+
+while ( my $in_fn = shift ) {
+  process1(\%opts,$in_fn);
+}
+
+exit(0);
+
+
+
+############################################################################
+
+sub process1 {
+  my ($opts_r,$in_fn) = @_;
+
+  if ($in_fn !~ m/.flac$/) {
+	die("$0: $in_fn: Doesn't look like a flac file (no .flac suffix)\n");
+  }
+
+  if ( not -f $in_fn ) {
+	die("$0: $in_fn: No such file.\n");
+  }
+
+  my $out_fn;
+  ($out_fn = $in_fn) =~ s/.flac$/.ogg/;
+
+  if (defined $opts_r->{dest_dir}) {
+	$out_fn = $opts_r->{dest_dir} . '/' . $out_fn;
+
+	my $dirname = dirname($out_fn);
+	if ( not -d $dirname ) {
+	  mkpath( $dirname, 0, 0711 )
+		or die("$0: mkpath($dirname): $!\n");
+	  system('touch', "$dirname/.flac-to-ogg");
+	}
+  }
+
+  if ( -f $out_fn ) {
+	if ( $opts_r->{force} ) {
+	  # noop: oggenc will overwrite
+	} elsif ( $opts_r->{update} ) {
+	  if ( -M $in_fn < -M $out_fn ) {
+		warn("$in_fn newer than $out_fn; updating\n") if $opts_r->{verbose} >= 2;
+	  } else {
+		# out_fn exists and is newer than in_fn; skip it
+		warn("$out_fn newer than $in_fn; skipping\n") if $opts_r->{verbose} >= 2;
+		return $out_fn;
+	  }
+	} else {
+	  warn("$0: $out_fn: File already exists; consider --force or --update\n");
+	  return undef;
+	}
+  }
+
+  my $tmp_out_fn = "$out_fn.tmp";
+  my @cmd = (
+			 'oggenc',
+			 '-Q',
+			 '-q', $opts_r->{quality},
+			 '-c', "flac2ogg: quality=$opts_r->{quality}",
+			 $in_fn,
+			 '-o', $tmp_out_fn
+			);
+
+  print(STDERR "$in_fn...") if $opts_r->{verbose};
+
+  system(@cmd) == 0
+	or die("$0: @cmd failed: $!\n");
+
+  rename($tmp_out_fn,$out_fn)
+	or warn("$0: rename($tmp_out_fn,$out_fn): $!\n");
+
+  print(STDERR "$out_fn\n") if $opts_r->{verbose};
+
+  return $out_fn;
+}

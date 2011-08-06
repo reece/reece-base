@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Net::DNS;
+
+my $res   = Net::DNS::Resolver->new;
+
+foreach my $host (@ARGV) {
+  my $query = $res->search($host);
+  printf("%-20s: %s\n",
+		 $host,
+		 ($query
+		  ? join(',',map {$_->address} sort grep {$_->type eq 'A'} $query->answer)
+		  : $res->errorstring)
+		);
+}
+
+

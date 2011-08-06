@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+# at-home -- am I inside or outside my home network
+# return 0 if at home, 1 otherwise
+
+use strict;
+use warnings;
+use LWP::UserAgent;
+use Net::Netmask;
+
+my $ua = LWP::UserAgent->new;
+$ua->agent('at-home/0.0');
+my $req = HTTP::Request->new(
+  GET => 'http://ip-address.domaintools.com/myip.xml');
+my $res = $ua->request($req);
+if (not $res->is_success) {
+  die($res->status_line);
+}
+
+my ($ext_ip) = $res->content =~ m%<ip_address>(.+?)</ip_address>%;
+
+my @home_wan_nets = qw( 24.5/16
+						67.180/16
+						69.181/16
+);
+
+foreach my $net (@home_wan_nets) {
+  exit 0 if Net::Netmask->new($net)->match($ext_ip);
+}
+
+exit 1

@@ -1,0 +1,71 @@
+#!/bin/bash
+# gnome-presentation-mode [-p pid] [on|off] -- temporarily set/reset gnome prefs
+
+
+PATH=/usr/bin:/bin
+PM_STATE=/tmp/presentation-mode-restore-$UID.sh
+PM_KEYS=(
+	/apps/gnome-power-manager/backlight/idle_dim_ac
+	/apps/gnome-power-manager/backlight/idle_dim_battery
+	/apps/gnome-screensaver/idle_activation_enabled
+	)
+
+get_val () {
+	gconftool --get "$1";
+}
+
+get_status () {
+	for k in ${PM_KEYS[@]}; do
+		echo "$k:" `get_val "$k"`
+	done
+	(
+		if ! [ -f "$PM_STATE" ]; then echo -n "no "; fi
+		echo "saved state exists ($PM_STATE)"
+	)
+}
+
+save_state () {
+	if [ -e "$PM_STATE" ]; then
+		echo "$0: state already saved; won't overwrite" 1>&2;
+		exit 1
+	fi
+
+	(
+	echo "# presentation mode saved state"
+	date "+# %F-%T"
+	for k in ${PM_KEYS[@]}; do
+		echo "gconftool --set -t bool $k" `get_val "$k"`
+	done
+	) >"$PM_STATE"
+	chmod 400 "$PM_STATE"
+}
+
+enable_pm () {
+	(
+		set -x;
+		gconftool --set -t bool /apps/gnome-power-manager/backlight/idle_dim_ac false
+		gconftool --set -t bool /apps/gnome-power-manager/backlight/idle_dim_battery false
+		gconftool --set -t bool /apps/gnome-screensaver/idle_activation_enabled false
+	)
+}
+
+restore_state () {
+	if ! [ -f "$PM_STATE" ]; then
+		echo "$0: $PM_STATE: No such file" 1>&2
+		exit 1
+	fi
+	if ! [ -O "$PM_STATE" ]; then
+		echo "$0: $PM_STATE: File not owned by caller!" 1>&2
+		exit 1
+	fi
+	/bin/sh -x "$PM_STATE"
+	/bin/rm -f "$PM_STATE"
+}
+
+
+case "$1" in
+	on) save_state && enable_pm ;;
+	off) restore_state ;;
+	status) get_status ;;
+	*) echo "$0: option '$1': you got usage issues, homey." 1>&2; exit 1;;
+esac

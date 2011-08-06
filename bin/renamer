@@ -1,0 +1,502 @@
+#!/usr/bin/perl
+# renamer -- flexible file renamer using checksums, file magic, file tags
+# N.B. This has only been tested on Linux/Unix
+# 2010-02-15 07:38 Reece Hart <reece@harts.net>
+
+# TODO:
+# * put eval env into a hash
+#
+# * create tokens for substitution, such as '$_ =
+# "%{hash_md5}.%{inferred_sfx}"' NOTE: use caution: % in incoming name
+# must be escaped.  Autoload modules based on tokens. General eval
+# mechanism still needed for advanced changes, such as lc().
+#
+# * email message-id
+#
+# * ID3 / MP3::Info;
+#
+# * consider tied accessors to compute on-the-fly (esp with token subst)
+#
+# * factor op1file stuff into perl module for file manip with verbosity
+# and callbacks
+#
+# * add --suffixize flag (to add/re-suffix files)
+#
+# * make eval an array and allow multiple -e
+#
+# * verify that rename() works for linked files.  I have some evidence
+# that it doesn't work with linked files.
+
+use strict;
+use warnings;
+
+use Data::Dumper;
+use File::Basename qw(fileparse dirname);
+use File::Copy;
+use File::Path qw(mkpath);
+use File::Spec;
+use Getopt::Long qw(:config gnu_getopt);
+use IO::File;
+
+### Conditionally loaded:
+# Date::Parse
+# File::MMagic;
+# Image::EXIF
+# Image::ExifTool
+# POSIX qw(strftime)
+
+
+$Data::Dumper::Sortkeys = 1;
+
+sub parse_commandline();
+sub process1file($);
+sub op1file($$$);
+sub compute_md5($);
+sub compute_sha($$);
+sub parse_dirent($);
+sub load_mimetype_suffixes ($);
+sub override_mimetype_suffixes();
+sub do_eval($);
+
+my %mimetype_suffixes;						# map mimetype -> suffix list
+my $mm;										# File::MMagic handle
+my %opts;
+
+
+parse_commandline();
+
+if (@ARGV) {
+  while (@ARGV) {
+	process1file(shift)
+  }
+} else {
+  print(STDERR "# reading dirents from stdin...\n") if $opts{verbose} >= 2;
+  while (<>) {
+	chomp;
+	process1file($_);
+  }
+}
+
+exit(0);
+
+
+############################################################################
+#####  INTERNAL FUNCTIONS
+############################################################################
+
+sub parse_commandline() {
+  %opts =
+	(
+	 dryrun => 0,
+	 verbose => 0,
+	 backup => undef,
+	 force => 0,
+	 mkdir => 0,
+	 assign => 0,
+	 suffixize => 0,
+	 'use-suffix-overrides' => 0,
+	 op => 'rename',						# or 'link', 'copy'
+
+	 #id3 => 0,
+	 md5 => 0,
+	 sha1 => 0, sha224 => 0, sha256 => 0, sha384 => 0, sha512 => 0,
+	 exif => 0,
+
+	 expr => [],
+
+	 # no command line option (yet):
+	 mimetype_fp => '/etc/mime.types',
+	);
+
+  GetOptions( \%opts,
+			  'assign|a=s',
+			  'expr|e=s',
+			  'dryrun|dry-run|n',
+			  'verbose|v+',
+
+			  # file suffix guessing
+			  'suffixize|s',
+			  'use-suffix-overrides|O+',
+
+			  # file ops ($opts{op}); default is 'rename'
+			  'link|l+',
+			  'copy|c+',
+			  'mkdir|d+',
+			  'backup|b:s',
+			  'force|f+',
+
+			  # modules to load for add'l tags:
+			  #'id3+',
+			  'md5+',
+			  'exif+',
+			  'sha1+', 'sha224+', 'sha256+', 'sha384+', 'sha512+',
+			  'filetype',
+
+			  # modes:
+			  'photos',
+			  'mail',
+			  'md5rename',
+			  'sha1rename'
+			)
+	|| die "Usage: $0 [opts] [dirents] | <dirents\n";
+
+  _apply_mode_options();
+  _infer_expr();
+  _preload_modules();
+}
+
+
+sub _apply_mode_options() {
+  # handle modes (essentially option bundles)
+  # for now, these are mutually exclusive
+  # relies on %opts global (boo)
+  if ($opts{photos}) {
+	# simulate this commandline:
+	# renamer --exif -dav '"Photos/$exif_ymd/$exif_imageno".lc($sepsfx)'
+	# $exif_ymd is like %4d/%02d/%02d, à la f-spot
+	# may also use --link or --copy
+	$opts{verbose}++;
+	$opts{exif}++;
+	$opts{mkdir}++;
+	push(@{$opts{expr}},
+		 '$fp = "$ENV{HOME}/Pictures/$exif_ymd/$exif_imageno".lc($sepsfx)');
+  } elsif ($opts{mail}) {
+	$opts{verbose}++;
+	$opts{sha1}++;
+	push(@{$opts{expr}},
+		 '$basename =~ s/.+(,.+)/$sha1$1/;');
+  } elsif ($opts{md5rename}) {
+	$opts{md5}++;
+	push(@{$opts{expr}}, '$root = $md5');
+  } elsif ($opts{sha1rename}) {
+	$opts{sha1}++;
+	push(@{$opts{expr}}, '$root = $sha1');
+  }
+
+  if ($opts{suffixize}) {
+	$opts{filetype}++;
+	# $opts{'use-suffix-overrides'}++;
+	push(@{$opts{expr}}, '$sfx = infer_suffix($orig_fp) if ($sfx eq "" or $opts{force})');
+  }
+
+  $opts{op} = (  $opts{link} ? 'link'
+			   : $opts{copy} ? 'copy'
+			   : 'rename' );
+
+  if (defined $opts{backup} and $opts{backup} eq '') {
+	$opts{backup} = '~';
+  }
+}
+
+sub _infer_expr() {
+  if (not @{$opts{expr}}) {
+	if (not @ARGV) {
+	  die "Usage: $0 [opts] [dirents] | <dirents\n";
+	}
+	$opts{expr} = [shift(@ARGV)];		   # first arg presumed to be expr
+  }
+}
+
+sub _preload_modules() {
+  # preload needed modules
+  # relies on global %opts (boo hiss)
+
+  if ($opts{exif}) {
+	  eval 'use Image::ExifTool';
+	  if (not $@) {
+		$opts{exif} = new Image::ExifTool;
+	  } else {
+		eval 'use Image::EXIF';
+		if (not $@) {
+		  $opts{exif} = new Image::EXIF;
+		}
+	  }
+	  if (not ref $opts{exif}) {
+		die("Neither Image::ExifTool nor Image::EXIF are available");
+	  }
+	  eval 'use POSIX qw(strftime)';
+	  eval 'use Date::Parse';
+  }
+
+  if ($opts{'filetype'}) {
+	eval 'use File::MMagic';
+	$mm = new File::MMagic;
+	%mimetype_suffixes = load_mimetype_suffixes($opts{mimetype_fp});
+	override_mimetype_suffixes() if $opts{'use-suffix-overrides'};
+	if ($opts{verbose} >= 3) {
+	  printf(STDERR "## %d mimetype suffixes loaded (after overrides, if any)\n",
+			 scalar(keys %mimetype_suffixes));
+	}
+  }
+
+  if ($opts{'md5'}) {
+	eval 'use Digest::MD5';
+  }
+
+  if ($opts{sha1} or $opts{sha224} or $opts{sha256} 
+	  or $opts{sha384} or $opts{sha512}) {
+	eval 'use Digest::SHA';
+  }
+}
+
+#### process1file -- completely process one filename
+my %fp_seen;
+sub process1file($) {
+  my $fp = shift;
+  next if $fp_seen{$fp}++;			# don't process same fn more than once
+  if (not -e $fp) {
+	warn("$fp: No such file or directory\n");
+	return;
+  }
+  my $new_fp = do_eval($fp);
+  op1file($opts{op},$fp,$new_fp);
+}
+
+#### do_eval -- perform filename eval
+sub do_eval($) {
+  my $fp = shift;							# abs or rel path to file
+
+  # these are the substitutable variables
+  # TODO: wrap into a hash to be exposed in the eval and/or consider token
+  # substitution strings Better: presence of %{exif_ymd} auto loads exif,
+  # and ditto for %{hash_md5}, %{hash_sha1}, %{id3_...} etc. Then most
+  # cases would be handled by simple filename template strings.
+  my ($dirname,$root,$sepsfx,$basename);
+  my ($md5, $sha1, $sha224, $sha256, $sha384, $sha512);
+  #my ($id3_title, $id3_author, $id3_album, $id3_year, $id3_genre);
+  my ($exif_ymd,$exif_hms,$exif_imageno);
+  my ($new_sfx,$new_sepsfx);
+  my ($new_fp);
+
+  ($dirname,$root,$sepsfx) = parse_dirent($fp);
+  $basename = "$root$sepsfx";
+  my $sfx; ($sfx = $sepsfx) =~ s/^\.//;
+
+  if (-f $fp) {
+	$md5    = compute_md5($fp) 		if $opts{md5};
+	$sha1   = compute_sha($fp,1)    if $opts{sha1};
+	$sha224 = compute_sha($fp,224) 	if $opts{sha224};
+	$sha256 = compute_sha($fp,256) 	if $opts{sha256};
+	$sha384 = compute_sha($fp,384) 	if $opts{sha384};
+	$sha512 = compute_sha($fp,512) 	if $opts{sha512};
+	($exif_ymd,$exif_hms,$exif_imageno) = get_exif_data($fp) if $opts{exif};
+	#$new_sfx = infer_suffix($fp) 	if $opts{filetype};
+  }
+
+  # finally, we eval
+  my ($orig_fp,$orig_dirname,$orig_basename,$orig_root,$orig_sfx) =
+	($fp,$dirname,$basename,$root,$sfx);
+  local $_ = $orig_fp;
+  for my $expr (@{$opts{expr}}) {
+	eval $expr;
+	if ($@) {
+	  die("eval failed: $@  $expr\n");
+	}
+  }
+
+  # eval may change any of following. Stop at first case found:
+  # 1) fp changed
+  # 2) $_ changed
+  # 3a) dirname changed AND/OR 3b) basename OR <root, sfx> changed
+  for my $v (qw(fp _ dirname basename root sfx)) {
+	eval "defined \$$v"
+	  || die("$0: \$$v undefined during eval; exiting.\n  path=$orig_fp\n");
+  }
+  if ($fp eq $orig_fp) {
+	# if fp changed, do nothing; it's the new path
+	if ($_ ne $orig_fp) {
+	  # if $_ changed, it's the new path
+	  # this is here primarily because expressions like s/foo/bar/ are so
+	  # useful ($fp =~ s/foo/bar/ is safer, but less friendly)
+	  $fp = $_;
+	} else {
+	  if ($basename eq $orig_basename) {
+		my $sepsfx = ($sfx eq '' ? '' : ".$sfx");
+		$basename = "$root$sepsfx";
+	  }
+	  $fp = "$dirname$basename";			# dirname *always* /-terminated
+	}
+  }
+
+  return $fp;
+}
+
+#### op1file -- rename, link, or copy a pair of old and new paths
+sub op1file($$$) {
+  my ($op,$fp,$new_fp) = @_;
+
+  if ($fp eq $new_fp or "./$fp" eq $new_fp) {
+	print("name unchanged for $fp\n") if ($opts{verbose}>=2);
+	return;
+  }
+
+  if ( -e $new_fp ) {
+	if (defined $opts{backup}) {
+	  my $backup = "$new_fp$opts{backup}";
+	  if (not $opts{dryrun} and not rename($new_fp,$backup))	{
+		die("couldn't rename $new_fp to $backup: $!\n");
+		return;
+	  }
+	  print("$new_fp -> $backup\n") if ($opts{dryrun} or $opts{verbose});
+	} elsif (not $opts{force}) {
+	  warn("$fp: $new_fp exists -- no overwrite without --force or --backup\n");
+	  return;
+	}
+  } else {
+	my $new_dir = dirname($new_fp);
+	if (not -d $new_dir and $opts{mkdir}) {
+	    mkpath( $new_dir, 0, 0711 )
+		|| die("$0: couldn't mkpath($new_dir): $!\n");
+	}
+  }
+
+  if ($opts{op} eq 'rename') {
+	if (not $opts{dryrun} and not rename($fp,$new_fp)) {
+	  die("couldn't rename $fp to $new_fp: $!\n");
+	}
+	print("$fp --R> $new_fp\n") if ($opts{verbose});
+  } elsif ($opts{op} eq 'link') {
+	if (not $opts{dryrun} and not link($fp,$new_fp)) {
+	  die("couldn't link $fp to $new_fp: $!\n");
+	}
+	print("$fp --H> $new_fp\n") if ($opts{verbose});
+  } elsif ($opts{op} eq 'copy') {
+	if (not $opts{dryrun} and not copy($fp,$new_fp)) {
+	  die("couldn't copy $fp to $new_fp: $!\n");
+	}
+	print("$fp --C> $new_fp\n") if ($opts{verbose});
+  }
+}
+
+
+############################################################################
+## file attribute code
+sub compute_md5($) {
+  my ($fp) = @_;
+  my $ctx = Digest::MD5->new();
+  my $fh = new IO::File;
+  if (not $fh->open($fp)) {
+	warn("$fp: $!\n");
+	return;
+  }
+  $ctx->addfile($fh);
+  return $ctx->hexdigest;
+}
+
+sub compute_sha($$) {
+  my ($fp,$sha_length) = @_;
+  my $ctx = Digest::SHA->new($sha_length);
+  $ctx->addfile($fp);
+  return $ctx->hexdigest();
+}
+
+sub parse_dirent($) {
+  my $fp = shift;
+  my ($root,$dirname,$sfx) = fileparse($fp, qr/\.[^.]+$/);
+  # TODO: refactor to remove leading .; moderate implications elsewhere in
+  # code
+  # $sfx =~ s/^\.//;							# always def'd; remove leading '.'
+  return($dirname,$root,$sfx);
+}
+
+sub get_exif_data($) {
+  my $fp = shift;
+
+  my ($exif_timestamp, $exif_ymd, $exif_hms, $exif_imageno);
+
+  if (ref $opts{exif} eq 'Image::ExifTool') {
+	my $info = Image::ExifTool::ImageInfo($fp);
+	$exif_timestamp = $info->{'DateTimeOriginal'};
+	$exif_imageno = $info->{'FileNumber'};
+  }
+
+  if (ref $opts{exif} eq 'Image::EXIF') {
+	$opts{exif}->file_name($fp)
+	  || die("$fp: no exif info\n");
+	my $info = $opts{exif}->get_all_info()
+	  || die("$fp: no exif info\n");
+	my $timestamp = $info->{image}->{'Image Created'} 
+	  || $info->{other}->{'Image Generated'}
+		|| $info->{image}->{'Date/Time Orignal'};
+	$exif_imageno = $info->{image}->{'Image Number'};
+  }
+
+  if (defined $exif_timestamp) {
+	my @time = localtime( str2time( $exif_timestamp ) );
+	$exif_ymd = strftime("%Y/%m/%d",@time);
+	$exif_hms = strftime("%H:%M:%S",@time);
+  }
+
+  return ($exif_ymd, $exif_hms, $exif_imageno);
+}
+
+sub load_mimetype_suffixes ($) {
+  my $mt_fp = shift;
+  my $mt_fh = new IO::File;
+  my %mimetype_suffixes = ();
+  $mt_fh->open("<$mt_fp")
+	|| die("$0: $mt_fp: $!\n");
+  while( my $line = <$mt_fh> ) {
+	next if $line =~ m/^\#/;
+	my ($mt,@sfxs) = split(' ',$line);
+	if (@sfxs) {
+	  $mimetype_suffixes{$mt} = \@sfxs;
+	  #printf( "$mt (%d) {%s}\n",$#sfxs+1,join(',',@sfxs) );
+	}
+  }
+  return %mimetype_suffixes;
+}
+
+sub override_mimetype_suffixes() {
+  while( my $line = <DATA> ) {
+	my ($mt,$sfx) = split(' ',$line);
+	$mimetype_suffixes{$mt} = [$sfx];
+  }
+}
+
+sub infer_suffix($) {
+  my ($fp) = @_;
+  my $res = $mm->checktype_filename($fp);
+
+  print(STDERR "## fp=$fp; res=$res\n") if ($opts{verbose} >=3);
+
+  if (not exists $mimetype_suffixes{$res}) {
+	warn("$0: $fp: no suffix for mime type `$res'.\n") if ($opts{verbose} >= 2);
+	return undef;
+  }
+
+  my @new_sfxs = @{$mimetype_suffixes{$res}};
+
+  if ($opts{verbose} >=3) {
+	printf(STDERR "## suffixes (%d) = {%s}\n",
+		   $#new_sfxs+1, join(',',@new_sfxs));
+  }
+
+  return @new_sfxs if (wantarray);
+  my $new_sfx = $new_sfxs[0];
+  if ($#new_sfxs > 0 and $opts{verbose} >= 2) {
+	warn("$0: $fp: multiple suffixes for mime type `$res';",
+		 "choosing first ($new_sfx)\n");
+  }
+  return $new_sfx;
+}
+
+
+# sub _dump_eval_env() {
+#   print <<EOT
+# * $fp
+#   (dirname,basename,root,sfx): ($dirname,$basename,$root,$sepsfx)
+#   new_fp: $_
+# EOT
+# print "     md5: $md5\n"    if ($opts{verbose} >= 3 and $opts{md5});
+# print "    sha1: $sha1\n"   if ($opts{verbose} >= 3 and $opts{sha1});
+# print "  sha224: $sha224\n" if ($opts{verbose} >= 3 and $opts{sha224});
+# print "  sha256: $sha256\n" if ($opts{verbose} >= 3 and $opts{sha256});
+# print "  sha384: $sha384\n" if ($opts{verbose} >= 3 and $opts{sha384});
+# print "  sha512: $sha512\n" if ($opts{verbose} >= 3 and $opts{sha512});
+# }
+
+
+# a few overrides follow:
+__DATA__
+text/plain	txt

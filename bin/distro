@@ -1,0 +1,13 @@
+#!/bin/sh
+# guess the linux distribution of this environment
+# see the `platform' script as well
+
+if fgrep -q 'SuSE Linux 9.1' /etc/issue; then
+	echo "SuSE9.1";
+elif fgrep -q 'Red Hat Linux release 9' /etc/issue; then
+	echo "RH9";
+elif fgrep -q 'Red Hat Linux release 8.0' /etc/issue; then
+	echo "RH7.3";
+elif fgrep -q 'Red Hat Linux release 7.3' /etc/issue; then
+	echo "RH7.3";
+fi

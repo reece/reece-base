@@ -1,0 +1,17 @@
+#!/bin/sh
+# ssh-config-update-alias -- updates/creates alias -> hostname map in .ssh/config
+#
+# eg$ ssh-config-update-alias <alias> <hostname>
+#
+
+if [ $# -ne 2 ]; then
+	echo "use: $0 <alias> <hostname>" 1>&2
+	exit 1
+fi
+
+perl -i.bak -p0 - <<EOF $HOME/.ssh/config
+s/(Host $1\n\s*HostName[ \t]+).*/\$1$2/
+or \$_ .= "Host $1\n\tHostName $2\n"
+EOF
+
+echo "$(basename $0): $1 -> $2" 1>&2

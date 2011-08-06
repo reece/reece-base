@@ -1,0 +1,109 @@
+#!/usr/bin/env perl
+## $Id: executables.pl,v 1.3 1998/02/12 04:58:13 reece Exp $
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+=head1 NAME
+
+executables -- list all executable files in each directory of PATH
+
+S<$Id: executables.pl,v 1.3 1998/02/12 04:58:13 reece Exp $>
+
+=head1 SYNOPSIS
+
+    $ executables [options]
+    Options:
+    --conflicting|-c      show only conflicting executable basenames
+    --unique|-u           show only unique executable basenames
+    --help|-h|-?          display man page (pod) and exit
+    --quiet|-q            supress warnings
+
+=head1 DESCRIPTION
+
+This was written mostly for kicks to generate a list of all executable
+files in each directory of the PATH environment variable.  This is a good
+way to find executables with the same name in more than one directory (see
+examples).
+
+=head1 EXAMPLES ($ is your prompt)
+
+=over
+
+=item ex1: all executables (sorted, case-folded)
+
+ $ executables
+ a2p      (1): /usr/local/bin
+ a2ps     (1): /usr/local/bin
+ ...
+
+=item ex2: executables that appear more than once
+
+ $ executables -c
+ ar       (2): /usr/bin,/usr/ccs/bin
+ archie   (2): /user/reece/bin,/user/reece/bin/OSF1
+ ctags    (3): /usr/local/bin,/usr/bin,/usr/ccs/bin
+
+=back
+
+=head1 AUTHOR
+
+Reece Hart, reece@harts.net
+
+This code is placed in the public domain.
+
+=cut
+
+use strict;
+use warnings;
+use Getopt::Long qw(:config gnu_getopt);
+use Pod::Usage;
+
+my %opts = (
+			quiet => 0,
+			select => 'all',
+			help => 0
+		   );
+
+GetOptions(\%opts,
+           'help|h|?+' => sub { pod2usage(-verbose=>2); }, # no return (exits)
+		   'quiet|q+',
+		   'unique|u' => sub { $opts{select} = 'unique' },
+		   'conflicting|c' => sub { $opts{select} = 'conflicting' },
+          )
+  || pod2usage(-message => "$0: Homey, you've got usage issues. Read this:\n");
+
+
+my %already_searched;
+my %executable_paths;
+
+foreach my $dir (split /:/,$ENV{'PATH'}) {
+  next if $already_searched{$dir}++;
+  if ( not opendir(D,$dir) ) {
+	warn("$0: $dir: $!") unless $opts{quiet};
+	next;
+  }
+  for my $file (readdir(D)) {
+	next if $file =~ /,v$/;					# skip RCS files
+	if ( (-x "$dir/$file") && (-f "$dir/$file") ) {
+	  push( @{$executable_paths{$file}}, $dir );
+	}
+  }
+  closedir(D);
+}
+
+my @executables = keys %executable_paths;
+if ($opts{select} eq 'unique') {
+  @executables = grep { $#{$executable_paths{$_}}==0 } @executables;
+} elsif ($opts{select} eq 'conflicting') {
+  @executables = grep { $#{$executable_paths{$_}} >0 } @executables;
+}
+
+foreach my $file (sort { lc($a) cmp lc($b) } @executables) {
+  printf("%-15s (%d): %s\n",
+		 $file,
+		 $#{$executable_paths{$file}}+1,
+		 join(",", @{$executable_paths{$file}})
+		);
+}

@@ -1,0 +1,50 @@
+#!/bin/bash
+# gnome-swap-alt-win -- swap alt and win keys
+# 2010-05-27 14:11 Reece Hart <reece@harts.net>
+# 
+# This script make it easy to swap the Alt and Win keys in GNOME.  The
+# intent is to facilitate frequent transitions between a "standard"
+# keyboard layout (i.e., ctrl-win-alt) and Apple keyboard layout
+# (ctrl-alt-win), such as I do with my MacBook running Ubuntu when I move
+# between the built-in keyboard and an external keyboard.
+#
+# Although GNOME provides a setting for this (Keyboard Preferences >
+# Options), the setting affects all connected keyboards.  Thus, it must be
+# set appropriately for the keyboard currently in use.  Ideally, GNOME
+# would support multiple input devices with distinct keyboard layouts and
+# settings.
+#
+
+key=/desktop/gnome/peripherals/keyboard/kbd/options
+vals=('[]' '[altwin	altwin:swap_lalt_lwin]')
+labels=('standard' 'Apple')
+
+get_cur_index () {
+    cur_val="$(gconftool -g "$key")"
+    shift
+    for i in $( seq 0 $((${#vals[@]}-1)) ); do
+        if [ "$cur_val" = "${vals[$i]}" ]; then echo $i; fi
+    done
+}
+
+if [ $# -eq 0 ]; then
+	set -- "next";
+fi
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		[0-9]*) new_index=$1; shift;;
+		next) new_index=$(( $(get_cur_index) + 1 )); shift;;
+		prev) new_index=$(( $(get_cur_index) - 1 )); shift;;
+		*) echo "$0: $1 not a valid argument" 1>&2; exit 1;;
+	esac
+done
+
+
+# wrap around to 0 (default) if cur val is last option, or if cur_val not
+# in known options
+new_index=$(( $new_index % ${#vals[@]} ))
+
+gconftool -s "$key" -t list --list-type string "${vals[$new_index]}"
+echo "altwin layout: ${labels[$new_index]}"
+

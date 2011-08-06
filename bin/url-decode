@@ -1,0 +1,20 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use URI::Escape;
+#use HTTP::Decode;
+use HTML::Entities;
+
+@ARGV = map { chomp; $_ } <> unless @ARGV;
+
+while( my $u = shift ) {
+  chomp $u;
+  #$u =~ s/%(..)/chr(hex($1))/eg;
+  #$u =~ s/\?r=\d+//;
+  #$u =~ s/&amp;/&/g;
+  print(uri_unescape($u),"\n");
+  #print(decode_entities($u),"\n");
+}
+

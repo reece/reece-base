@@ -1,0 +1,122 @@
+#!/usr/bin/perl
+# mp3rename -- rename files using MP3 tag info
+
+use strict;
+use warnings;
+use MP3::Info;
+use Data::Dumper;
+use File::Path;
+use File::Basename;
+use Getopt::Long qw(:config gnu_getopt);
+
+
+my %opts = (
+			dryrun => 0,
+			force => 0,
+			link => 0,
+			mkdir => 0,
+			path => '<ARTIST>/<ALBUM>/<TITLE>.mp3',
+			verbose => 0,
+
+			yt => 0
+		   );
+
+GetOptions(\%opts,
+		   'dryrun|n+',
+		   'force|f+',
+		   'link|L+',
+		   'mkdir|d+',
+		   'path|p=s',
+		   'verbose|v+',
+
+		   'yt'
+		  )
+  || die("$0: usage\n");
+
+my $tag_re = qr|<([^>]+)>|;
+
+# year/title.mp3
+$opts{'path'} = '<YEAR>/<TITLE>.mp3' if $opts{yt};
+
+
+my @allowed_tags = qw(
+		      FILE
+		      ARTIST ALBUM TITLE YEAR TRACKNUM
+		      GENRE COMMENT
+		      VBR BITRATE FREQUENCY
+		      SECS MM SS
+		      );
+my %allowed_tags = map { $_=>1 } @allowed_tags;
+
+my @used_tags = $opts{path} =~ m/$tag_re/g;
+
+my @illegal_tags = grep {not exists $allowed_tags{$_}} @used_tags;
+if (@illegal_tags) {
+  die(sprintf("The path format \n  $opts{path}\ncontains %d illegal mp3 info tags:\n  ", $#illegal_tags+1), join(',',@illegal_tags), "\n");
+}
+
+$opts{verbose}++ if $opts{dryrun};
+
+
+while ( my $fn = shift ) {
+  my $tags = get_mp3tag($fn);
+  if (not defined $tags) {
+	warn("! $fn: No tag info\n");
+	next;
+  }
+
+  foreach my $key (@used_tags) {
+	if ($tags->{$key} =~ s%/%-%) {
+	  if ($opts{verbose}) {
+		warn("# $fn: $key tag contained `/' and was mutated\n");
+	  }
+	}
+  }
+
+  my @empty_tags = grep( { not defined $tags->{$_} or not $tags->{$_} =~ m/\w/ }
+						 @used_tags );
+  if (@empty_tags and $opts{verbose}) {
+	warn(sprintf("# $fn: %d empty mp3 info tags: %s\n",
+				 $#empty_tags+1,
+				 join(',',@empty_tags)));
+  }
+  $tags->{$_}="empty-$_" for @empty_tags;
+
+  my $path = $opts{path};
+  $path =~ s/$tag_re/$tags->{$1}/g;
+
+  my ($dirname) = dirname($path);
+  if (not -d $dirname) {
+	if ($opts{mkdir}) {
+	  mkpath($dirname)
+		|| die("! $0: mkpath($dirname): $!\n");
+	} else {
+	  die("directory `$dirname' doesn't exist and you didn't specify --mkdir\n");
+	}
+  }
+
+  if (-e $path) {
+	if ($opts{force}) {
+	  unlink($path) unless $opts{dryrun};
+	  $opts{verbose} &&
+		warn("# unlink($path)\n");
+	} else {
+	  warn("# $path: file exists; skipping $fn\n");
+	  next;
+	}
+  }
+
+  if ($opts{link}) {
+	$opts{dryrun}
+	  || link($fn,$path) 
+	  || die("! link($fn,$path): $!\n");
+	$opts{verbose}
+	  && warn("# link($fn,$path)\n");
+  } else {
+	$opts{dryrun}
+	  || rename($fn,$path)
+	  || die("! rename($fn,$path): $!\n");
+	$opts{verbose}
+	  && warn("# rename($fn,$path)\n");
+  }
+}

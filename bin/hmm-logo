@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use HMM::Profile;
+
+while( my $fn = shift ) {
+  my $pHMM;
+  if (not $pHMM = HMM::Profile->new(-hmmerfile=>$fn)) {
+	warn("$fn: $!\n");
+	next;
+  }
+
+  $pHMM->draw_logo(-file      => "$fn-logo.png",
+				   -xsize      => $pHMM->length() * 50,
+				   -ysize      => 600,
+				   -x_title    => 'HMM-States',
+				   -y_title    => 'Inf-Content',
+				   -graph_title => $pHMM->name(),
+				   -title      => $pHMM->name(),
+				   -title_font_size  => 20,
+				   -regular_font => "$ENV{HOME}/.fonts/msfonts/arial.ttf",
+				   -bold_font => "$ENV{HOME}/.fonts/msfonts/arialbd.ttf",
+				  );
+
+  warn("wrote $fn-logo.png for HMM '", $pHMM->name(), "'\n");
+}

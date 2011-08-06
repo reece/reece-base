@@ -1,0 +1,35 @@
+#!/usr/bin/perl
+# hash-rename -- rename files by checksum
+
+use IO::Pipe;
+use File::Basename;
+use Digest::SHA;
+
+
+my $sha = Digest::SHA->new(1);
+
+while ( my $fn = shift ) {
+  $sha->reset(1);
+  $sha->addfile($fn);
+  my $hash = $sha->hexdigest();
+
+  my ($file,$dir,$sfx) = fileparse($fn,qr[\.\w+$]);
+  my $new_fn = "$dir$hash";
+  $new_fn .= $sfx if defined $sfx;			# includes `.'
+
+  print("$fn -> $new_fn\n");
+  next;
+}
+
+
+#  if ( -e $new_fn ) {
+#	warn("$new_fn: file exists.  I'm skippingly $fn cowardly.\n");
+#	next;
+#  }
+#
+#  if ( rename($fn,$new_fn) ) {
+#	print(STDERR "$fn -> $new_fn\n");
+#  } else {
+#	warn("rename($fn,$new_fn): $!\n");
+#  }
+

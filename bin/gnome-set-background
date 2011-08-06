@@ -1,0 +1,194 @@
+#!/bin/bash
+# gnome-set-background [options]
+
+# example:
+# gnome-set-background -1 \#012 -2 \#345 -s v -p scaled opt/backgrounds/3-on-carpet.jpg
+# sets primary color to #123, secondary to #345, vertical gradient (-s v),
+# with specified scaled image.
+
+# 1|primary_color rgb
+# 2|secondary_color rgb
+# b|draw_background bool
+# f|picture_filename
+# o|picture_opacity 0..100
+# p|picture_options none|wallpaper|centered|scaled|stretched|zoom
+# s|color_shading_type horizontal-gradient|vertical-gradient|solid
+
+
+PATH=/usr/bin:/bin
+jemappelle=$(basename $0)
+
+
+############################################################################
+## die
+die () {
+	if [ -t 2 ]; then
+		echo "$jemappelle: $@" 1>&2
+	else
+		zenity --error --text="$jemappelle: $@"
+	fi
+	exit 1
+}
+
+############################################################################
+## validate_rgb -- echo #xxx-format rgb if valid; else ''
+validate_rgb () {
+	local r=$(expr "$1" : '\(\#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]\)$')
+	echo $r
+}
+
+############################################################################
+## validate_bool -- echo 'false' if $1 matches 0 or f* or F*; else 'true'
+validate_bool () {
+	case "$1" in f*|F*|0) echo 'false';; *) echo 'true';; esac
+}
+
+############################################################################
+## validate_filename -- echo $1 as full pathname if valid; else ''
+validate_filename () {
+	local fn
+	if [ "${1:0:1}" = '/' ]; then fn="$1"; else fn="$PWD/$1"; fi
+	echo "$fn"
+}
+
+############################################################################
+## validate_opacity -- return $1 if 0..100; else 100
+## non-integers are treated as 100
+validate_opacity () {
+	#if [ "$1" -ge "0" -a "$1" -le "100" ]; then echo $1; else echo 100; fi
+	(if [ "$1" -ge "0" -a "$1" -le "100" ]; then echo $1; else echo 100; fi) 2>/dev/null
+}
+
+############################################################################
+## validate_picture_options
+validate_picture_options () {
+	case "$1" in
+		n*) echo none;;
+		w*) echo wallpaper;;
+		c*) echo centered;;
+		sc*) echo scaled;;
+		st*) echo stretched;;
+		z*) echo zoom;;
+		*) echo '';;
+	esac
+}
+
+############################################################################
+## validate_color_shading_type
+validate_color_shading_type () {
+	case "$1" in
+		s*|S*) echo solid;;
+		h*|H*) echo horizontal-gradient;;
+		v*|V*) echo vertical-gradient;;
+		*) echo '';;
+	esac
+}
+
+############################################################################
+## gconf_set -- set a gconf value
+GC_PREFIX=/desktop/gnome/background
+gconf_set () {
+	(
+		#set -x
+		gconftool --set "$GC_PREFIX/$1" -t "$2" "$3"
+	)
+}
+
+
+
+
+TEMP=$(getopt					\
+	-n "$jemappelle"			\
+	-o 1:2:b:f:o:p:s:O:P:S:		\
+	--long primary_color:		\
+	--long secondary_color:		\
+	--long draw_background:		\
+	--long picture_filename:	\
+	--long picture_opacity:		\
+	--long picture_options:		\
+	--long color_shading_type:	\
+	--long order:				\
+	--long picture_path:		\
+	--long sleep_time:			\
+	-- "$@"
+	)
+	
+if [ $? != 0 ] ; then
+	echo "Terminating..." 1>&2
+	exit 1
+fi
+
+eval set -- "$TEMP"
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		-1|--primary_color)
+			v=$(validate_rgb "$2")
+			[ -n "$v" ] || die "invalid RGB color ($2)"
+			gconf_set primary_color string "$v"
+			shift
+			shift
+			;;
+
+		-2|--secondary_color)
+			v=$(validate_rgb "$2")
+			[ -n "$v" ] || die "invalid RGB color ($2)"
+			gconf_set secondary_color string "$v"
+			shift
+			shift
+			;;
+
+		-b|--draw_background)
+			v=$(validate_bool "$2")
+			[ -n "$v" ] || die "'$2' is not a boolean value"
+			gconf_set draw_background bool "$v"
+			shift
+			shift
+			;;
+
+		-f|--picture_filename)
+			v=$(validate_filename "$2")
+			[ -n "$v" ] || die "'$2': file doesn't exist"
+			gconf_set picture_filename string "$v"
+			shift
+			shift
+			;;
+
+		-o|--picture_opacity)
+			v=$(validate_opacity "$2")
+			[ -n "$v" ] || die "'$2': invalid opacity"
+			gconf_set picture_opacity int "$v"
+			shift
+			shift
+			;;
+
+		-p|--picture_options)
+			v=$(validate_picture_options "$2")
+			[ -n "$v" ] || die "'$2': invalid picture options"
+			gconf_set picture_options string "$v"
+			shift
+			shift
+			;;
+
+		-s|--color_shading_type)
+			v=$(validate_color_shading_type "$2")
+			[ -n "$v" ] || die "'$2': invalid color shading type"
+			gconf_set color_shading_type string "$v"
+			shift
+			shift
+			;;
+
+		--) 
+			shift
+			;;
+
+		*)
+			v=$(validate_filename "$1")
+			[ -n "$v" ] || die "'$1': file doesn't exist"
+			gconf_set picture_filename string "$v"
+			shift
+			;;
+			
+	esac
+done
+

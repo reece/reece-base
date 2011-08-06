@@ -1,0 +1,52 @@
+#!/bin/bash
+# snapper -- create a lightweight snapshot of a directory using hardlinks
+#
+# snapper creates a dated archive directory using rsync.
+#
+# Example:
+# eg$ cd
+# eg$ snapper src
+# (/mnt/snapper/src now contains a snapshot of src directory)
+# (time passes)
+# eg$ cd
+# eg$ snapper src
+# (/mnt/snapper/src now contains two snapshots of the src directory)
+#
+
+
+
+# TODO:
+# - should target include path of args?
+# 	eg. snapper foo -> target_dir/arg/path/date...
+# If so, should args be required to be full paths?
+# No to both. Why? First, iatragenicity. Second, rsync would be called
+# separately for each arg, which would cause loss of hardlinks across arg
+# trees (separate rsync process).
+
+
+PATH=/usr/bin:/bin
+SNAPPER_ROOT=/mnt/snapper
+
+############################################################################
+## NO MODIFICATIONS BELOW
+
+top=$(dirname "$0")/../share
+
+ts=$(date -u "+%Y%m%d-%H%M%S")
+snap_pfx="$SNAPPER_ROOT/$ts"
+exclusions=
+
+
+(
+set -e
+date '+# Started: %F-%T'
+mkdir -v "$snap_pfx.tmp"
+rsync -HRav "$@" "$snap_pfx.tmp" \
+	--link-dest="$SNAPPER_ROOT/latest/." \
+	--exclude-from=$top/rsync/patterns/snapper \
+	--exclude-from=$top/rsync/patterns/never
+mv -v "$snap_pfx.tmp" "$snap_pfx"
+ln -fnsv "$ts" "$SNAPPER_ROOT/latest"
+date '+# Finished: %F-%T'
+echo 'Normal exit'
+) 1>&2 | tee "$snap_pfx.log"

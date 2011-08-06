@@ -1,0 +1,18 @@
+#!/bin/sh
+# dv-to-x264 -- convert dv file to MPEG4/x264
+
+# stolen from:
+# http://ubuntuforums.org/showthread.php?t=466653
+
+infile="$1"
+
+
+run() {
+	  mencoder "$1" -o "$2"
+	  -oac lavc -ovc x264 -vf harddup,kerndeint,hqdn3d,scale=-10:-1 -of rawvideo $3 \
+	  -x264encopts subq=6:partitions=all:me=umh:frameref=5:threads=auto:turbo=1:stats="$1.stats":$4
+}
+
+
+run "$infile" /dev/null -nosound pass=1
+run "$infile" "${infile%.dv}.mpeg" '' pass=2

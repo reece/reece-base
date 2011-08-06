@@ -1,0 +1,105 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use Email::Folder;
+use Email::LocalDelivery;
+use DateTime::Format::Mail;
+use Date::Parse;
+use Data::Dumper;
+use Digest::SHA qw(sha1_hex);
+
+sub process1mbox($);
+
+
+my $dtp = DateTime::Format::Mail->new( loose => 1 );
+
+foreach my $mbox (@ARGV) {
+  process1mbox($mbox);
+}
+
+exit(0);
+
+
+my $last_date;
+
+sub process1mbox($) {
+  my $mbox = shift;
+  my $dst = "$mbox.d";
+
+  (-d $dst)
+	|| mkdir($dst)
+	|| die("$dst: $!\n");
+
+  my $box = Email::Folder->new($mbox);
+  my $i = 0;
+
+  while ( my $msg = $box->next_message ) {
+	$i++;
+
+	my $from = $msg->header('from');
+	my $subject = $msg->header('subject') || '';
+	my $date = $msg->header('date');
+	my $utime;
+	if (not defined $date) {
+	  $date = $last_date;					# null only if not set
+	}
+	if (defined $date) {
+	  # Date: Tue, 25 Jan 1994 12:22:35 +447405820 (GMT+4474058:20)
+	  # $date =~ s/[-+]\d{4,}.+//;
+	  # and Date: 7 Nov 94 15:31:22 CS
+	  # $date =~ s/\sCS$//;
+	  $utime = str2time($date);
+	  if (not defined $utime) {
+		$date =~ s/(\d{2}:\d{2}:\d{2}).+/$1/;
+		if ($from =~ /\.ibm\.com/) {
+		  $date =~ s/ 24:/ 00:/;
+		}
+		if ($from =~ /\@yktvmv\.watson\.ibm\.com/) {
+		  # IBM. ugh.
+		  $date =~ s/, (99|00) (...) (\d\d)/, $3 $2 $1/;
+		}
+		$date =~ s/2094/2000/;
+		$utime = str2time($date);
+	  }
+
+	  $utime = str2time($date);
+	  $last_date = $date;
+	}
+	my $msg_str = $msg->as_string();
+
+	# Note: it's tempting to hash on the body, but it turns out that some
+	# older MUAs pushed a message FOR EACH RECIPIENT. Thus, you get
+	# multiple messages for one mail.
+	# my $sha1 = 'body:' . sha1_hex($msg->body());
+	my $sha1 = 'msg:' . sha1_hex($msg_str);
+
+	my $fn = "$dst/$sha1:2,S";
+	if (not defined $from) {
+	  $fn .= '-nofrom';
+	  $from = '?';
+	}
+	if (not defined $utime) {
+	  $fn .= '-noutime';
+	}
+
+	my $status = '';
+	if (-e $fn) {
+	  $status = 'duplicate message; skipped';
+	} else {
+	  open(F,">$fn")
+		|| die("$fn: $!\n");
+	  print(F $msg_str);
+	  close(F);
+	  utime($utime,$utime,$fn) if defined $utime;
+	  $status = 'created';
+	}
+
+	printf("%8d %-40.40s %-30.30s %-30.30s %s %s\n",
+		   $i, $date, $from, $subject, $sha1, $status);
+
+	die("$fn") if not defined $utime;
+  }
+}
+

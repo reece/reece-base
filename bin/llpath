@@ -1,0 +1,17 @@
+#!/bin/sh
+# llpath -- /bin/ls -ld all elements of a path, primarily to find perm probs
+
+if [ "$#" -ne 1 ]; then
+	echo "$0: exactly one argument, a path, expected" 1>&2
+	exit 1
+fi
+
+cur="$1"
+last=
+while [ "$cur" != "$last" ]; do
+	echo "$cur"
+	last="$cur"
+	cur=$(/usr/bin/dirname "$cur")
+done \
+| tr \\012 \\0 \
+| xargs -0r /bin/ls --color=auto -ldU

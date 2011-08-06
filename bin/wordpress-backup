@@ -1,0 +1,138 @@
+#!/bin/bash
+# wp-backup [dir] -- backup wordpress database and files
+# 2010-06-23 20:37 Reece Hart <reece@harts.net>
+# License: MIT (text at end of this file)
+#
+# This script provides a simple automated method to backup wordpress
+# databases and file directories.  The database is backed up using
+# mysqldump, compressed with bzip2.  Files are copied with hard links to
+# minimize size; compressed tarballs are also available.  
+# 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# 
+# Instructions:
+# eg$ mkdir -p ~/wp-backup/my-blog
+# eg$ cd ~/wp-backup/my-blog
+# eg$ ln -s <WP_ROOT_DIRECTORY> wp-root
+# eg$ wp-backup my-blog
+# eg$ ls -l
+# drwxr-xr-x ... 4.1k Jun 23 16:41 20100623-224141Z/
+# lrwxrwxrwx ...   16 Jun 23 16:41 latest -> 20100623-224141Z/
+# lrwxrwxrwx ...   33 Jun 23 16:41 wp-root -> /home/r/public_html/reece/
+# 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# 
+
+
+BACKUP_ROOT_DIR="$HOME/wp-backups"
+PATH=/usr/bin:/bin
+
+mysqlcnf_fp=
+cleanup () {
+	if [ -n "$mysqlcnf_fp" -a -f "$mysqlcnf_fp" ]; then
+		rm -fv "$mysqlcnf_fp"
+	fi
+}
+trap cleanup EXIT
+
+
+if ! mkdir -p "$BACKUP_ROOT_DIR"; then
+	echo "$0: dying" 1>&2
+	exit 1
+fi
+
+wp_name="$1"
+if [ -z "$wp_name" ]; then
+	echo "$0: wp site name required" 1>&2
+	exit 1;
+fi
+
+wp_inst_dir="$BACKUP_ROOT_DIR/$wp_name"
+if ! [ -d "$wp_inst_dir" ]; then
+	echo "$0: $wp_inst_dir doesn't exist" 1>&2
+	exit 1
+fi
+cd "$wp_inst_dir"
+echo "# now in $wp_inst_dir"
+
+if ! [ -d "wp-root" ]; then
+	echo "$0: wp-root doesn't exist; should be symlink to wp installation" 1>&2
+	exit 1
+fi
+
+wp_config_fp="wp-root/wp-config.php"
+if ! [ -f "$wp_config_fp" ]; then
+	echo "$0: wp-root doesn't look like a WordPress directory (no wp-config.php)" 1>&2
+	exit 1
+fi
+
+ts=$(date -u "+%Y%m%d-%H%M%SZ")
+backup_dir="$ts"
+if [ -e "$backup_dir" ]; then
+	echo "$0: $backup_dir exists" 1>&2
+	exit 1
+fi
+mkdir -pv "$backup_dir.tmp"
+
+
+get_config_setting () {
+	wp_config_fp="$1"
+	var="$2"
+	sed -n "s/define('$var', '\(.*\)');.*/\1/p"  "$wp_config_fp"
+}
+db_host=$(get_config_setting "$wp_config_fp" DB_HOST)
+db_name=$(get_config_setting "$wp_config_fp" DB_NAME)
+db_password=$(get_config_setting "$wp_config_fp" DB_PASSWORD)
+db_user=$(get_config_setting "$wp_config_fp" DB_USER)
+
+# prefer password in file rather than with -p on command line
+# for security
+mysqlcnf_fp="$wp_inst_dir/mysql.cnf"
+cat <<EOF >"$mysqlcnf_fp"
+[client]
+password=$db_password
+EOF
+chmod 600 "$mysqlcnf_fp"
+
+
+(
+set -ex
+mysqldump \
+	--defaults-extra-file="$mysqlcnf_fp" \
+	--host "$db_host" --user "$db_user" \
+	--add-drop-table \
+	"$db_name" \
+| bzip2 -c > "$backup_dir.tmp"/$db_name.sql.bz2
+
+cp -al wp-root/. "$ts.tmp"/wp-root/
+#tar -cjf "$ts.tmp"/wp-root.tar.bz2 wp-root/.
+
+mv "$ts.tmp" "$ts"
+ln -fns "$ts" latest
+)
+
+
+############################################################################
+# LICENSE
+#
+# Copyright (c) 2010 Reece Hart
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+# OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#

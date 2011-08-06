@@ -1,0 +1,46 @@
+#!/usr/bin/perl
+# tal-rename -- rename This American Life files based on mp3 tags
+
+use strict;
+use warnings;
+
+use Data::Dumper;
+use File::Basename;
+use File::Path;
+use File::Spec;
+use MP3::Info;
+
+while ( my $fn = shift ) {
+  my $tags = get_mp3tag($fn);
+
+  if (not defined $tags) {
+	warn("$fn: No tag info\n");
+	next;
+  }
+
+  # TAL tags are horribly inconsistent. The following is a weak attempt at harmony.
+  my ($n,$title) = $tags->{TITLE} =~ m/^#(\d{1,3}):?\s+(.*)/;
+  if (not defined $title) {
+	warn("$fn: can't parse TAL title from '$tags->{TITLE}'\n");
+	next
+  }
+  $title =~ s/\s+200\d$//;					# remove year at end of titles
+
+  my $new_fn = sprintf('%03d. %s',$n, $title);
+
+  if (defined $tags->{TYER} and $tags->{TYER} =~ m/^\d+$/) {
+	$new_fn .= " ($tags->{TYER})"
+  } elsif (defined $tags->{YEAR} and $tags->{YEAR} =~ m/^\d+$/) { 
+	$new_fn .= " ($tags->{YEAR})"
+  }
+
+  $new_fn =~ s/\?//g;						# remove invalid chars
+
+  my ($root,$dirname,$sepsfx) = fileparse($fn, qr/\.[^.]+$/);
+  my $new_path = File::Spec->catfile($dirname,"$new_fn$sepsfx");
+
+  rename($fn,$new_path)
+	|| die("rename($fn,$new_path): $!\n");
+
+  print("$fn -> $new_path\n");
+}

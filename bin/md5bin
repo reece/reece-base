@@ -1,0 +1,42 @@
+#!/usr/bin/env perl
+# md5bin -- group duplicate files based on md5 checksums
+# usage: md5sum [files] | md5bin
+# returns of the form
+#   <md5> <#files> <filenames>
+# like:
+#   3f7f0c6b08a4c1ae31625b7d54a61d60 2 2002-12-28/img_0737.jpg 2003-01-01/img_0737.jpg
+#   a6f100b11683d1ffb3dc8c2116b966f5 2 2002-12-28/img_0712.jpg 2003-01-01/bak/img_0712.jpg
+# Filenames are in input order.
+
+# The daring may use this script to remove duplicate files like so:
+# $ find . -type f -print0 \
+#   | xargs -0 md5sum \
+#   | md5bin \
+#   | cut -f4- -d' ' \
+#   | xargs /bin/rm
+
+# CAUTION: filenames with spaces will confound the above pipeline and
+# md5bin will generate a warning when it encounters such names.
+
+
+use strict;
+use warnings;
+
+my %md5bin;
+my $delim = "\t";
+
+while(<>) {
+  chomp;
+  my($md5,$fn) = m/^([0-9a-fA-F]{32})  (.+)/;
+  if (not defined $md5) {
+	warn("line $.: malformed line\n  $_\n");
+	next;
+  }
+  warn("CAUTION: $fn contains chr(",chr($delim),")\n") if $fn=~m/$delim/;
+  push(@{$md5bin{$md5}},$fn);
+}
+
+foreach my $md5 (keys %md5bin) {
+  my @F = @{$md5bin{$md5}};
+  print( join($delim, $md5, $#F+1, @F), "\n" );
+}

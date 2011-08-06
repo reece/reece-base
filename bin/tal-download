@@ -1,0 +1,63 @@
+#!/usr/bin/python
+
+# TODO:
+# * trap 404 errors
+# * reconsider name format
+# * INFO
+# * progress bar
+
+
+from __future__ import with_statement, print_function
+import argparse, logging, HTMLParser, os, re, sys, tempfile, urllib2
+
+class TALDownloader:
+	ep_url_fmt = u'http://www.thisamericanlife.org/radio-archives/episode/{epno}/'
+	mp3_url_fmt = u'http://audio.thisamericanlife.org/jomamashouse/ismymamashouse/{epno}.mp3'
+	title_re = re.compile(u'<title>(.+) \| This American Life</title>')
+	html_parser = HTMLParser.HTMLParser()
+
+	def get_episode_title(self,epno):
+		url = self.ep_url_fmt.format(epno=epno)
+		t = [ line for line in urllib2.urlopen(url).readlines() if '<title>' in line ][0]
+		m = self.title_re.search(t)
+		ti = self.html_parser.unescape( m.group(1).decode('utf-8') )
+		#logging.warn('epno=%s, url=%s, title=%s', epno, url, ti)
+		return ti
+
+	def download_episode(self,epno,fn):
+		# TODO: check header date v. file timestamp first
+		url = self.mp3_url_fmt.format(epno=epno)
+		req = urllib2.urlopen(url)
+		tmp_fn = fn + u'.tmp'
+		f = open(tmp_fn,'w')
+		f.write(req.read())
+		f.close()
+		os.rename(tmp_fn,fn)
+
+
+parser = argparse.ArgumentParser(
+	description = u'Download This American Life episodes',
+	formatter_class = argparse.ArgumentDefaultsHelpFormatter,
+	)
+parser.add_argument(
+	'-d', '--directory', 
+	help = u'destination directory',
+	default = u'/tmp'
+	)
+parser.add_argument(u'episodes', metavar='N', type=int, nargs='+',
+                   help=u'episode numbers')
+opts = parser.parse_args()
+
+
+d = TALDownloader()
+for a in opts.episodes:
+	epno = int(a)
+	ti = re.sub(r'/',r'-', d.get_episode_title(epno) )
+	fn = os.path.join(opts.directory,
+					  u'{epno:03d}. {ti}.mp3'.format(epno=epno,ti=ti))
+	if os.path.exists(fn):
+		logging.warn(u'episode %d: file exists: %s', epno, fn)
+	else:
+		d.download_episode(epno,fn)
+		logging.warn(u'episode %d -> %s... done', epno, fn)
+	

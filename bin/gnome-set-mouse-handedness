@@ -1,0 +1,36 @@
+#!/bin/sh
+
+key=/desktop/gnome/peripherals/mouse/left_handed
+
+new_val="false"
+case "$1" in
+	left) new_val=true;;
+	right) ;;
+	swap) 
+		if [ "$(gconftool --get "$key")" = "false" ]; then
+			new_val="true"
+		fi
+		;;
+	*) 
+		echo "Usage $(basename $0) [left|right|swap]" 1>&2; 
+		exit 1
+		;;
+esac
+
+gconftool --set "$key" --type boolean "$new_val"
+
+
+# if tap to click is on, changes to handedness don't take effect until
+# it's unset and reset.
+key=/desktop/gnome/peripherals/touchpad/tap_to_click
+if [ "$(gconftool --get "$key")" = "true" ]; then
+	gconftool --set "$key" --type boolean false
+	gconftool --set "$key" --type boolean true
+fi
+
+
+handedness=right
+if [ "$new_val" = "true" ]; then
+	handedness=left
+fi
+echo "mouse is now $handedness-handed"

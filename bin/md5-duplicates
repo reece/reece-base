@@ -1,0 +1,11 @@
+#!/bin/bash
+# md5-duplicates -- reported duplicated files according to md5sum
+
+base=$1
+shift
+
+join -t'	' \
+	<(perl -i -pe 's/  /\t/' "$base" | sort) \
+	<(perl -i -pe 's/  /\t/' "$@" | sort) \
+| cut -f3 \
+| sort -u

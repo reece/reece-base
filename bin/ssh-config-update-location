@@ -1,0 +1,39 @@
+#!/bin/bash
+# ssh-config-update -- update ~/.ssh/config depending based on location
+
+# I use ssh aliases extensively for sshfs bookmarks, svn/git/hg
+# destinations, and (of course) remote logins.  Because my router doesn't
+# route packets from the LAN interface to its own WAN interface (i.e., via
+# the WAN IP), I can't use a single IP address both inside and outside my
+# home subnet: at home, I need to use an IP address on the local subnet,
+# but outside I need the WAN IP address (with appropriate router
+# configuration).
+#
+# This script updates ~/.ssh/config to provide a single, stable alias for
+# each destination.
+
+
+PATH="$(dirname "$0")":/usr/bin:/bin
+
+if [ "$#" -gt 0 ]; then
+	WHERE="$1"
+else if at-home; then
+	WHERE=internal
+else
+	case "$(uname -n)" in
+		*.hostmonster.com) WHERE=https;;
+		*) WHERE=external;;
+	esac
+fi; fi
+
+perl -i.bak -p - <<EOF $HOME/.ssh/config
+# first, strip all aliases to entries
+s/^(Host whoville-(?:internal|external|https)).+/\$1/gm;
+s/^(Host eeyore-(?:internal|external|https)).+/\$1/gm;
+
+# then add aliases to entry if it matches $WHERE
+s/^Host whoville-$WHERE/$& whoville w/ms; 
+s/^Host eeyore-$WHERE/$& eeyore e/ms; 
+EOF
+
+echo "ssh config updated for $WHERE"

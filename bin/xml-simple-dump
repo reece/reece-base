@@ -1,0 +1,49 @@
+#!/usr/bin/perl
+# xml-simple-dump -- print the DOM derived from an XML::Simple parse
+#
+# This is a trivial script to aid reverse engineering DOM returned by
+# XML::Simple
+
+
+# TODO:s
+# - toggle common options, like force_array (perhaps selectively)
+
+use strict;
+use warnings;
+
+use Data::Dumper;
+use Getopt::Long qw(:config gnu_getopt);
+use XML::Simple;
+
+$Data::Dumper::Sortkeys = 1;
+$Data::Dumper::Indent = 3;
+
+my %opts = (
+  # These options are those of XML::Simple, which see for meaning
+  'ForceArray' => 0,
+  'KeyAttr' => 0,
+  'KeepRoot' => 0,
+  );
+
+GetOptions(\%opts,
+		   'ForceArray|force-array|f:s',
+		   'KeyAttr|key-attr|k:s',
+		   'KeepRoot|keep-root|r+',
+		  )
+  || die("$0: usage problems\n");
+
+$opts{ForceArray} = 1 if $opts{ForceArray} eq ''; # -f without args
+
+
+my $fn = shift;
+(defined $fn)
+  || die("$0: need filename argument\n");
+
+my $p = new XML::Simple( %opts );
+my $doc = $p->XMLin($fn)
+  || die("$0: $fn: $!\n");
+
+print Dumper \%opts;
+print Dumper $doc;
+
+exit(0);

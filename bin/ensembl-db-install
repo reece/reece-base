@@ -1,0 +1,44 @@
+#!/bin/bash
+# ensembl-install -- install an ensembl database component
+# 
+# Use:
+# $ wget -b -P/tmp ftp://ftp.ensembl.org/pub/current_mysql/homo_sapiens_core_62_37g
+# $ MYSQL_PWD='clearpassword' ensembl-install /tmp/ftp.ensembl.org/pub/current_mysql/*
+#
+# N.B. args are paths to mysql dump directories, such as:
+# /srv/mirrors/ftp.ensembl.org/pub/current_mysql/homo_sapiens_core_62_37g
+
+MYSQL_ARGS='-u root'
+
+while [ $# -gt 0 ]; do
+	dump_root="$1"; shift
+	fqdb=$(basename "$dump_root") # e.g., homo_sapiens_core_61_37f
+	sql_fn="$dump_root/$fqdb.sql.gz"
+	if ! [ -f $sql_fn ]; then
+		echo "$sql_fn doesn't exist; is $dump_root really a mysql dump directory?" 1>&2
+		exit 1
+	fi
+
+	(
+		set -ex
+
+		mysql $MYSQL_ARGS -e "drop database $fqdb" || true
+		mysql $MYSQL_ARGS -e "create database $fqdb"
+
+		gzip -cdq "$sql_fn" \
+			| mysql $MYSQL_ARGS "$fqdb"
+
+		for f in "$dump_root"/*.txt.gz; do
+			if [[ "$(basename "$f")" =~ ^mart ]]; then
+				continue;
+			fi
+			dst="${f%.gz}"
+			gzip -cdq <"$f" >"$dst"
+			time -p mysqlimport $MYSQL_ARGS $fqdb -L "$dst"
+			rm -f "$dst"
+		done
+
+		mysql $MYSQL_ARGS -e "grant select on $fqdb.* to anonymous;"
+		mysql $MYSQL_ARGS -e "grant all on $fqdb.* to reece;"
+	)
+done

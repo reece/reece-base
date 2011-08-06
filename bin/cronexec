@@ -1,0 +1,135 @@
+#!/bin/bash
+# cronexec -- execute a command and mail the results with a meaningful subject
+# $Id$
+# Reece Hart <reece@harts.net>
+
+# TODO:
+# - --log=file (date string, etc /foo/bar/%Y-%m-%d)
+# - --mail-on=success|failure|always
+
+
+if [ -z "$MAILTO" ]; then
+		echo "$0: MAILTO not defined!" 1>&2;
+		exit 10;
+fi
+
+INVOCATION="$0 $@"
+
+_getopt=`/usr/bin/getopt -o 'Eems:' -- "$@"`
+if [ $? != 0 ]; then
+		echo "Usage: $0 [ -e ] [ -s subject ] command args" 1>&2
+		exit 201;
+fi
+eval set -- "$_getopt"
+
+MAIL_ON_ERROR_ONLY=0
+SHOW_ENV=0
+MERGE_OE=0
+while true ; do
+		case "$1" in
+				-e) MAIL_ON_ERROR_ONLY="1"; shift;;
+				-E) SHOW_ENV=1; shift;;
+				-s) SUBJECT="$2"; shift 2;;
+				-m) MERGE_OE=1; shift;;
+				--) shift ; break ;;
+				*) echo "$1: Unsupported option!" 1>&2 ; exit 202 ;;
+		esac
+done
+
+if [ -z "$SUBJECT" ]; then
+		SUBJECT="$@"
+fi
+
+
+
+cleanup () { /bin/rm -f "$STDOUT_FN" "$STDERR_FN"; }
+trap cleanup EXIT SIGQUIT SIGABRT SIGKILL 
+
+umask 0077;
+STDOUT_FN=`mktemp`
+if [ "$?" != "0" ]; then
+		echo "$0: couldn't make temporary file for stdout" 1>&2
+		exit 10
+fi
+STDERR_FN=`mktemp`
+if [ "$?" != "0" ]; then
+		echo "$0: couldn't make temporary file for stderr" 1>&2
+		exit 10
+fi
+
+
+
+# run the process and get the status
+START_TIME=`/bin/date +'%Y-%m-%d %H:%M:%S'`
+CMD="$@"
+REDIRECT=$STDERR_FN
+if [ "$MERGE_OE" = 1 ]; then
+		REDIRECT="&1"
+fi
+(
+eval "exec >$STDOUT_FN 2>$REDIRECT"
+time -p $CMD
+)
+
+STATUS=$?
+END_TIME=`/bin/date +'%Y-%m-%d %H:%M:%S'`
+
+
+# bail out if success and user doesn't success emails
+if [ "$STATUS" -eq "0" -a "$MAIL_ON_ERROR_ONLY" -eq "1" ]; then
+		exit 0
+fi
+
+
+# generate and send the report
+# Note that this happens no matter how the child process terminated
+STATUSW="SUCCESS"
+if [ "$STATUS" -ne "0" ]; then
+		STATUSW="FAILURE"
+fi
+
+
+(
+echo "Subject: cronexec $STATUSW [$STATUS]: $SUBJECT"
+echo
+
+echo "cronexec invoked as:"
+echo "  $INVOCATION"
+echo "Results of command:"
+echo "  $CMD"
+echo "Started at $START_TIME"
+echo "Finished at $END_TIME"
+echo
+
+
+if [ "$MERGE_OE" = 0 ]; then
+	echo "STDOUT"
+	echo "------"
+	/bin/cat "$STDOUT_FN"
+	echo
+	
+	echo "STDERR"
+	echo "------"
+	/bin/cat "$STDERR_FN"
+	echo
+else
+	echo "STDOUT+ERR"
+	echo "-------------"
+	/bin/cat "$STDOUT_FN"
+	echo
+fi
+
+if [ "$SHOW_ENV" -eq "1" ]; then
+echo "ENVIRONMENT"
+echo "-----------"
+echo "pwd: $PWD"
+echo 'id:' `id`
+echo
+/usr/bin/env | /usr/bin/sort
+echo
+fi
+
+echo ======================================================
+echo End of report
+
+) | /usr/sbin/sendmail "$MAILTO"

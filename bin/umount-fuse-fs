@@ -1,0 +1,36 @@
+#!/bin/bash
+
+
+if [[ "$0" =~ '/umount' ]]; then
+		for m in `mount | grep ' type fuse ' | cut -d' ' -f3`; do
+ 				( set -x; fusermount -u $m; )
+		done
+		exit 0
+fi
+
+
+# else, mounting...
+
+sudo modprobe fuse
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		hn)		sshfs hn:									$HOME/mnt/hartsnet	&
+					;;
+
+		w)		w=`if at-home; then echo wi; else echo we; fi`;
+					sshfs $w:									$HOME/mnt/whoville	&
+					;;
+
+		rf)		sshfs ressubmit:/gne/home			$HOME/mnt/resfiles/home	&
+					sshfs ressubmit:/gne/research	$HOME/mnt/resfiles/research	&
+					;;
+
+		*)		echo "$0: oops. $1 isn't a target" 1>&2;
+					exit 1
+					;;
+	esac
+
+	shift
+done
+

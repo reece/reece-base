@@ -1,0 +1,13 @@
+#!/usr/bin/env perl
+
+while( my $pm = shift ) {
+  eval "use $pm";
+  if ($@) {
+	warn("$pm not found\n");
+	next;
+  }
+  my $pmp = $pm;
+  $pmp =~ s/::/\//g;
+  $pmp .= '.pm';
+  print "$pmp  $INC{$pmp}\n";
+}

@@ -1,0 +1,29 @@
+#!/usr/bin/env perl
+# $Id: fpart,v 1.1 2003/06/10 19:09:46 rkh Exp $
+# partition lines in a file into N parts, print only partition n
+# I use this to facilitate poor man's parallelism, like this:
+# host1$ fpart -N3 -n1 <targets_to_do | xargs make
+# host2$ fpart -N3 -n2 <targets_to_do | xargs make
+# host3$ fpart -N3 -n3 <targets_to_do | xargs make
+
+
+use strict;
+use warnings;
+use Getopt::Long qw(:config gnu_getopt);
+
+my %opt;
+GetOptions( \%opt,
+			'n-partitions|N=i',
+			'partition-n|n=i'
+		  )
+  || die("$0: bad usage, homey\n");
+
+if (not exists $opt{'n-partitions'}
+	or not exists $opt{'partition-n'}) {
+  die("$0: missing -n or -N\n");
+}
+
+$opt{'partition-n'}--;						# 1..N -> 0..N-1
+while( <> ) {
+  print if ( ($.-1) % $opt{'n-partitions'} == $opt{'partition-n'} );
+}

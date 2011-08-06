@@ -1,0 +1,41 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Bio::DB::EUtilities;
+use XML::Simple;
+use Data::Dumper;
+
+my $factory = Bio::DB::EUtilities->new(-eutil => 'esearch',
+									   -db => 'omim',
+									   -term => join(' AND ', map("$_\[title]", @ARGV)),
+									   -email => 'reece@harts.net',
+									   -retmax => 25,
+									   -usehistory => 'y');
+
+
+my @ids = $factory->get_ids;
+print(STDERR "# Count = ",scalar(@ids),"\n");
+exit unless @ids;
+
+print(STDERR "# Query translation: ",$factory->get_query_translation,"\n");
+
+$factory->set_parameters(-eutil => 'efetch',
+                         -rettype => 'xml',
+                         -history => $factory->next_History);
+
+my $content = $factory->get_Response->content();
+my $data = XMLin( $content );
+
+my @entries = ( (ref $data->{'Mim-entry'} eq 'ARRAY')
+				  ? @{$data->{'Mim-entry'}}
+				  : ($data->{'Mim-entry'}) );
+
+for my $ref (@entries) {
+  printf("* %s (%d)\n  http://www.ncbi.nlm.nih.gov/omim/%d\n",
+		 $ref->{'Mim-entry_title'},
+		 $ref->{'Mim-entry_mimNumber'},
+		 $ref->{'Mim-entry_mimNumber'}
+		);
+}

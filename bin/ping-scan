@@ -1,0 +1,12 @@
+#!/bin/sh
+
+DEADLINE=5						# seconds
+
+abc="$1"
+for d in $(seq 1 254); do
+	ip=$abc.$d
+	ping -c1_TIME -w$DEADLINE $ip >/dev/null 2>&1 && echo $ip &
+done \
+| sort -t. -k4n
+
+wait

@@ -1,0 +1,118 @@
+#!/usr/bin/perl
+# md5sum-compare -- compare two lists of md5sum output
+# See also md5sum -c.
+
+# TODO:
+# identify fn mismatch but md5 matches (e.g., rename or missing link)
+
+
+use strict;
+use warnings;
+use Getopt::Long qw(:config gnu_getopt);
+use IO::File;
+
+sub read_md5sum_lines ($);
+
+
+my %opts =
+  (
+   'supress1' => 0,
+   'supress2' => 0,
+   'supress3' => 0,
+  );
+
+
+GetOptions(\%opts,
+		'suppress1|1+',
+		'suppress2|2+',
+		'suppress3|3+'
+	   )
+  || die("$0: usage\n");
+
+
+
+my %file_md5_1 = read_md5sum_lines(shift);
+my @file_fns_1 = sort keys %file_md5_1;
+my %md5_files_1;
+push(@{$md5_files_1{$file_md5_1{$_}}},$_) for @file_fns_1;
+
+
+my %file_md5_2 = read_md5sum_lines(shift);
+my @file_fns_2 = sort keys %file_md5_2;
+my %md5_files_2;
+push(@{$md5_files_2{$file_md5_2{$_}}},$_) for @file_fns_2;
+
+
+
+my ($i1,$i2) = (0,0);
+
+while( $i1<=$#file_fns_1 and $i2<=$#file_fns_2 ) {
+  my $fn;
+  my $cc;
+  my $indent;
+  my @other_matches;
+  my $c = $file_fns_1[$i1] cmp $file_fns_2[$i2];
+
+  if ($c < 0) {
+	$fn = $file_fns_1[$i1];
+	$cc = '<';
+	$indent = 0;
+	if (exists $md5_files_2{$file_md5_1{$fn}}) {
+	  @other_matches = @{ $md5_files_2{$file_md5_1{$fn}} };
+	  $cc = '?';
+	}
+	$i1++;
+  }
+  elsif ($c > 0) {
+	$fn = $file_fns_2[$i2];
+	$cc = '>';
+	$indent = 1;
+	if (exists $md5_files_1{$file_md5_2{$fn}}) {
+	  @other_matches = @{ $md5_files_1{$file_md5_2{$fn}} };
+	  $cc = '?';
+	}
+	$i2++;
+  }
+  elsif ($c == 0) {
+	$fn = $file_fns_1[$i1];
+	$cc = $file_md5_1{$fn} eq $file_md5_2{$fn} ? '=' : '!';
+	$indent = 2;
+	$i1++; $i2++;
+  }
+
+  print($cc, ' ', "\t"x$indent, $fn, 
+		(@other_matches ? ' [md5 matches '.join(',',@other_matches).']' : ''),
+		"\n");
+}
+
+
+
+
+
+
+
+sub read_md5sum_lines ($) {
+  my %md5s;
+
+  my $fn = shift;
+  my $fh = new IO::File;
+  $fh->open("<$fn")
+	|| die("$fn: $!\n");
+
+  while( my $line = <$fh> ) {
+	my ($md5_sum,$md5_fn) = $line =~ m/^(\S+)  (.+)/;
+	if (not defined $md5_fn) {
+	  die("$fn:$.: malformed line\n  $line");
+	}
+	if (exists $md5s{$md5_fn}) {
+	  if ($md5s{$md5_fn} != $md5_sum) {
+		die("$fn:$.: `$md5_fn' has more than 1 distinct md5 checksum!\n")
+	  }
+	}
+	$md5s{$md5_fn} = $md5_sum;
+  }
+
+  $fh->close();
+
+  return %md5s;
+}
