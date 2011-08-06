@@ -1,0 +1,10 @@
+#!/bin/sh
+
+cd ~/mail/harts.net
+
+(
+	find . -type d \( -name cur -o -name new \) \
+	| while read d; do
+		printf "%8d $d\n" `find "$d" -type f | wc -l`; done
+) \
+| sort -rn

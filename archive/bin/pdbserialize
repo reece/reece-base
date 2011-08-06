@@ -1,0 +1,35 @@
+#!/usr/local/bin/perl -w
+# $Id: pdbserialize.pl,v 0.0 1998/03/26 18:52:31 reece Exp $
+# 1998/03/26 12:03 Reece Kimball Hart <reece@dasher.wustl.edu>
+
+# convert ATOM records of pdb file to serial numbering.
+# The input file is assumed to be a single chain with 
+# nonserial residue numbers and perhaps inserted residues
+# with alphanumeric atom numbers.  e.g. 3ptb.pdb
+# ...
+#   ATOM   1194  O   ALA   183    
+#   ATOM   1195  CB  ALA   183    
+#   ATOM   1196  N   GLY   184A   
+#   ATOM   1197  CA  GLY   184A   
+#   ATOM   1198  C   GLY   184A   
+#   ATOM   1199  O   GLY   184A   
+#   ATOM   1200  N   TYR   184    
+#   ATOM   1201  CA  TYR   184    
+# ...
+# 184A is an inserted residue for canonical numbering of
+# trypsin family members
+
+$prevtag = '';
+while(<>)
+  {
+  #     ATOM   1198  C    GLY     184A   (adjusted for alignment)
+  if (/^ATOM.............(...)(.......)/)
+	{
+	$tag="$1$2";
+	if ($tag ne $prevtag)
+	  {$r++; $newtag=sprintf("$1%6d ",$r)}
+	s/$tag/$newtag/;
+	$prevtag=$tag;
+	}
+  print;
+  }

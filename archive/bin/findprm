@@ -1,0 +1,79 @@
+#!/usr/local/bin/perl -w
+# $Id: findprm.pl,v 0.4 1998/09/09 20:45:14 reece Exp $
+
+# findprm -- search for matching Tinker parameters
+
+# usage: findprm paramtype AN1 AN2 AN3 ... <params.prm
+# paramtype is 'bond', 'angle', etc.
+# ANi = atom name for atom types
+# order of ANi is important: parameter atom types must match
+# in order or reverse order.
+
+# The script only matches syntactically and has no idea how many atom types
+# to expect for each parameter type.
+
+$RCSId = '$Id: findprm.pl,v 0.4 1998/09/09 20:45:14 reece Exp $ ';
+#($jemappelle=$0) =~ s,^.*/,,;
+
+use vars qw($CL);
+
+($#ARGV >= 1) 
+  || die("usage: findprm paramtype atomname1 [atomname2 ...] <params.prm\n");
+
+print(STDERR "# $RCSId\n");
+$ptype = shift;
+@qat = @ARGV;
+@rqat = reverse(@qat);
+undef @ARGV;
+
+if ($ptype eq 'atom')
+  {
+  print($qat[0],"\n");
+   while(<>)
+	 {print if (/^ atom \s+ (?:\d+\s+){1,2} $qat[0] [^a-z] /x)}
+  exit;
+  }
+
+if    ($ptype eq 'bond')    {$pre = 'bond\s+(\d+)\s+(\d+)'}
+elsif ($ptype eq 'angle')   {$pre = 'angle\s+(\d+)\s+(\d+)\s+(\d+)'}
+elsif ($ptype eq 'torsion') {$pre = 'torsion\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)'};
+
+while(<>)
+  {
+  my(@pnt);
+  chomp;
+  if (/^ atom \s+ (?:\d+ \s+)? (\d+) \s* (\S+) /x)
+	{
+	# save atoms types and definition lines
+	if ( (defined $CN[$1]) and ($CN[$1] ne $2) )
+	  {
+	  warn("line $.: Class name mismatch: class $2 has multiple class names\n");
+	  }
+	$CN[$1]=$2;
+	$CL[$1]=$_;
+	}
+  elsif ( @pnt = /^$pre/ )
+	{
+	my($i,@patc);
+	if ($#pnt != $#qat)
+	  {
+	  warn("$.: number of query atoms doesn't match number of class or type atoms\n");
+	  next;
+	  }
+	@patc = map($CN[$_],@pnt);				# param alpha classes or types
+	if (typematch(\@qat,@patc) or typematch(\@rqat,@patc))
+	  {
+	  printf("$.: %-11s: $_\n",join('-',@patc));
+	  }
+	}
+  }
+
+sub typematch
+  {
+  my($qt,@t)=@_;
+  my($i);
+  return(0) if $#$qt != $#t;
+  for($i=0;$i<=$#$qt;$i++)
+	{return(0) unless $t[$i] =~ m/^$$qt[$i]/}
+  return(1);
+  }

@@ -1,0 +1,27 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+while( my $rpm_fn = shift ) {
+  local $/ = undef;
+
+  if (not open(F,"rpm -qip $rpm_fn|")) {
+	warn("rpm -qip $rpm_fn: $!\n");
+	next;
+  }
+
+  if ( not defined ($_ = <F>) ) {
+	warn("Hmm... failed to read from opened file on $rpm_fn\n");
+	close(F);
+	next;
+  }
+
+  #my $version = m/\AVersion\s+:\s+(\S+)/m; 
+  #my $release = m/\ARelease\s+:\s+(\S+)/m; 
+  my ($summary) = m/^Summary\s+:\s+(.+)/m; 
+
+  printf("%-40s $summary\n", $rpm_fn);
+
+  close(F);
+}

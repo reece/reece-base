@@ -1,0 +1,128 @@
+#!/bin/ksh
+##
+## $RCSfile: ftpscript.ksh,v $
+## $Revision: 1.11 $
+## $Date: 1996/02/11 09:56:20 $
+##
+## NAME
+## ftpscript -- take ftp operations on the command line
+## 
+## SYNOPSIS
+## ftpscript [-help]
+## ftpscript [-v] <host> [<remote user> [<remote pass>]]
+##
+## DESCRIPTION
+## This script facilitates ftp access by allowing commands to given on
+## stdin.  It was originally written because the ftp wouldn't take input from
+## stdin; now that most ftp's do so (with the -n flag), this script is
+## trivial.
+##   -help show this documentation
+##   -n    dry run
+##   -v    verbose mode
+## <remote user> defaults to `anonymous'
+## <pass> defaults to `localusername@localhostname'
+##
+## CAVEATS
+## 1) No attempt at error checking is made.  Your only recourse is to
+## use the -v flag and watch the ftp in action.  ftp apparently
+## doesn't return any meaningful exit values and the only way to
+## automatically catch errors is by filtering the output. Yuk.
+## 2) Command line arguments appear in various places, like ps output.
+## Therefore, your remote password may become jeopardized.  I use this
+## for anonymous access and therefore I'm not very concerned about
+## this securtity hole.
+##
+## EXAMPLE
+## echo "get foo/bar/jomama jomama" | ftpscript somehost anonymous me@mybox
+## ...gets jomama from the remote directory foo/bar and saves it in
+## the local file jomama.
+##
+## REQUIREMENTS
+## ksh and standard UNIX tools (sed,more,strip,mv,rm...)
+##
+## SEE ALSO
+## You should also see the c program xtp which comes with the ImageMagick
+## package.  See http://www.wizards.dupont.com/cristy/ImageMagick.html.
+##
+## @@banner@@
+##
+
+showhelp()	{ /bin/sed -n -e "2,/^$/p" $1 | /bin/more; }
+
+#
+# Check and parse the command line
+#
+VERBOSE=
+DRYRUN=
+while [ $# -ge 1 ]
+do
+	case $1 in
+		-v) VERBOSE=-v; shift;;
+		-n) DRYRUN=TRUE; shift;;
+		-help) showhelp $0; exit 0;;
+		*) break;
+	esac
+done
+
+if [ $# -eq 0 -o $# -gt 3 ]
+then
+	showhelp $0
+	exit 1
+fi
+
+# first (mandatory) argument is ftp hostname
+FTPHOST=$1
+
+# second (optional) argument is remote login name
+# defaults to anonymous
+FTPLOGIN=${2:-anonymous}
+
+# third (optional) argument is remote password
+# defaults to user@host
+FTPPASS=${3:-${USER}@`hostname`}
+
+
+#
+# Assemble the script
+#
+TMPfn=`tmpfn`
+/bin/cat << EOF > $TMPfn
+open $FTPHOST
+user $FTPLOGIN $FTPPASS
+EOF
+
+/bin/cat >> $TMPfn
+
+#
+# And run (or cat) it
+#
+if [ $DRYRUN ]
+then
+	/bin/cat $TMPfn
+else
+	/bin/ftp -n $VERBOSE < $TMPfn
+fi
+
+/bin/rm -f $TMPfn
+
+
+#$Log: ftpscript.ksh,v $
+#Revision 1.11  1996/02/11 09:56:20  reece
+#*** empty log message ***
+#
+## Revision 1.10  1995/07/14 18:48:09  reece
+## * Now uses ftp -n and doesn't split the input script.  ftpscript was
+##   originally written for and solely because certain ftps which didn't
+##   take commands from stdin and didn't support the -n flag.  Now that
+##   most do so, this script is trivial.
+##
+## Revision 1.8  1995/06/10  23:39:13  reece
+## improved documentation
+## streamlined argument parsing
+##
+## Revision 1.7  1995/06/07  20:26:28  reece
+## now is more careful about trapping interrupts and restoring ~/.netrc
+##
+## Revision 1.6  1995/06/07  17:59:49  reece
+## made rm and mv commands /bin/rm -f and /bin/mv -f
+##

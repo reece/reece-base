@@ -1,0 +1,75 @@
+#!/bin/ksh
+##
+## $RCSfile: vardep.ksh,v $
+## $Revision: 1.1 $
+## $Date: 1995/06/07 20:46:50 $
+##
+## This is free software.  There are no restrictions.  I would appreciate
+## hearing suggestions, bugs, limitations, etc. by email to the address below.
+##
+## NAME
+## vardep -- persistent storage of arguments
+##
+## SYNOPSIS
+## vardep [commflag] dependencyfile [args...]
+##
+## DESCRIPTION
+## vardep may be used in GNUmakefiles to generated dependencies based
+## upon variables.  vardep creates a file which stores a newline-delimited
+## list of the arguments given to it.  Subsequent invocations with the
+## /same/ argument list cause no file update and no output; subsequent
+## invocations with a /different/ argument list always updates the
+## dependency file and optionally outputs the additions (+ flag),
+## subtractions (-), or both (+- or -+).
+##
+## EXAMPLE GNUmakefile... forthcoming
+##
+## @@banner@@
+## 
+
+commflag="0";
+case $1 in
+	+)	commflag="-13"; shift;;
+	-)	commflag="-23"; shift;;
+	-+|+-)	commflag="-3"; shift;;
+esac
+
+current=$1
+shift
+
+new=`tmpfn -c`
+changed=`tmpfn -c`
+
+echo $* | tr " " "\012" | sort | uniq > $new
+
+# create a file $changes which has the newly-added (+), newly-removed (-),
+# or all differences (+-|-+) between the current and new flags delimited
+# by newlines.  If file $current doesn't exist and we're supposed to report
+# additions (+|+-|-+), then the new file is copied to changes
+if [ -f $current ]
+then
+	[ "$commflag" != "0" ] \
+	&& comm $commflag $current $new | tr -d "\t" > $changed
+else
+	[ "$commflag" = "-13" -o "$commflag" = "-3" ] && cp $new $changed
+fi
+
+# if $new and $current files differ or current doesn't exist,
+# mv the new flags file to the current flags file
+if [ -a $current ]
+then
+	diff $new $current >/dev/null \
+	|| mv $new $current # && echo "updated $current" 2>&1)
+else
+	mv $new $current 
+	# && echo "created $current" 2>&1
+fi
+
+# if file $changed exists and has size > 0, print changes to stdout separated
+# by spaces
+[ "$commflag" != "0" -a -f $changed -a -s $changed ] \
+&& tr "\012" " " < $changed && echo
+
+rm -f $changed $new
+
+exit 0

@@ -1,0 +1,47 @@
+#!/usr/bin/perl
+# convert refs from john griffin into pubmed search urls
+# eg.
+#GET 3. Antagonists selective for NMDA receptors containing the NR2B subunit 
+#By Chenard, B. L.; Menniti, F. S. 
+#From Current Pharmaceutical Design (1999), 5(5), 381-404. Language: English, Database: CAPLUS 
+#
+#
+#DATA 45. Antagonist properties of eliprodil and other NMDA receptor antagonists at rat NR1A/NR2A and NR1A/NR2B receptors expressed in Xenopus oocytes 
+#By Avenet, Patrick; Leonardon, Jacques; Besnard, Francois; Graham, David; Depoortere, Henri; Scatton, Bernard 
+#From Neuroscience Letters (1997), 223(2), 133-136. 
+#
+#DATA 56. Antagonist properties of the stereoisomers of ifenprodil at NR1A/NR2A and NR1A/NR2B subtypes of the NMDA receptor expressed in Xenopus oocytes 
+#By Avenet, Patrick; Leonardon, Jacques; Besnard, Francois; Graham, David; Frost, Jonathan; Depoortere, Henri; Langer, Salomon Z.; Scatton, Bernard 
+#From European Journal of Pharmacology (1996), 296(2), 209-13. 
+#
+# gives
+# 
+
+
+
+BEGIN {
+  $/="\n\n"
+}
+
+while (<>) {
+  my ($n,$t1,$by,$from) = m/(?:GET|DATA) (\d{1,4})\. (.+)\nBy (.+)\nFrom (.+)/;
+  if (not defined $t1) {
+	warn('#'x76, "\nmissed:\n", $_);
+	next;
+  }
+
+  my ($t2) = $t1 =~ m/((?:\S+\s+){,4})/;
+
+  $by =~ s/,\s+/ /g;
+  $by =~ s/\.\s*//g;
+  $by =~ s/; / AND /g;
+
+  my ($y) = $from=~m/\(((?:19|20)\d\d)/;
+
+  $u="http://www.ncbi.nlm.nih.gov/pubmed?term=$y [publication date] AND $by";
+  $u=~s/ /%20/g;
+  $u=~s/\[/%5B/g;
+  $u=~s/\]/%5D/g;
+
+  print "$n: $u\n"
+}

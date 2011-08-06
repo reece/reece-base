@@ -1,0 +1,368 @@
+#!/usr/local/bin/perl -w
+## $Id: mkinfodir.pl,v 0.9 1998/09/29 05:02:03 reece Exp $
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+=head1 NAME
+
+mkinfodir -- make info dir nodes
+
+S<$Id: mkinfodir.pl,v 0.9 1998/09/29 05:02:03 reece Exp $>
+
+=head1 SYNOPSIS
+
+B<mkinfodir> infofiles
+
+=head1 OPTIONS
+
+=item B<--version>, B<-V>
+
+print version information and exit
+
+=head1 DESCRIPTION
+
+B<mkinfodir> produces an index of the specified info(1) files on stdout.
+The output is suitable for use as a dir file in an info directory.  The
+topics, description, filename, and info dir section are determined from
+(in order) the input files, from internal defaults, or a a simple-minded
+guess.  Only one entry is made, even if the file is listed redundantly on
+the command line or multi-part info files are specified.
+
+Files with the .gz suffix are temporarily decompressed with B<gzip>(1).
+Only the top node of Multipart info files are utilized.
+
+Each info topic appears is exactly one section.  The section is obtained
+from a INFO-DIR-SECTION entry in the info file or by internal defaults; it
+is 'Miscellaneous' otherwise.
+
+The dir entry and description may be obtained from the info file if
+specified by START-INFO-DIR-ENTRY, or from a paragraph in older
+B<makeinfo>-generated info files.  If neither is found, an internal
+default is used if it exists; otherwise the dir entry description is
+blank.
+
+=head1 RETURN VALUES
+
+always 0.
+
+=head1 EXAMPLES ($ is your prompt)
+
+$ mkinfodir /usr/info/* >/usr/info/dir
+
+=head1 SEE ALSO
+
+B<info(1)>, B<makeinfo(1)>
+
+@@banner@@
+
+=cut
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+use FileHandle;
+use POSIX;
+use Getopt::Mixed 1.006;
+use vars qw( $RCSId $jemappelle $opt_version );
+
+$RCSId = '$Id: mkinfodir.pl,v 0.9 1998/09/29 05:02:03 reece Exp $ ';
+($jemappelle=$0) =~ s,^.*/,,;
+
+my(@OPTS)=
+  (
+   'version     V>version',
+  );
+Getopt::Mixed::getOptions(@OPTS);
+
+if ($opt_version) 
+  {print($RCSId,"\n"); exit(0);}
+
+# Read built-in descriptions; see __END__ below
+while(<DATA>)
+  {
+  my(@F) = split(/\s*\t\s*/);				# delim of text following __END__
+  if ($#F==3)
+	{($section{$F[0]}, $title{$F[0]}, $desc{$F[0]}) = @F[1,2,3]}
+  else
+	{warn($jemappelle, ": couldn't parse info default line:\n  $_")}
+  }
+
+
+my ($fh) = new FileHandle;
+while ( $#ARGV >= 0 )
+  {
+  my ($fn) = shift;
+  next if ( ($fn=~/dir.*/) or ($fn=~/\.info-\d/) or ($fn=~/-\d/) );
+
+  if (    ( $fn=~m/\.gz/ and $fh->open("gzip -cdq $fn|") )
+	   or ( $fh->open("<$fn") ) )
+	{parseinfofile($fn,$fh)}
+  else
+	{warn($jemappelle, ": $fn: $!\n")}
+  }
+
+
+
+print("Info directory node written by\n$RCSId\nhttp://www.in-machina.com/~reece/src/mkinfodir.pl\n",
+'
+File: dir,  Node: Top
+
+Info main menu
+==============
+
+  A few useful info commands are:
+    h   Enter a short tutorial on info.
+    d   Return to this menu.
+    ?   List all info commands.
+    q   Quit info.
+
+Not all of the topics shown below may be available on your system.
+
+* Menu:
+');
+foreach $section (sort {uc($a) cmp uc($b)} keys %topics)
+  {
+  printf("%s\n%s\n", $section, '='x(length $section));
+  #foreach $itref (sort {uc($a->title) cmp uc($b->title)} @{$topics{$section}})
+  foreach $itref (sort {uc($a->title) cmp uc($b->title)} (values %{$topics{$section}}) )
+	{print($itref->line)}
+  print("\n");
+  }
+exit(0);
+
+
+
+
+sub parseinfofile ($$)
+  {
+  my ($fn,$fh) = @_;
+  my ($section,$itref);
+  my ($root) = rootfile($fn);
+
+  while(<$fh>)
+	{
+	if (m/^\s+This file documents\s+(.+)/)
+	  {
+	  my ($desc) = $1;
+	  while(<$fh>)
+		{
+		last if /^\s*$/;
+		$desc .= ' ' . $_;
+		}
+	  #while ($desc =~ s/^(?:$root|is|a|an|the)(?:\s+|,|:)//ig) {}
+	  $desc =~ s/\s{2,}|\n+/ /;
+	  chomp($desc);
+	  addtopic($root,$section,$root,$root,undef,$desc);
+	  return(0);
+	  }
+
+	elsif ((not defined $section) and m/INFO-DIR-SECTION\s+(.+)/)
+	  {$section=$1}
+	elsif (m/^START-INFO-DIR-ENTRY/)
+	  {
+	  while(<$fh>)
+		{
+		last if (m/^END-INFO-DIR-ENTRY/);
+		if ( m/^\*\s+([^:]+):\s+\(([^\)]+)\)([^\.]*)\.\s+(.+)/ )
+		  {addtopic($root,$section,$1,$2,$3,$4)}
+		}
+	  return(0);
+	  }
+	}
+
+  # No info topic info from file; guess a reasonable entry
+  addtopic($root,$section,undef,$root,undef,undef);
+  }
+
+sub rootfile
+  {
+  my($root) = @_;
+  $root =~ s%^.+/%%; $root =~ s%(\.info)?(-\d+)?(\.gz)?$%%;
+  return $root;
+  }
+
+sub addtopic
+  {
+  my ($root,$section,$title,$file,$node,$desc) = @_;
+  my ($itref);
+  $section = $section{$root} if (not defined $section);
+  $section = 'Miscellaneous' if (not defined $section);
+  $title   = $title{$root}   if (not defined $title);
+  $title   = $root           if (not defined $title);
+  $node    = ''              if (not defined $node);
+  $desc    = $desc{$root}    if (not defined $desc);
+  $desc    = ''              if (not defined $desc);
+  $itref = new InfoTopic;
+  $itref->stuff($title,$file,$node,$desc);
+  $topics{$section}{$title} = $itref;
+  return($itref);
+  }
+
+sub fitwords
+  {
+  my ($wref,$len) = @_;
+  my ($hyphenate, $bal, $text);
+  my ($hyphlimit) = 4;
+  $text = '';
+  while( ($#$wref>=0) 
+		 and (($bal = $len - length($text) - (length($text) != 0))  >  0 ) )
+	{
+	my ($nextword) = shift(@$wref);
+	my ($toadd);
+	if    ( length($nextword) <= $bal )
+	  {
+	  $toadd = $nextword;
+	  }
+	elsif (    ( ($bal >= $hyphlimit) and (length($nextword)-$bal >= $hyphlimit) )
+			or ( (length($text)==0) and (length($nextword)>$len) ) )
+	  {
+	  unshift(@$wref,substr($nextword,$bal-1));
+	  $toadd=substr($nextword,0,$bal-1).'-';
+	  }
+	
+	if (not defined $toadd) {unshift(@$wref,$nextword); last}
+	$text .= ' ' if (length($text) != 0);
+	$text .= $toadd;
+	}
+  return($text);
+  }
+
+
+package InfoTopic;
+sub new {my($self)=bless {}; shift; $self->stuff(@_) if ($#_>=0); $self;}
+sub stuff
+  {
+  my ($self) = shift;
+  $self->title(shift) if ($#_>=0);
+  $self->file(shift)  if ($#_>=0);
+  $self->node(shift)  if ($#_>=0);
+  $self->desc(shift)  if ($#_>=0);
+  }
+sub file  {if (defined $_[1]) {$_[0]->{file}  = $_[1]; $_[0]=~s%^.+/%%; $_[0]=~s%\.info$%%;}
+		   $_[0]->{file} }
+sub title {if (defined $_[1]) {$_[0]->{topic} = $_[1]};
+		   defined $_[0]->{topic} ? $_[0]->{topic} : $_[0]->file }
+sub node  {if (defined $_[1]) {$_[0]->{node}  = $_[1]};
+		   defined $_[0]->{node} ? $_[0]->{node} : '' }
+sub desc  {if (defined $_[1]) {$_[0]->{desc}  = $_[1]};
+		   defined $_[0]->{desc} ? $_[0]->{desc} : '' }
+sub line
+  {
+  my ($linew) = 80;
+  my ($linkw) = 30;
+  my (@desc) = split(/\s+/,$_[0]->desc);
+  my ($text) = '';
+  $text .= sprintf("* %-${linkw}s ", $_[0]->title . ': (' . $_[0]->file . ')' . $_[0]->node . '.');
+  $text .= main::fitwords(\@desc, $linew-length($text)-3) . "\n";
+  while( $#desc >= 0 )
+	{
+	$text .= ' 'x(2+$linkw+1) . main::fitwords(\@desc, $linew-2-$linkw-1) . "\n";
+	}
+  $text;
+  }
+
+
+# The following are default sections, titles, and descriptions for info files.
+# The defaults will be overridden by the information embedded within newer info 
+# files.  This information is used to produce an info entry of the form
+#
+#   section
+#   ============
+#   * title: (fileroot).          description
+#
+# such as the following:
+#
+#   Emacs editor
+#   ============
+#   * mailcrypt: (mailcrypt).     cryptography interface for Emacs
+#
+# fileroot is used to match names given on the command line.
+#
+# The delim is \s*\t\s* (see split call above).
+# fileroot	section				title			description
+__END__		
+as			Programming			as				GNU assembler `as'.
+autoconf	Programming			autoconf		Cygnus Source Configuration Tools
+bash		Miscellaneous		bash			Bourne Again Shell.
+bfd			Programming			bfd				GNU Binary File Descriptor library
+binutils	Programming			Binutils		GNU binary utilities "ar", "objcopy",
+bison		Programming			bison			Bison, the GNU yacc.
+cc-mode		Programming			cc-mode			Mode for editing C, C++, Objective-C, and Java code
+cfg-paper	Programming			configuration	Some theory on configuring source.
+cl			Emacs editor		cl				Emacs Lisp facilities borrowed from Common Lisp.
+configure	Programming			configure		Cygnus configure.
+cpp			Programming			cpp				C preprocessor.
+custom		Emacs				custom			User customization library.
+cvs			Programming			cvs				Concurrent Versions System
+dc			Miscellaneous		dc				Arbitrary precision calculator.
+diff		Miscellaneous		diff			GNU `diff'.
+dosemu		Miscellaneous		dosemu			Linux DOS Emulator.
+dvips		Miscellaneous		dvips			TeX DVI to PostScript converter.
+ed			Miscellaneous		ed				GNU ed.
+ediff		Emacs Modes			ediff			File difference and merging mode.
+elisp		Emacs editor		elisp			GNU Emacs Lisp reference.
+emacs		Emacs editor		emacs			It's big. It's powerful. It edits text.
+fileutils	GNU File Utilities	File utilities	GNU file utilities.
+find		Miscellaneous		Finding Files	Listing and operating on matching files.
+fontname	Miscellaneous		Naming fonts	Filenames for TeX fonts.
+forms		Emacs editor		forms			Emacs forms mode
+gasp		Programming			gasp			GASP assembly preprocessor.
+gawk		Miscellaneous		gawk			GNU `awk'.
+gcal		Miscellaneous		gcal			GNU `cal'.
+gcc			Programming			gcc				GNU C compiler.
+gdb			Programming			gdb				GNU debugger.
+gdbint		Programming			gdbint			GDB internals.
+git			Miscellaneous		git				GNU Interactive Tools
+gmp			Local Installations	gmp				GNU Multiple Precision Arithmetic Library.
+gnus		Emacs editor		gnus			An Emacs-bases NNTP newsreader.
+gperf		Programming			gperf			A perfect hash function generator utility.
+gpm			Linux				gpm				general purpose mouse interface.
+gprof		Programming			gprof			Profiling your program's execution
+graphics	Miscellaneous		graphics		GNU graphics utilities
+gzip		Miscellaneous		gzip			GNU compression utility.
+history		Programming			history			GNU history library.
+hyperbole	Miscellaneous		hyperbole		information management and hypertext system
+indent		Programming			indent			GNU indent
+info		Info-related topics	info			info browsing system.
+info-stnd	Info-related topics	info-stnd		GNU stand-alone info reader.
+iostream	Programming			iostream		GNU C++ iostream library. (`libio')
+ipc			Programming			ipc				System V IPC functions.
+ispell		Miscellaneous		ispell			`ispell' -- a spelling checker.
+jed			Miscellaneous		JED				JED editor documentation.
+kpathsea	Programming			Kpathsea		File lookup along search paths.
+ld			Programming			Ld				GNU linker.
+libg++		Programming			libg++			GNU C++ library.
+linux-faq	Linux				linux-faq		Linux FAQ List
+lispref		Programming			lispref			xemacs LISP reference manual
+m4			Miscellaneous		m4				GNU m4 macro preprocessor.
+mailcrypt	Emacs editor		mailcrypt		cryptography interface for Emacs
+make		Programming			make			GNU `make' utility.
+makeinfo	Info-related topics	makeinfo		`makeinfo' program.
+message		Miscellaneous		message			message composition mode
+mh			Miscellaneous		mh				MH mail handling system.
+mh-e		Miscellaneous		mh-e			Emacs mh mail interfaace
+netcdf		Miscellaneous		netcdf			Unidata netCDF library
+octave		Miscellaneous		octave			Octave - A language for numerical computation.
+perl		Programming			perl			Perl scripting language
+readline	Programming			readline		GNU readline library.
+sc			Miscellaneous		sc				Supercite attribution package.
+sh-utils	GNU Shell Utilities	Shell utilities	GNU shell utilities.
+sharutils	Miscellaneous		Shar utilities	GNU set of shar utilities.
+stabs		Programming			stabs			`stabs' debugging format.
+standards	Miscellaneous		standards		GNU coding standards
+supercite	Miscellaneous		supercite		message citation package
+tar			Miscellaneous		tar				Making tape (or disk) archives.
+texinfo		Texinfo documentation system	texinfo	Texinfo documentation system.
+textutils	GNU Text Utilities	Text utilities	GNU text utilities.
+time		Miscellaneous		time			`time' resource usage utility.
+tput		Miscellaneous		tput			Portable terminal control for shell scripts.
+umb-scheme	Miscellaneous		scheme			UMB Scheme.
+uucp		Miscellaneous		uucp			Taylor UUCP -- Unix to Unix CP.
+vip			Emacs editor		vip				An Emacs VI emulation package.
+viper		Emacs editor		viper			Another Emacs VI emulation package.
+vm			Miscellaneous		vm				VM mail package
+xemacs-faq	Emacs				XEmacs-faq		XEmacs Frequently Asked Questions
+zsh			Miscellaneous		zsh				Z shell

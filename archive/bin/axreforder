@@ -1,0 +1,50 @@
+#!/usr/local/bin/perl -w
+# $Id: axreforder.pl,v 0.1 1998/09/17 13:20:58 reece Exp $
+# check references in an applix document
+# orders by first use, as in a bibliography
+# usage: 
+#   axreforder.pl tag file.aw
+# where tag is the prefix regexp for a class of references (e.g. "ref", "fig", "tbl") 
+
+$tagpfx = shift
+  || die("no tag prefix");
+
+while(<>)
+  {
+  last if /<T \"Abstract\">/;
+  }
+
+while(<>)
+  {
+  if( (/xref\s+\\"($tagpfx\:.+)\\"/) 
+	  and (not defined $u{$1}) )
+	{
+	# ref first used
+	push(@u,$1);
+	$u{$1}=$#u;
+	}
+  elsif (/xref_source\s+\\"($tagpfx:.+)\\"/)
+	{
+	# ref defined
+	if(defined $d{$1})
+	  {warn("$1 defined more than once (line $.)\n");next}
+	push(@d,$1);
+	$d{$1}=$#d;
+	}
+  }
+
+# now we have %u and %d hashes of the order of used and defined tags
+# and @u and @d of the usage and definition order
+
+# unused: defined, not used
+@uu = sort( grep {not defined $u{$_}} @d);
+
+print("$tagpfx definition order should be (o=out of order, x=undefined):\n",
+	  map(sprintf("  %1.1s %3d $_%s\n",
+				  (defined $d{$_}
+				   ? (($u{$_}==$d{$_}?'':'o'), 1+$u{$_}, ($u{$_}==$d{$_}?'':' ('.(1+$d{$_}).')'))
+				   : ('x',1+$u{$_},''))), @u),
+	  "\n");
+print(1+$#uu,
+	  " unused:\n", map(sprintf("  $_ (%d)\n",$d{$_}),
+						sort {$d{$a} <=> $d{$b}} @uu)) if @uu;

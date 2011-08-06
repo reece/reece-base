@@ -1,0 +1,31 @@
+#!/usr/local/bin/perl -w
+# usage: webhits.pl regexp files 1>hits 2>hitcount
+
+use FileHandle;
+
+$re = shift;
+$fh = new FileHandle;
+$tothits = 0;
+for $f (@ARGV)
+  {
+  my(%hit);
+  if ($f =~ /\.gz$/) {$oc = "gzip -dcq $f|"}
+  else {$oc = "<$f"};
+  if ($fh->open($oc))
+	{
+	while(<$fh>)
+	  {
+	  if (m%^(\S+).+GET .+?$re%)
+		{
+		print($_);
+		$hit{$1}++;
+		}
+	  }
+	$fh->close();
+	}
+  $hits = keys %hit;
+  $tothits += $hits;
+  printf(STDERR "%8d %s\n", $hits, $f);
+  }
+printf(STDERR "\n");
+printf(STDERR "%8d %s\n", $tothits, 'Total Hits');

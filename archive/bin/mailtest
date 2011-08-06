@@ -1,0 +1,16 @@
+#!/bin/sh
+
+key=`/bin/date "+$$"`
+
+while read a; do
+	echo "$a..." 1>&2
+	echo "Subject: mail test to $a [$key]" | sendmail $a
+done <<EOF
+reece@harts.net
+reece@in-machina.com
+harts@harts.net
+unison@unison-db.org
+rkh@gene.com
+EOF
+
+# reece@208.97.132.20

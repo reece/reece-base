@@ -1,0 +1,65 @@
+#!/bin/ksh
+##
+## $RCSfile: llsfp.ksh,v $
+## $Revision: 1.1 $
+## $Date: 1996/01/12 01:35:24 $
+##
+## SYNOPSIS
+##   llsfp [ dirlist ]
+##   llsfp - [ firstdir ]
+##
+## DESCRIPTION
+##   ls -lR returns a group of filenames for each directory, and the
+## entire group is prefixed by the path to that directory.  For some applications,
+## the filepath is preferred.  This source converts ls -lR output to a filepath.
+## i.e.
+## from this:
+##    [reece@dasher:236]: ls -lRF dir1
+##    total 1
+##    drwxr-xr-x   2 reece    user         512 Apr 24 16:32 dir2/
+##
+##    dir1/dir2:
+##    total 232
+##    -rw-r--r--   1 reece    user      226254 Apr 24 16:32 somefile
+## to this:
+##    [reece@dasher:237]: llsfp dir1
+## or [reece@dasher:238]: ls -lRF dir1 | llsfp - dir1
+##    drwxr-xr-x   2 reece    user         512 Apr 24 16:32 dir1/dir2/
+##    -rw-r--r--   1 reece    user      226254 Apr 24 16:32 dir1/dir2/somefile
+##
+## AVAILABILITY
+##   http://dasher.wustl.edu/~reece/bin/
+##
+## SOURCE
+## Reece Kimball Hart                 |Internet: reece@dasher.wustl.edu
+## Biophysics & Biochemistry, Box 8231|WWW URL:  http://dasher.wustl.edu/~reece
+## Washington Univ. School of Medicine|Phone:    (314) 362-4198 (lab)
+## 660 South Euclid                   |                   -7183 (fax)
+## St. Louis, Missouri  63110    (USA)|PGP public key available by finger & WWW
+## 
+
+if [ ${1:-unset} = "-" ]
+then
+	dir=${2:-}
+	dir=${dir%/}
+	sed -e "s/ -> .*//g" \
+	| nawk -v fdi=45 -v DIR=${dir} '
+/:$/{DIR=$1;sub(":$","",DIR);continue}
+/^total|^$/{continue}
+{PRE=substr($0,1,fdi-1); FN=substr($0,fdi+1); if (DIR!="") print PRE" "DIR"/"FN; else print PRE" "FN}'
+
+else
+
+for dir in $*
+do
+	dir=${dir%/}
+	/bin/ls -lR $dir \
+	| sed -e "s/ -> .*//g" \
+	| nawk -v DIR=${dir} '
+/:$/{DIR=$1;sub(":$","",DIR);continue}
+/^total|^$/{continue}
+{PRE=substr($0,1,53); FN=substr($0,55); if (DIR!="") print PRE" "DIR"/"FN; else print PRE" "FN}'
+done
+
+fi
+

@@ -1,0 +1,63 @@
+#!/usr/local/bin/perl -w
+
+%map3 =
+  (
+   ALA => A,
+   CYS => C,
+   ASP => D,
+   GLU => E,
+   PHE => F,
+   GLY => G,
+   HIS => H,
+   ILE => I,
+   LYS => K,
+   LEU => L,
+   MET => M,
+   ASN => N,
+   PRO => P,
+   GLN => Q,
+   ARG => R,
+   SER => S,
+   THR => T,
+   VAL => V,
+   TRP => W,
+   TYR => Y
+   );
+
+#@s3 = qw( ALA CYS ASP );
+#print( $map3{$s3[0]}, "\n" );
+#print( map($map3{$_}, @s3), "\n");
+#exit;
+
+
+while(<>)
+  {
+  if (/^SEQRES\s+\d+ (.)\s+\d+\s+(.+)/)
+	{
+	my ($cid,$s3) = ($1,$2);
+	if ( (defined $lcid) and ($lcid ne $cid) )
+	  {
+	  pseq("$ARGV$lcid",\@s);
+	  undef @s;
+	  undef $lcid;
+	  }
+	next unless $s3 =~ /\w{3}/;;
+	my(@s1) = map( exists $map3{$_} ? $map3{$_} : '?', split(' ',$s3) );
+	push(@s, @s1);
+	$lcid = $cid;
+	}
+  elsif (eof and defined @s)
+	{
+	pseq("$ARGV$lcid",\@s);
+	undef @s;
+	undef $lcid;
+	}
+  }
+
+sub pseq
+  {
+  my($t) = shift;
+  $t =~ s/\.pdb//;
+  print( $t, ' ', @{$_[0]}, "\n");
+  }
+

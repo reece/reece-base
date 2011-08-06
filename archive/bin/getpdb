@@ -1,0 +1,411 @@
+#!/bin/ksh
+##
+## $RCSfile: getpdb.ksh,v $
+## $Revision: 1.11 $
+## $Date: 1996/04/10 21:54:06 $
+##
+## NAME
+## getpdb -- get the current release of the Protein Data Bank
+##
+## SYNOPSIS
+## getpdb [-cc|-help|-k|-n|-v|-version]
+##   -cc    use current contents.lis file
+##   -help  print help
+##   -k     keep temp files
+##   -n     dry run
+##   -v     verbose ftp
+##   -version  print version
+##
+## DESCRIPTION
+##   getpdb is a ksh script which maintains a local mirror of the
+## Protein Data Bank. It requires only standard Unix utilities (ftp,
+## sed, nawk, cut, zcat).  It tries to get only files which have
+## changed since the last invocation of getpdb: new or updated files
+## are retrieved and obsolete files are removed.  Local additions are
+## not removed.  Any files which were removed locally are replaced.
+## Retrieved files are decompressed, trimmed of the filler text, and
+## renamed (e.g., pdb1crn.ent.Z becomes 1crn.pdb).
+##   The mechanism used to determine added, deleted, or changed files
+## is simplistic and is based on a textual comparison of the
+## contents.lis file from the current and previous invocations of
+## getpdb.  This list is subsequently augmented by any files which are in
+## the pdb distribution but are not in the pdb directory.
+##
+## CAVEATS & BUGS
+## 1) There's currently no facility to get only parts of the PDB.  I'll do
+##    this later.
+## 2) Errors aren't handled very gracefully.  In particular, the ftp
+##    process is assumed to succeed.  Any unreceived files /will/ be
+##    shown as missing, but they'll not be reattempted.  The list of
+##    local files ($PDBDIR/$CONTENTSfn) will be updated anyway and
+##    become out of sync with the local files. Rerunning getpdb should
+##    get the missing files.
+## 3) If someone else owns $TMPDIR/contents.lis, ftp will fail.  You'll
+##    get a message like "$TMPDIR/contents.lis: not owner".  getpdb will
+##    use the existing version, which might be out of date.  I'll fix this
+##    later
+## 
+## EXAMPLES
+## $ getpdb -v -n -k
+##   prints which files would be retrieved and removed and keeps the
+##   contents.lis in $TMPDIR.
+## $ getpdb -v -cc > getpdb-log 2>&1 &
+##   performs the retrieval using the contents.lis which was preserved
+##   from the first example, and logs to getpdb-log (sh syntax).
+##   contents.lis is retained upon completion.
+##
+## REQUIREMENTS AND COMPATIBILITY
+## - ksh-compatible shell (pdksh, bash should work)
+## - standard unix utilities (comm, sed, nawk, zcat, cat, etc.)
+## - >1.1Gb disk space
+## - Tested platforms:
+##   alpha-dec-osf13.2
+##   mips-sgi-irix5.3
+## 
+## INSTALLATION
+## 1) Put in a convenient place.  Your pdb directory is a good choice.
+## 2) Make it executable (e.g., chmod 755 getpdb)
+## 2) Edit this file below as specified, or set the environment variables
+##    appropriately in your shell.
+##
+## @@banner@@
+## 
+
+
+###############################################################################
+##                                                                           ##
+##             YOU MAY NEED TO CHANGE THE FOLLOWING FOR YOUR SITE            ##
+##                                                                           ##
+###############################################################################
+
+# PDBDIR is the local pdb coordinate directory.  Needs ~1.2Gb as of 950606.
+PDBDIR=${PDBDIR:-/data/pdb/coords}
+
+# TMPDIR is where you'd like temporary files stored; it defaults to /var/tmp
+TMPDIR=${TMPDIR:-/var/tmp}
+
+# FTPPASS is your email address
+FTPPASS=
+
+# PATH is a colon delimited list of directories in which the following
+# programs can be found:
+# cat, comm, cut, ftp, mv, nawk, paste, rm, sed, sort, xargs, zcat
+PATH=/sbin:/bin:/usr/bsd
+
+
+###############################################################################
+##                                                                           ##
+##         YOU SHOULD NOT NEED TO CHANGE ANYTHING BEYOND THIS POINT          ##
+##                                                                           ##
+###############################################################################
+
+## tmpfn
+# imported from http://dasher.wustl.edu/~reece/src/tmpfn
+tmpfn ()
+	{
+	while [ $# -gt 0 ]
+	do
+		case $1 in
+			-p)	shift; PREFIX=${1##*/}; shift;;
+			-d) shift; TMPDIR=$1; shift;;
+			-c) TOUCHIT=TRUE; shift;;
+			*)
+				echo "usage: ${0##*/} [-p prefix | -d tempdir | -c]"; exit 1;;
+		esac
+	done
+
+	[ -n "$TMPDIR" ] || TMPDIR=/tmp
+	[ -n "$PREFIX" ] || PREFIX=tmpfn
+
+	if [ -d "$TMPDIR" -a -w "$TMPDIR" ]
+	then
+		FN=""
+		until [ ! -a ${FN} ]
+		do
+			FN=${TMPDIR}/${PREFIX}-$RANDOM
+		done
+		[ -n "$TOUCHIT" ] && touch $FN
+		echo $FN
+		exit 0
+	else
+		echo "$0: FATAL: directory $TMPDIR doesn't exist or isn't writable"
+		exit 1
+	fi
+	}
+
+## ftpscript
+# This function takes files to get on stdin.  It's the skeleton of
+# http://dasher.wustl.edu/~reece/src/ftpscript.
+ftpscript ()
+	# args: [-v] FTPHOST FTPLOGIN FTPPASS
+	{
+	if [ "$1" = "-v" ]; then VERBOSE=-v; shift; fi
+
+	TMPfn=`tmpfn`
+	cat << EOF > $TMPfn
+open $1
+user $2 $3
+EOF
+	cat >> $TMPfn
+	ftp -n $VERBOSE < $TMPfn
+	rm -f $TMPfn
+	}
+
+
+## initialize some variables
+RCSId="\$Id: getpdb.ksh,v 1.11 1996/04/10 21:54:06 reece Exp $"
+FTPHOST=ftp.pdb.bnl.gov
+FTPLOGIN=anonymous
+RMTPDBDIR=all_entries
+CONTENTSfn=contents.lis
+STATUSfn=files.list
+APPNAME=${0##*/}
+
+LOCALCONTENTSfn=${TMPDIR}/${CONTENTSfn}
+THEIRSTATUSffn=`tmpfn -p theirstatus`
+OURSTATUSffn=${TMPDIR}/${STATUSfn}
+TOGETffn=`tmpfn -p to-get`
+TODELETEffn=`tmpfn -p to-delete`
+
+CURRENTCONTENTS=FALSE
+DIDSOMETHING=FALSE
+VERBOSE=
+DRYRUN=FALSE
+KEEPTEMPS=FALSE
+
+# default FTPPASS to user@host if it's unspecified.  This default probably
+# won't include the FQDN, but it's better than nothing.
+FTPPASS=${FTPPASS:-${USER}@`hostname`}
+FTPPASS="$FTPPASS (getpdb)"
+
+## make sure we have a writable tmp directory
+if ! [ -d "${TMPDIR}" -a -r "${TMPDIR}" -a -w "${TMPDIR}" ]
+then
+	echo "${APPNAME}: temporary directory ${TMPDIR} doesn't exist or isn't readable and writeable"
+	exit 1
+fi
+
+## parse the command line
+while [ $# -ge 1 ]
+do
+	case $1 in
+		-n)	DRYRUN=TRUE; shift;;
+		-cc) CURRENTCONTENTS=TRUE; shift;;
+		-k) KEEPTEMPS=TRUE; shift;;
+		-v) VERBOSE=-v; shift;;
+		-help) sed -n -e "2,/^$/p" $0 | more; exit 0;;
+		-version) echo "$RCSId"; exit 0;;
+		*) echo "${APPNAME}: $1: flag not recognized.  Try -help."; exit 1;;
+	esac
+done
+
+## make sure PDBDIR is a directory and is writable
+if [ ! -d "${PDBDIR}" -o ! -r "${PDBDIR}" ]
+then
+	echo "${APPNAME}: FATAL: directory ${PDBDIR} doesn't exist or isn't readable."
+	exit 1
+else
+	if [ "${DRYRUN}" = "FALSE" ] && ! [ -w "${PDBDIR}" ]
+	then
+		echo "${APPNAME}: FATAL: ${PDBDIR} isn't writable."
+		exit 1
+	fi
+fi
+
+cd ${PDBDIR}
+
+echo "$RCSId"
+echo started at `date "+%Y/%m/%d %H:%M"`
+echo for directory $PDBDIR/
+echo
+
+# get the contents.lis by ftp, or use the current one if so directed
+if [ "${CURRENTCONTENTS}" = "TRUE" ]
+then
+	# try to use an existing contents.lis file
+	if [ -f "${LOCALCONTENTSfn}" ]
+	then
+		echo "${APPNAME}: Using current ${LOCALCONTENTSfn}."
+	else
+		echo "${APPNAME}: FATAL: -cc specified and ${LOCALCONTENTSfn} not found."
+		exit 1
+	fi
+else
+	# get the current contents (a ls -l listing) from the pdb server
+	# This assumes that contents.lis is essentially an ls -l on all_entries.
+    # If it's not, a command like "ls -l all_entries contents.lis" would
+	# more appropriate (that's untested).
+	echo "${APPNAME}: getting ${CONTENTSfn} from ${FTPHOST}..."
+	echo "get all_entries/${CONTENTSfn} ${LOCALCONTENTSfn}" | ftpscript $VERBOSE ${FTPHOST} ${FTPLOGIN} "${FTPPASS}"
+fi
+
+
+# hack the contents file to create a file in the following format:
+# <id>:<size> <date>  (e.g., "108d: 530215 Jun  3 07:11")
+# where <id> is 4 chars, <size> is 7 chars, <date> is 12 chars
+# this is the file we store when all's complete
+grep "\.ent\.Z$" ${LOCALCONTENTSfn} \
+| cut -c26- \
+| sed -e "s/\(.*\) pdb\(.*\)\.ent\.Z$/\2:\1/g" \
+| sort \
+> ${THEIRSTATUSffn}
+if [ $? -ne 0 ]
+then
+	echo "${APPNAME}: FATAL: coulnd't open ${LOCALCONTENTSfn}!"
+	exit 1
+fi
+
+
+# $STATUSfn is the list of files we got in a previous session
+# touch it to create an empty file if it doesn't exist
+if [ -f "${PDBDIR}/${STATUSfn}" ]
+then
+	ln -fs ${PDBDIR}/${STATUSfn} ${OURSTATUSffn}
+else
+	touch ${OURSTATUSffn}
+fi
+
+
+# we've now got two files in $TMPDIR.  One's the (possibly empty) status file,
+# which contains all of the files we've already downloaded.  The other is
+# a listing of the pdb ftp server's contents.  We'll do a complex series of
+# comms to determine what's out of date, what's missing, and what's obsolete.
+
+# uncomment the following to test on first 10 entries in ${LOCALCONTENTSfn}
+# head ${THEIRSTATUSffn} > ${THEIRSTATUSffn}top && mv ${THEIRSTATUSffn}top ${THEIRSTATUSffn}
+
+# get files which are new additions or updates to existing files
+comm -23 ${THEIRSTATUSffn} ${OURSTATUSffn} | cut -f1 -d: > ${TOGETffn}
+
+# and any which didn't change between editions and don't exist locally
+comm -12 ${THEIRSTATUSffn} ${OURSTATUSffn} | cut -f1 -d: | nawk -v FS=: '{print "[ -f "$1".pdb ] || echo "$1}' | sh >> ${TOGETffn}
+
+# to-get must be sorted in order to remove the from the to-delete list
+sort ${TOGETffn} > ${TOGETffn}.tmp && mv -f ${TOGETffn}.tmp ${TOGETffn}
+
+# get the files which were removed between editions
+# this doesn't remove local additions
+comm -13 ${THEIRSTATUSffn} ${OURSTATUSffn} | cut -f1 -d: | comm -23 - ${TOGETffn} > ${TODELETEffn}
+
+
+# do the deletions first to make space
+if [ -s "${TODELETEffn}" ]
+then
+	num=`cat ${TODELETEffn} | wc -l`
+	echo ${APPNAME}: You need to remove $num files:
+	nawk -v FS=: '{print $1".pdb"}' ${TODELETEffn} | paste - - - - -
+	if [ ! "${DRYRUN}" = "TRUE" ]
+	then
+		# remove obsolete files
+		echo "${APPNAME}: Removing obsolete files..."
+		nawk -v FS=: '{print $1".pdb"}' ${TODELETEffn} | xargs -t rm -f
+		DIDSOMETHING=TRUE
+	fi
+else
+	echo "${APPNAME}: No deletions from ${PDBDIR}/ were required"
+fi
+
+
+# and now do the retrievals
+if [ -s "${TOGETffn}" ]
+then
+	num=`cat ${TOGETffn} | wc -l`
+	echo ${APPNAME}: You need to get $num files:
+	nawk -v FS=: '{print $1".pdb"}' ${TOGETffn} | paste - - - - -
+	if [ ! "${DRYRUN}" = "TRUE" ]
+	then
+		echo "${APPNAME}: Getting new, missing, and updated files..."
+		nawk -v FS=: 'BEGIN {print "binary"} {print "get all_entries/compressed_files/pdb"$1".ent.Z pdb"$1".ent.Z"}' ${TOGETffn} | ftpscript ${VERBOSE} ${FTPHOST} ${FTPLOGIN} "${FTPPASS}"
+
+		# decompress and strip junk from end of files
+		echo "${APPNAME}: Decompressing and stripping files..."
+		for fn in `ls pdb*.ent.Z 2>/dev/null`
+		do
+			[ $VERBOSE ] && echo "${APPNAME}: processing $fn"
+			root=${fn#pdb}; root=${root%\.ent\.Z}
+			zcat $fn | cut -c 1-70 | sed -e 's/[ ]*$//g' > ${root}.pdb && rm -f $fn
+		done
+		DIDSOMETHING=TRUE
+	fi
+else
+	echo "${APPNAME}: No additions to ${PDBDIR}/ were required"
+fi
+
+
+if [ "${DIDSOMETHING}" = "TRUE" ]
+then
+	# double check: make sure everything's there that should be
+	TMPfn=`tmpfn`
+	nawk -v FS=: '{print "[ -f "$1".pdb ] || echo "$1".pdb"}' ${THEIRSTATUSffn} | sh > ${TMPfn}
+	if [ -s "${TMPfn}" ]
+	then
+		echo "${APPNAME}: The following should be in ${PDBDIR}/ but weren't found:"
+		paste - - - - - < ${TMPfn}
+		echo "${APPNAME}: You should try rerunning getpdb to get these files."
+	fi
+	rm -f ${TMPfn}
+
+	# preserve the current state
+	cp ${THEIRSTATUSffn} ${STATUSfn} || echo "${APPNAME}: WARNING: couldn't preserve current state in ${STATUSfn}"
+	rm -f ${THEIRSTATUSffn}
+fi
+
+
+# clean up
+if [ "${KEEPTEMPS}" = "FALSE" ]
+then
+	rm -f ${TODELETEffn} ${TOGETffn} ${OURSTATUSffn} ${THEIRSTATUSffn}
+	if [ "${CURRENTCONTENTS}" = "FALSE" ]
+	then
+		rm -f ${LOCALCONTENTSfn}
+	fi
+fi
+
+
+## $Log: getpdb.ksh,v $
+## Revision 1.11  1996/04/10 21:54:06  reece
+## * quoted all args to test ([)
+## * prints RCSId and run time on startup
+## * previously printed list of files to delete and get only when dry run; now
+##   prints number and list in both dry and normal run modes
+##
+## Revision 1.10  1995/07/20 15:43:36  reece
+## * PATH set explicitly
+## * now uses xargs for removing files
+## * fixed small bug in stripping files and uses zcat instead of gunzip -c
+## * bug fix: mistakenly updated files.list when files needed to be removed,
+##   none needed getting, and -n was given.
+##
+## Revision 1.9  1995/07/19  21:10:04  reece
+## Major update
+## * ftpscript and tmpfn now local; getpdb is now independent of other scripts
+## * hard-wired names only when necessary; tmp files are generated as needed
+## * numerous small aesthetic and execution changes
+##
+## Revision 1.8  1995/06/07  21:47:26  reece
+## * added -help, -version, -v flags
+## * improved documentation, added installation instructions
+## * documented user-specifiable variables
+##
+## Revision 1.7  1995/06/07  18:38:17  reece
+## * fixed bug in which a file might be both obtained and removed
+## * removes files before retrieving
+## * temp files now in /var/tmp
+## * -k flag to keep temp files
+## * internal representation of file and date changed; comparison and
+##   status files now use only filename, size, and date.  Comparison is
+##   no longer thrown off by insignificant changes in contents.lis (e.g.,
+##   changes in permissions, owner, etc.)
+## * added final check to ensure everything's intact
+##
+## Revision 1.6  1995/05/23  19:32:01  reece
+## replaced "ftpscript" and "tmpfn" with variable references to these
+## programs
+##
+## Revision 1.1  1995/04/26  03:03:21  reece
+## now uses ftpscript
+## -n flag for DRYRUN to see what needs to be done
+##
+## Revision 1.0  1995/04/25  20:16:46  reece
+## Initial revision
+##

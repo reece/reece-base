@@ -1,0 +1,117 @@
+#!/bin/bash
+# x-cycle -- cycle through X modes for laptop display
+# 2008-06-13 11:22 Reece Hart <reece@harts.net>
+
+
+# desired modes
+
+# lvds only (laptop)
+# lvds+dvi mirror (dock)
+# lvds+vga mirror 
+# lvds+dvi xinerama
+# lvds+vga xinerama (presentation)
+
+
+# Note: I bind this to a metacity shortcut, like this:
+# gconftool -s /apps/metacity/keybinding_commands/command_1 -t string /home/reece/opt/reece-base/bin/x-cycle
+# gconftool -s /apps/metacity/global_keybindings/run_command_1 -t string '<Control><Shift><Alt>z'
+# just run 'x-cycle install'
+
+
+exec >>/tmp/xcycle-$UID.log 2>&1
+
+XCYCLE_STATE=/tmp/xcycle-$UID.state
+
+
+# doit -- verbosely execute something
+doit () {
+	echo "+$@" 1>&2
+	$@
+}
+
+log () {
+	notify-send "$@"
+	echo "#$@" 1>&2
+}
+
+lvds_only () {
+	doit xrandr --output DVI-0 --off --output VGA --off    --output LVDS --auto
+}
+
+lvds_dvi () {
+	doit xrandr --output VGA-0 --off   --output LVDS --auto  --output DVI-0 --auto --same-as LVDS
+}
+
+lvds_vga () {
+	doit xrandr --output DVI-0 --off   --output LVDS --auto  --output VGA-0 --auto --same-as LVDS
+}
+
+vga_1280x1024 () {
+	# # 1280x1024 @ 60.00 Hz (GTF) hsync: 63.60 kHz; pclk: 108.88 MHz
+	# Modeline "1280x1024_60.00"  108.88  1280 1360 1496 1712  1024 1025 1028 1060  -HSync +Vsync
+	xrandr --output VGA-0 --newmode "1280x1024"  108.88  1280 1360 1496 1712  1024 1025 1028 1060  -HSync +Vsync
+	xrandr --addmode VGA-0 "1280x1024"
+    xrandr --output VGA-0 --right-of LVDS --mode 1280x1024
+}
+
+vga_1024x768 () {
+	##  # 1024x768 @ 60.00 Hz (GTF) hsync: 47.70 kHz; pclk: 64.11 MHz
+	##  Modeline "1024x768_60.00"  64.11  1024 1080 1184 1344  768 769 772 795  -HSync +Vsync
+	xrandr --output VGA-0 --newmode "1024x768"  64.11  1024 1080 1184 1344  768 769 772 795  -HSync +Vsync
+	xrandr --addmode VGA-0 "1024x768"
+    xrandr --output VGA-0 --right-of LVDS --mode 1024x768
+}
+
+get_state () {
+	local S
+	if [ -f "$XCYCLE_STATE" ]; then
+		read S <$XCYCLE_STATE
+	else
+		S=0
+	fi
+	echo $S
+}
+
+write_state() {
+	echo >"$XCYCLE_STATE" "$1" 
+}
+
+install() {
+	(
+		local n=1
+		set -x
+		gconftool -s /apps/metacity/keybinding_commands/command_$n -t string "$0"
+		gconftool -s /apps/metacity/global_keybindings/run_command_$n -t string '<Control><Shift><Alt>z'
+	)
+}
+
+
+N_OPTIONS=3
+do_option () {
+	case "$1" in
+		0|lvds) lvds_only;;
+		1|dvi) lvds_dvi;;
+		2|vga) lvds_vga;;
+#		2|vga_1280*) vga_1280x1024;;
+#		3|vga_1024*) vga_1024x768;;
+
+		install) install;;
+
+		*) echo "$1 not grok'd" 1>&2; exit 1;;
+	esac
+}
+
+
+
+
+
+if [ -n "$1" ]; then
+	S="$1"
+else
+	S=$(get_state)
+	S=$(( ($S+1) % $N_OPTIONS ))
+fi
+
+do_option $S
+write_state $S
+log "set state $S"

@@ -1,0 +1,60 @@
+#!/usr/bin/env perl
+# apache-filter -- filter apache log files for lines worthy of statistics
+
+my @ignore_hosts_re = qw(
+						^crawl-
+						host305.hostmonster.com
+						^msnbot-
+					 );
+my $crawhosts_re = join('|',@ignore_hosts_re);
+$ignore_hosts_re = qr/$crawhosts_re/;
+
+
+my @ignore_agents_re = qw(
+				  Baiduspider
+				  CatchBot/1.0
+				  DotBot/
+				  Exabot/
+				  Googlebot/
+				  GurujiBot/
+				  MJ12bot/
+				  MLBot
+				  MULTIPRISE/Nutch-1.0
+				  NaverBot/
+				  OOZBOT/0.20
+				  ParchBot
+				  ScoutJet
+				  Sogou
+				  Sosospider
+				  Speedy
+				  SurveyBot/
+				  Tagoobot
+				  TurnitinBot/
+				  Twiceler-
+				  WeBot/
+				  WebAlta
+				  WebDataCentreBot/
+				  Yandex/
+				  YoudaoBot/
+				  discobot/
+				  msnbot/
+			   );
+my $ignore_agents_re = join('|',@ignore_agents_re);
+$ignore_agents_re = qr/$ignore_agents_re/i;
+
+
+while( <> ) {
+  my ($host,$path,$code,$size,$agent) = m/^(\S+) - - \[[^\]]+\] "([^"]+)" (\d+) (\S+) \S+ "([^"]+)"/;
+
+  if (not defined $host) {
+	warn("! didn't parse:\n  $_");
+	next;
+  }
+
+  next if ($host =~  m/$ignore_hosts_re/);
+  next if ($agent =~ m/$ignore_agents_re/);
+  next if (not $path =~ m%^GET (/cgi/|/\w+\.pl)%);
+
+  print;
+}
+

@@ -1,0 +1,25 @@
+#!/usr/local/bin/perl
+# $Id: clxyzpdb.pl,v 1.3 1996/12/09 23:01:54 reece Exp $
+
+use Tinker;
+
+($jemappelle=$0) =~ s,^.*/,,;
+
+foreach $file (@ARGV)
+  {
+  $strx=Tinker::readxyz($file) || do {warn "couldn't read $file"; next};
+  $strx=Tinker::xyzpdb(\$strx);
+  Tinker::printxyz(\$strx);
+  }
+exit(0);
+
+# $Log: clxyzpdb.pl,v $
+# Revision 1.3  1996/12/09 23:01:54  reece
+# *** empty log message ***
+#
+# Revision 1.2  1996/06/13 23:15:39  reece
+# * now uses xyzpdb in Tinker.pm
+#
+# Revision 1.1  1996/06/11 18:26:25  reece
+# * 1.1 generates pdb from scratch (doesn't use xyzpdb).  Generates result
+#   identical to xyzpdb for one file.

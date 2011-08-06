@@ -1,0 +1,55 @@
+#!/usr/local/bin/perl -w
+
+BEGIN  {$RCSId = '$Id: clsuperpose.pl,v 1.15 2000/07/22 22:59:43 reece Exp $ ';
+		print(STDERR "# $RCSId\n");}
+
+use Tinker;
+
+($jemappelle=$0) =~ s,^.*/,,;
+unshift(@ARGV,$ENV{$jemappelle}) if (defined($ENV{$jemappelle}));
+
+%options = %Tinker::options;
+Tinker::parseoptions(\%options);
+
+($#ARGV+1>=2)
+  || die($jemappelle, "usage: $jemappelle args file1 file2 [file...]\n");
+$fn1 = shift;
+$strx1 = Tinker::readxyz($fn1) 
+  || die($jemappelle,": can't read $fn1: $!\n");
+#$a1ref = Tinker::buildatoms(\$strx1);
+
+foreach $fn2 (@ARGV)
+  {
+  my($strx2,$rmsd,$strx);
+  $strx2 = Tinker::readxyz($fn2) 
+	|| warn "$jemappelle: can't read $fn2: $!\n";
+  ($strx,$rmsd) = Tinker::superpose(\$strx1,\$strx2,\%options);
+  Tinker::addcomment(\$strx,"$fn1 rmsd=$rmsd");
+
+  Tinker::printxyz(\$strx);					# write superposed structure to stdout
+
+  #$a2ref = Tinker::buildatoms(\$strx2);
+  #printf(STDERR "%s %s %10.4f %10.4f\n",$fn1,$fn2,$rmsd,eucldist($a1ref,$a2ref));
+  printf(STDERR "%s %s %10.4f\n",$fn1,$fn2,$rmsd);
+  }
+
+sub eucldist
+  {
+  my($a1,$a2)=@_;
+  my($d) = 0;
+  if ($#$a1 != $#$a2)
+	{
+	warn($jemappelle,
+		 sprintf(": structures have different numbers of atoms (%d v. %d)\n",$#$a1,$#$a2));
+	return(0);
+	}
+  for ($n=0; $n<=$#$a1-1; $n++)
+	{
+	$d += (
+		     ($a1->[$n]->{'x'} - $a2->[$n]->{'x'})**2
+		   + ($a1->[$n]->{'y'} - $a2->[$n]->{'y'})**2
+		   + ($a1->[$n]->{'z'} - $a2->[$n]->{'z'})**2
+		  );
+	}
+  return(sqrt($d));
+  }

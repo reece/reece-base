@@ -1,0 +1,34 @@
+#!/bin/bash
+# deliver-wrapper -- custom two-phase message deliver for harts.net
+# first the message is written to disk, then it's reclassified based on
+# headers (including spam assassin).
+
+HOME=/home/hartsnet
+PATH=$(dirname $0):/usr/bin:/bin
+
+tmp_dir="$HOME/tmp/mail/`date +%Y/%m/%d`"
+mkdir -p "$tmp_dir"
+
+msg_fn="$tmp_dir/`date +%Y%m%d-%H%M%S-$$`"
+
+(
+	date "+%Y-%m-%d %H:%M:%S: started"
+	type -p cat
+
+	# get this message to a temporary file ASAP
+	cat >"$msg_fn"
+	if [ "$?" != 0 ]; then
+		echo "$0: Failed to write file $msg_fn!"
+		exit 0
+	fi
+	
+	# move the message to the appropriate folder
+	mail-classify -v "$msg_fn"
+) 2>&1 \
+| sed -e "s/^/[$$] /" >>"$msg_fn.log"
+
+
+# exit 0 even if there's a problem so that messages don't appear to
+# bounce.  The worst that happens is that we'll end up with an
+# unclassified message in the tmp dir.
+exit 0

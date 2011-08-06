@@ -1,0 +1,8 @@
+#!/usr/local/bin/perl -w
+# Extract all urls in a document
+# $Id: xhrefs.pl,v 0.1 1998/02/27 04:21:59 reece Exp $
+undef $/;
+$_ = <>;
+while( m/<\s*a\s+href\s*=\s*"([^\"]+)"\s*>/igs )
+  {$href{$1}++}
+print(join("\n",sort keys %href),"\n");

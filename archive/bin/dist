@@ -1,0 +1,21 @@
+#!/bin/bash
+
+if [ $# -gt 1 ]; then
+	FROMID=$1
+	shift
+else
+	FROMID=SUS
+fi
+
+FROM=`fplan -l ${FROMID} | fgrep "NAME" | tail -1 | cut -c10-`
+echo "${FROMID} (${FROM}) to:"
+for TOID in $*
+do
+TO=`fplan -l ${TOID} | fgrep "NAME" | tail -1 | cut -c10-`
+
+DIST=`echo "from ${FROMID}; to ${TOID};" | \
+	fplan - | tail +10 | head -1 | cut -f3 -d\|`
+
+echo "  ${TOID} (${TO}) = ${DIST}nm"
+done
+

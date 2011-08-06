@@ -1,0 +1,25 @@
+#!/usr/local/bin/perl -w
+# digest sgf email from IGS and save to file
+
+use FileHandle;
+$open = 0;
+$ngames=0;
+while(<>)
+  {
+  if (!$open and m/^Subject: (\S+)/)
+	{
+	my($fn) = "/user/reece/xport/$1.sgf";
+	undef $fh;
+	$fh = new FileHandle;
+	$fh->open(">$fn")
+	  || die("$0: $fn: $!\n");
+	$ngames++;
+	}
+  elsif (m/^\(;/)	{$open = 1}
+  
+  print($fh $_) if ($open);
+
+  if (m/^\)/) {$open = 0}
+  }
+undef $fh;
+print($ngames, ' game',($ngames!=1?'s':'')," saved\n");

@@ -1,0 +1,93 @@
+#!/usr/local/bin/perl -w
+
+$m = 25;
+$fs = 10;
+$w = $h = 300;
+$uw = $w - 2*$m;
+$uh = $h - 2*$m;
+
+while(<>)
+  {
+  my(@F) = split;
+  if(@F==3)
+	{
+	my($v) = log($F[2]);
+	$cell[$F[0]][$F[1]] = $v;
+	minmax(\$rmin,\$rmax,$v);
+	minmax(\$dmin,\$dmax,@F[0,1]);
+	}
+  }
+printf(STDERR "range: [$rmin,$rmax]\n");
+$range = $rmax-$rmin;
+$drange = $dmax-$dmin;
+$bw = $uw / ($drange+1);
+$bh = $uh / ($drange+1);
+
+print('%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 ',$w,' ',$h,'
+%%Title: (',$ARGV,')
+%%Pages: 0
+%%Creator: na
+%%Invocation: ',$ARGV,'
+%%CreationDate: na
+%%For: na
+%%Magnification: 1
+%%Orientation: Portrait
+%%EndComments
+
+/BD {bind def} bind def
+/M  {moveto} BD
+/RM {rmoveto} BD
+/L  {lineto} BD
+/NP {newpath} BD
+/CP {closepath} BD
+/F  {fill} BD
+/SG {setgray} BD
+/SLW {setlinewidth} BD
+/S  {stroke} BD
+/FF {findfong} BD
+/ScF {scalefont} BD
+/SF {setfont} BD
+/R  {1 index 3 index 6 -2 roll 1 index 5 index NP M L L L CP} BD
+/LJ {show} BD
+/RJ {dup stringwidth neg exch neg exch RM show} BD
+/HJ {dup stringwidth exch 2 div neg exch RM show} BD
+/VJ {dup stringwidth 2 div neg RM show} BD
+
+',$m,' ',$m,' translate
+/lf {/Times-Roman findfont ',$fs,' scalefont setfont 0 setgray} BD
+');
+
+print("\n");
+for($r=$dmin; $r<=$dmax; $r++)
+  {
+  my($y) = ($r-$dmin)*$bw;
+  printf("lf %5.1f %5.1f M (%s) RJ\n",-10,$y+$bh/2,$r);
+  for($c=$dmin; $c<=$dmax; $c++)
+	{
+	next unless defined $cell[$r][$c];
+	my($x) = ($c-$dmin)*$bw;
+	my($gs) = 1 - ($cell[$r][$c] - $rmin) / $range;
+	printf("%5.1f %5.1f %5.1f %5.1f R %4.2f SG F %%%% [$r][$c]=%s\n",
+		   $x,$y,$x+$bw,$y+$bh,$gs,$cell[$r][$c]);
+	}
+  }
+printf("2 SLW 0 SG %5.1f %5.1f %5.1f %5.1f R S\n",
+	   0,0,$bw*($drange+1),$bh*($drange+1));
+print("lf\n");
+for($c=$dmin; $c<=$dmax; $c++)
+  {printf("%5.1f %5.1f M (%s) HJ\n",($c-$dmin)*$bw+$bw/2,-$fs-5,$c)}
+print('showpage
+');
+
+
+sub minmax
+  {
+  my($i);
+  my($min,$max,@vals) = @_;
+  for($i=0;$i<=$#vals;$i++)
+	{
+	$$max = $vals[$i] if (!defined $$max or $vals[$i]>$$max);
+	$$min = $vals[$i] if (!defined $$min or $vals[$i]<$$min);
+	}
+  }

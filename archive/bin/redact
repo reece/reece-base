@@ -1,0 +1,250 @@
+#!/usr/local/bin/perl -w
+
+##############################################################################
+## Customize here
+##############################################################################
+
+# {local,http,ftp}root should all refer to the same location, accessed via
+# the local filesystem, http, and ftp respectively.  If httproot is
+# undefined, no http url is generated; ditto for ftp.
+$opt_localroot = "$ENV{'HOME'}/pub";
+$opt_httproot  = 'http://www.in-machina.com/~reece';
+$opt_ftproot   = 'ftp://in-machina.com/pub/reece';
+				 
+# redactlib is where to find your banners.
+$opt_redactlib = "$ENV{'HOME'}/opt/lib/redact";
+
+# tagdelim is the string used to delimit include file tags
+$opt_tagdelim  = '@@';
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+=head1 NAME
+
+redact -- edit files for release and copy to public area
+
+S<$Id: redact.pl,v 0.24 1998/09/29 05:02:03 reece Exp $>
+
+=head1 SYNOPSIS
+
+C<redact [options] destdir [files...]>
+
+=head1 DESCRIPTION
+
+B<redact> formats files for distribution.  The input file is processed for
+variable substitutions and leading space tab expansions.  I use it to
+include a standard banner in all source code, specify the FTP and HTTP
+URLs where the code may be obtained, and strip the RCS strings of the RCS
+keywords and $.  File permissions are duplicated from the source to destination
+file.
+
+=head1 OPTIONS
+
+=over
+
+=item B<--ftproot> dir, B<-f> dir
+
+root of URL for ftp access
+
+=item B<--httproot> dir, B<-h> dir
+
+root of URL for http access
+
+=item B<--localroot> dir, B<-l> dir
+
+local base directory for public files
+
+=item B<--libdir> dir, B<-L> dir
+
+where you keep redact-included files
+
+=item B<--nodot>
+
+strip leading periods from filenames
+
+=item B<--rcs>, B<-r>
+
+remove RCS $ and tag text, leaving only the meat
+
+=item B<--tabwidth> tabwidth, B<-t> tabwidth
+
+expand tabs with spaces, using tabstops every tabwidth characters.  B<All
+tabs are expanded, even if inside any quotation delimiters.>
+
+=item B<--tagdelim> string, B<-d> string
+
+use string to delimit tags in source, in lieu of '@@' default
+
+=item B<--unlink>, B<-U>
+
+Unlink destination file if it exists.
+
+=item B<--verbose>, B<-v>
+
+yakety yak
+
+=item B<--version>, B<-V>
+
+print version info and exit
+
+=back
+
+=head1 EXAMPLE ($ is your prompt)
+
+$ redact -vrl ~/pub -h http://mybox src coolcode.pl
+
+  If coolcode contains the line '## @@somefile@@', redact finds the file
+  <redactlib>/somefile, prefixes it with '## ' (determined from the '## '
+  leading the tag), and substitutes all occurances of '$DATE', '$HTTPURL',
+  and '$FTPURL' in that file with appropriate values.  The line is
+  replaced with the mutated somefile and the whole shpeel is written to
+  ~/pub/src/coolcode.pl.
+
+@@banner.pl@@
+
+=cut
+
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+use Carp;
+use strict;
+use FileHandle;
+use File::Basename;
+use POSIX;
+use Getopt::Mixed 1.006;
+BEGIN {use vars qw( $RCSId $jemappelle $opt_rcs $opt_bannerdir
+			 $opt_ftproot $opt_help $opt_httproot $opt_localroot
+			 $opt_nodot $opt_prefix $opt_subdir $opt_tagdelim $opt_verbose
+			 $opt_unlink $opt_redactlib $opt_version $opt_tabwidth);}
+
+
+$RCSId = '$Id: redact.pl,v 0.24 1998/09/29 05:02:03 reece Exp $ ';
+($jemappelle=$0) =~ s,^.*/,,;
+
+my(@subvars) = qw( $DATE $HTTPURL $FTPURL ); # variables to substitute
+
+my(@OPTS)=
+  (
+   'ftproot=s   f>ftproot',
+   'httproot=s  h>httproot',
+   'localroot=s l>localroot',
+   'libdir=s    L>libdir',
+   'nodot',
+   'rcs         r>rcs',
+   'tabwidth=i  t>tabwidth',
+   'tagdelim=s  d>tagdelim',
+   'unlink      U>unlink',
+   'verbose     v>verbose',
+   'version     V>version',
+  );
+Getopt::Mixed::getOptions(@OPTS);
+
+if ($opt_version)
+  {
+  print(STDERR $RCSId, "\n");
+  exit(0);
+  }
+
+undef $opt_httproot if ($opt_httproot eq '');
+undef $opt_ftproot if ($opt_ftproot eq '');
+
+my($destdir)=shift;
+(defined $destdir)
+  || die($jemappelle, ": destdir was not specified.\n");
+
+my($localdest)="$opt_localroot/$destdir";
+( -d "$localdest" and -w "$localdest" and -x "$localdest")
+  || die($jemappelle,": $localdest/: doesn't exist or invalid permissions\n");
+
+my($DATE) = strftime("%Y/%m/%d", gmtime(time()));
+
+my($tagre) = "\Q$opt_tagdelim\E([-.\\w]+)\Q$opt_tagdelim\E";
+
+while ($#ARGV>=0)
+  {
+  my($src);
+  my($localdest,$HTTPURL,$FTPURL);
+  my($dir,$file,$sfx,$bannerfn);
+  my($sfh) = new FileHandle;
+  my($dfh) = new FileHandle;
+  my($expand) = defined $opt_tabwidth;
+
+  $src = shift(@ARGV);
+
+  ($file,$dir,$sfx)=fileparse($src,'\.\w+');
+  if ($file eq '') {$file=$sfx; $sfx=''};	# for files beginning with `.'
+  if ($opt_nodot) { $file =~ s/^\.+// };	# perhaps strip initial `.'
+
+  $localdest="$opt_localroot/$destdir/$file$sfx";
+  $HTTPURL="$opt_httproot/$destdir/$file$sfx" if defined $opt_httproot;
+  $FTPURL="$opt_ftproot/$destdir/$file$sfx" if defined $opt_ftproot;
+
+  if (not $sfh->open("<$src"))
+	{
+	warn($jemappelle, ": $src: $!; skipping\n");
+	next;
+	}
+
+  if ( (-f $localdest and $opt_unlink and not unlink($localdest))
+	   or (not $dfh->open(">$localdest")) )
+	{
+	warn($jemappelle, ": $localdest: $!; skipping\n");
+	close($sfh);
+	next;
+	}
+  
+  if ($opt_verbose)
+	{
+	printf(STDERR "%s\n  destination=%s\n  HTTPURL=%s\n  FTPURL=%s\n",
+		   $src, $localdest, $HTTPURL, $FTPURL);
+	}
+
+  while( <$sfh> )
+	{
+	#print if /\@\@/;
+	# max prefix is hardwired at 0..5 chars.
+	if ( m§^(.{0,5})$tagre§ )
+	  {
+	  my($pfx) = $1;
+	  my($bfn) = "$opt_redactlib/$2";
+	  my($bfh) = new FileHandle;
+
+	  #next line uses tagged filename with file's suffix if such exists
+	  if ( -f "$bfn$sfx" ) {$bfn .= "$sfx"}
+
+	  if ($bfh->open("<$bfn"))
+		{
+		local($/) = undef;
+		my($var);
+		printf(STDERR "  line %d: included %s, prefixed `$pfx'\n", $., $bfn) if ($opt_verbose);
+		$_ = <$bfh>;
+		s/^/$pfx/gm;
+		foreach $var (@subvars)  {eval "s/\Q$var\E/$var/g"}
+		$bfh->close();
+		}
+	  else
+		{
+		warn($jemappelle, ": $src: line $.: $bfn: $!\n");
+		}
+	  }
+	elsif (defined $main::opt_rcs)
+	  {
+	  s/\$((?:Revision|Date|Log|Id|RCSfile): )(.+)\s+\$/$1$2/g;
+	  }
+	$_ = expand($_,$opt_tabwidth) if ($expand and defined($opt_tabwidth));
+	$expand=0 if ($sfx =~ /\.p[lm]/ and /^__(?:END|DATA)__/);
+	print($dfh $_);
+	}
+
+  $sfh->close();
+  $dfh->close();
+  chmod((stat($src))[2],$localdest);		# copy file permissions
+  }
+
+sub expand
+  {my($l,$tw)=@_; while($l=~s/^([^\t\n]*)\t/$1.' 'x($tw-length($1)%$tw)/em){}; $l}

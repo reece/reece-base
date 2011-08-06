@@ -1,0 +1,66 @@
+#!/usr/local/bin/perl -w
+# bestblast -- extract a summary of the best blast hits from a file
+
+use strict;
+use IO::File;
+use IO::Zlib;
+#use Getopt::Long qw(:config gnu_getopt);
+
+
+while( @ARGV )
+  {
+  my $fn = shift;
+  my ($query) = $fn; # =~ m/^(\d+)/;
+  my $fh;
+  my $bo;
+  my ($qlen, $hname, $hlen, $score, $id, $e, $gap, $pos);
+
+  if ($fn =~ m/.(?:gz|z|Z)/)
+	{ $fh = IO::Zlib->new($fn,'rb') }
+  else
+	{ $fh = IO::File->new("<$fn") }
+  if (not defined $fh)
+	{ warn("$fn: $!\n"); next; }
+
+  $bo = join( '', $fh->getlines() );
+
+#Query= DNA100280 [min] PRO9992 UNQ1672 Human HRG
+#         (525 letters)
+  if ($bo =~ m/Query=.+\n(?:\S.+\n)?
+	  \s+ \((\d+) \s+ letters\)/x)
+	{ $qlen = $1; }
+  die("$fn: didn't find query information\n") unless defined $qlen;
+
+#>HRG_HUMAN (P04196) HISTIDINE-RICH GLYCOPROTEIN PRECURSOR (HISTIDINE-P
+#          Length = 525
+#
+# Score =  714 bits (1844), Expect = 0.0
+# Identities = 371/525 (70%), Positives = 371/525 (70%), Gaps = 4/139 (2%)
+  my $bestblast;
+
+  if ($bo =~ m/No hits found/)
+	{ $bestblast = $&; }
+  elsif ($bo =~ m/
+		 > (\S+) .+?
+		 \n \s+ Length \s+ = \s+ (\d+) \n
+		 \n
+		 \s Score\s+=\s+(\S+)\s+ bits \s+ \(\d+\), \s+ Expect\s+=\s+(\S+).*?\n
+		 \s Identities \s+ = \s+ (\d+)\/\d+
+		 (?:\s+ \S+ \s Positives  \s+ = \s+ (\d+)\/\d+ \s+ \S+)?
+		 (?:\s+ \S+ \s Gaps  \s+ = \s+ (\d+)\/\d+ \s+ \S+)?
+		 /xs
+		)
+	{ 
+	($hname, $hlen, $score, $e, $id, $pos, $gap) = ($1,$2,$3,$4,$5,$6,$7);
+	$e = "1$e" if $e=~m/^[eE]/;
+	$bestblast = sprintf("%-10s Q=%4d T=%4d QT=%4d I=%4d +=%4d S=%7.2g E=%7.2g",
+						 $hname, $qlen, $hlen, abs($qlen-$hlen), $id, $pos, $score, $e );
+	}
+  else
+	{
+	$bestblast = "didn't find best hit information";
+	warn("$fn: $bestblast\n");
+	}
+
+  printf "$query $bestblast\n"
+  }

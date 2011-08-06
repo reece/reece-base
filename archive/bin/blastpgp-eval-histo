@@ -1,0 +1,57 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use Bio::Tools::BPpsilite;
+
+sub parse_report($);
+
+my @eval_bins = qw( 1e-5 1e-2 1e-1 1 2 4 10 );
+my %eval_count_min;
+my %eval_count_max;
+
+
+while(my $fn = shift) {
+  my $report = Bio::Tools::BPpsilite->new(-file=>$fn);
+  parse_report($report);
+}
+
+
+sub parse_report($) {
+  my $report = shift;
+  my $total_iterations = $report->number_of_iterations;
+  my $last_iteration = $report->round($total_iterations);
+  my $oldhitarray_ref = $last_iteration->oldhits;
+  my %score_seen;
+
+ HIT:
+  while (my $sbjct = $last_iteration->nextSbjct) {
+	my $id = $sbjct->name;
+	next if scalar( grep  /\Q$id\E/, @$oldhitarray_ref);
+
+	my $best_score;
+	my $best_eval;
+	while (my $hsp = $sbjct->nextHSP) {
+	  if (not defined $best_eval
+		  or $hsp->P < $best_eval) {
+		$best_score = $hsp->score;
+		$best_eval = $hsp->P;
+	  }
+	}
+
+	if (not defined $best_score) {
+	  # I don't expect to ever see this
+	  warn("$id in sbjct list, but no score?!\n");
+	}
+
+	foreach my $bin (@eval_bins) {
+	  if ($best_eval <= $bin) {
+		$eval_count_min{$bin}++ unless $score_seen{"$best_eval#$best_score"}++;
+		$eval_count_max{$bin}++
+	  }
+	}
+  }
+}
+
+
+printf("%5d..%5d <=%g\n", $eval_count_min{$_}, $eval_count_max{$_}, $_) for @eval_bins;

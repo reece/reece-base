@@ -1,0 +1,198 @@
+#!/usr/local/bin/perl -w
+##
+## $RCSfile: address822.pl,v $
+## $Revision: 1.5 $
+## $Date: 1996/07/18 18:00:26 $
+##
+## NAME
+## address822 -- convert various email address formats to rfc822 compliance
+##
+## SYNOPSIS
+## address822 [-f] [file]
+##
+## DESCRIPTION
+## Converts addresses, 1 per line, which appear in file or stdin to rfc822
+## addresses.  With -f flag, fingers to get the name if not provided.  The
+## lines are expected to be of one of the following forms:
+## address
+## <address>
+## name <address>
+## "name" <address>
+## key\tSurname, Given Names\taddress (\t is tab; this is pine addressbook format)
+##
+## REQUIREMENTS
+## perl
+##
+## @@banner@@
+## 
+
+$hostname=`hostname`; chop $hostname;
+$domain='.wustl.edu';
+$FINGER="/usr/bin/finger -l";
+
+$fingerforname=0;
+
+if (defined($ARGV[0]) && ($ARGV[0] eq '-f'))
+  {
+  $fingerforname=1;
+  shift;
+  }
+
+while (<>)
+  {
+  my($name,$email)=(undef,undef);
+  
+  s/^\s+//;									# chop off leading
+  s/[\s,]+$//;								# and trailing space
+  
+  # name <email> or "name" <email>
+  if ( (/^([-\.\w\s]+)\s+<([^>]+)>$/)
+	   || (/^\"([^\"]+)\"\s+<([^>]+)>$/) )
+	{
+	($name,$email)=($1,$2);
+	}
+  
+  # email or <email>
+  elsif ( (/^([-@%\w\d\._]+)$/)
+		  || (/^<([-@%\w\d\._]+)>$/) )
+	{
+	$email=$1;
+	}
+  
+  # pine addressbook
+  elsif (/^[^\t]+\t([^,]+),\s*([^()\t]+)\t(.+)/)
+	{
+	$name="$2 $1";
+	$email=$3;
+	}
+  
+  else
+	# unrecognized
+	{
+	warn "$_ malformed\n";
+	next;
+	}
+
+  # append domain name if there's no . in the hostname
+  if ($email !~ /@.+\./)
+	{
+	$email .= $domain;
+	}
+  
+  if (! defined($name)
+	  && ! defined($names{$email})
+	  && $fingerforname)
+	{
+	print STDERR "fingering for $email...";
+	($name,$status)=getNameByFingering($email);
+	print STDERR (defined($status)?"$status\n":"$name\n");
+	}
+	
+  if (defined($name))
+	{	
+	$name = join(" ", map( ucfirst $_, split(/\s+/,$name)));
+
+	# email address non-unique?
+	if ( defined($names{$email})
+		 && ($names{$email} ne $name) )
+	  {
+	  print STDERR "more than one name for $email; using $names{$email}.\n";
+	  next;
+	  }
+
+	# someone with same name at different address?
+	if ( defined($emails{$name}) 
+			&& ($emails{$name} ne $email) )
+	  {
+	  print STDERR "$name receives mail at $emails{$name} and $email.\n";
+	  }
+	# name is unique
+	else
+	  {
+	  $emails{$name}=$email;
+	  }
+	
+	$names{$email}=$name;
+	}
+  else
+	{
+	$names{$email}=undef if ! defined $names{$email};
+	}
+  }
+
+foreach $email (sort byLNF keys(%names))
+  {
+  $name=$names{$email};
+  
+											# Quote full name if it contains a period
+  if (defined($name) && ($name =~ m/\./)) {$name="\"$name\""};
+  
+  if (defined($name))
+	{
+	print "$name <$email>\n";
+	}
+  else
+	{
+	print "$email\n";
+	}
+  }
+
+sub byLNF
+											# sort by last name first
+  # doesn't handle compound surnames like van, von, Mc, Mac, di, de
+  # but can deal with hyphenated last names
+  # sorts addresses without names to bottom
+  {
+  (!defined($names{$a})) && return  1;
+  (!defined($names{$b})) && return -1;
+  ($namea = $names{$a}) =~ s/^(.+)\s([-\w]+)$/$2,$1/;
+  ($nameb = $names{$b}) =~ s/^(.+)\s([-\w]+)$/$2,$1/;
+  return $namea cmp $nameb;
+  }
+
+sub getNameByFingering
+  {
+  my ($email)=$_[0];
+  my ($name,$status)=(undef,undef);
+  my ($login) = ($email =~ /([^@%]*)/);
+  my ($hostname) = ($email =~ /$login[@%](.*)/);
+  
+  if ($dontfinger{$hostname}) {return (undef,"finger don't work there (cached)")};
+  
+  open(*FINGER,"$FINGER $email 2>&1 |") || die "couldn't finger";
+  while (<FINGER>)
+	{
+											# errors:
+	if (/unknown host/)
+	  {
+	  $status="error: $email is bogus: no such host";
+	  $dontfinger{$hostname}++;
+	  }
+	elsif (/In real life: \?\?\?/)
+	  {
+	  $status="error: $email is bogus: no such user";
+	  }
+	elsif (/Connection refused/)
+	  {
+	  $status="error: $email unverified";
+	  $dontfinger{$hostname}++;
+	  }
+	elsif ((/^(.*) \($login\)/)				# GNU finger result
+		   || (/In real life:\s*(.*)/))		# standard finger result
+	  {
+	  $name=$1;
+	  $name =~ s/^\s+//g;
+	  $name =~ s/\s+$//g;
+	  }
+	}
+  close(*FINGER);
+  return ($name,$status);
+  }
+
+__DATA__
+Jay Ponder <ponder@comet>
+reece@cupid
+<megan@blitzen>
+mike@comet
+Garland Marshall <garland@wucmd>
+Reece Kimball Hart <reece@informatics>

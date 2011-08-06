@@ -1,0 +1,17 @@
+; -*- lisp -*-
+
+;;;;; none of this works...
+;; (define (consolize w)
+;; 	 "Consolize"
+;; 	 (progn
+;; 	   (lower-window-depth w)
+;; 	   (set-frame:unframed w)
+;; 	   (toggle-window-sticky w 't)
+;; 	   ;; (check . ,(eq (window-type w) 'unframed))
+;; 	   ;; (toggle-window-ignored window-ignored-p)
+;; 	   ;; (toggle-window-never-focus (not (window-get w 'never-focus)))
+;; 	   ;; (toggle-window-cycle-skip  (not (window-get w 'cycle-skip)))
+;; 	   ;; (toggle-window-list-skip (not (window-get w 'window-list-skip)))
+;; 	   ))
+;; (define-command 'consolize consolize #:spec "%W")
+;; (add-window-menu-toggle (_ "Consolize") 'consolize))

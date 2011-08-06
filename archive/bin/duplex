@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+# add postscript commands to cause a PS file to be duplexed
+# on printers which are able to do so.
+# 2001/06/28 12:06 Reece Hart <rkh@gene.com>
+
+$insert = 
+'mark {
+   %%BeginFeature: *Duplex DuplexNoTumble
+       <</Duplex true /Tumble false>> setpagedevice
+   %%EndFeature
+   } stopped cleartomark
+';
+
+
+while(<>) 
+  {
+  s/^\Q%%BeginSetup\E\n/$&$insert/;
+  print;
+  }

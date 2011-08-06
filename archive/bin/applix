@@ -1,0 +1,4 @@
+#!/bin/sh
+export AXLANG=1
+/home/rkh/opt/applixware-6-homeuser/axdata/axnlmgrd -c /home/rkh/opt/applixware-6-homeuser/axlocal/axlicensedat -l /tmp/axnlmlog &
+/home/rkh/opt/applixware-6-homeuser/applix

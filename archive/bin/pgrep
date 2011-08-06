@@ -1,0 +1,176 @@
+#!/usr/local/bin/perl -w
+## $Id: pgrep.pl,v 1.8 2000/07/22 23:03:32 reece Exp $
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+=head1 NAME
+
+pgrep -- perl file grepping
+
+S<$Id: pgrep.pl,v 1.8 2000/07/22 23:03:32 reece Exp $>
+
+=head1 SYNOPSIS
+
+C<pgrep> [options] regexp file ...
+
+=head1 OPTIONS
+
+=item B<--filename>, B<-f>
+
+print the filename on every match
+
+=item B<--ignore-case>, B<-i>
+
+ignore case in pattern matching
+
+=item B<--linenumber>, B<-l>
+
+print the linenumber on every match
+
+=item B<--text>, B<-t>
+
+print the text of the line on every match
+
+=item B<--delimiter> string, B<-d> string
+
+use string as the delimiter between the above fields
+
+=item B<--files-from> filename, B<-s> filename
+
+get files from filename, one per line
+
+=item B<--version>, B<-V>
+
+print version and exit
+
+=head1 DESCRIPTION
+
+B<pgrep> searchs a file for the specified regular expression and prints
+matching lines.  For regular expression syntax, see the perlre man or pod
+page.
+
+The default options are B<-fltd:>, meaning print file:line:text for every
+match.  Explicitly specifying any of f, l, or t causes only those switches
+to be in effect.  If only B<-f> is specified, the filename is printed only
+once for every match.
+
+=head1 EXAMPLES ($ is your prompt)
+
+$ pgrep needle haystack
+
+find needle in a haystack
+
+$ pgrep '(?i)brain' Congress
+
+find a brain in Congress without regard to case
+
+=head1 EXIT VALUES
+
+returns 0 if matches found, 1 otherwise
+
+@@banner.pl@@
+
+=cut
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+use POSIX qw( :errno_h );
+use strict;
+use Getopt::Mixed 1.006;
+use vars qw( $RCSId $jemappelle $opt_filename $opt_linenumber $opt_files_from
+             $opt_delimiter $opt_ignore_case $opt_text $opt_version $hits $opt_negate
+			 $not $FILE );
+my(@pelems,$pstr,$action,$regexp,$prog);
+
+$RCSId = '$Id: pgrep.pl,v 1.8 2000/07/22 23:03:32 reece Exp $ ';
+($jemappelle=$0) =~ s,^.*/,,;
+
+$opt_filename = 0;
+$opt_linenumber = 0;
+$opt_delimiter = ':';
+$opt_text = 0;
+
+my(@OPTS)=
+  (
+   'filename    f>filename',
+   'linenumber  l>linenumber n>linenumber',
+   'ignore-case i>ignore-case',
+   'negate      n>negate',
+   'text        t>text',
+    'files-from=s s>files-from', 
+   #	   'prettyprint p>prettyprint',
+   'delimiter=s d>delimiter',
+   'version     V>version',
+  );
+Getopt::Mixed::getOptions(@OPTS);
+
+if ($opt_version) {print($RCSId,"\n"); exit(0);}
+
+
+## Get regexp and escape the delimiter (§)
+($#ARGV+1 >= 1) || die($jemappelle, ": missing regexp\n");
+$regexp = shift;
+#$regexp =~ s/([\\\$\@\%])/\\$1/g;			# quote '\', '$', '@', '%'
+$regexp = ( $opt_ignore_case ? '(?i)' : '' ) . $regexp;
+#print(STDERR $regexp,"\n");exit;
+
+
+## Assemble action; @pelems is the list of variables to print upon match
+if ($opt_filename) 		 { push(@pelems,'$FILE')     }
+if ($opt_linenumber)  	 { push(@pelems,'$.')        }
+if ($opt_text) 			 { push(@pelems,'$_')        }
+if ($opt_negate) 		 { $not='not' } else { $not='' }
+if (not @pelems) { @pelems = qw{$FILE $. $_} }
+$pstr = join( ",'$opt_delimiter',",@pelems);
+$action = "print($pstr,\"\\n\");";
+if ( $opt_filename and not ($opt_linenumber or $opt_text) )
+  {$action .= 'next FILE;'}
+
+
+## prepare ARGV with files to filter
+if (defined $opt_files_from)
+  {
+  # Prepend filenames from -s arg, one per line, to ARGV
+  open(FILE,"<$opt_files_from")
+  || die("$jemappelle: $opt_files_from: $!\n");
+  unshift(@ARGV,map {chomp;$_} <FILE>);
+  close(FILE);
+  }
+elsif ($#ARGV+1 == 0) 
+  {
+  # Filter stdin if no files specified
+  unshift(@ARGV,'-');
+  }
+
+
+## Assemble a program to be executed
+$prog= <<EOP;
+FILE:
+foreach \$FILE (\@ARGV)
+  {
+  (-d \$FILE)
+    && do{\$!=EISDIR; warn(\$jemappelle, ": \$FILE: \$!\\n"); next;};
+  open(FILE)
+    || do{warn(\$jemappelle, ": \$FILE: \$!\\n"); next;};
+  while(<FILE>)
+	{
+	if ($not m%$regexp%)
+	  {
+      chomp;
+	  \$hits++;
+	  $action;
+	  }
+	}
+  close(FILE);
+  }
+EOP
+
+
+## Go baby go
+$hits = 0;
+eval $prog;
+exit($hits==0);

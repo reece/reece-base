@@ -1,0 +1,325 @@
+#!/usr/local/bin/perl -w
+## $Id: picturebook.pl,v 2.5 1998/09/29 05:02:03 reece Exp $
+
+##############################################################################
+## Customize here
+##############################################################################
+
+$URL_BASE='http://www.in-machina.com/~reece';	# base URL for your site
+
+$OWNER_URL="$URL_BASE/";					# your que pasa page
+
+$OWNER_NAME='Reece Kimball Hart';			# your name
+
+$OWNER_EMAIL='reece@in-machina.com';		# your email address
+
+$tngeom = '75x75';							# thumbnail max size & quality
+$tnqual = 10;								# aspect ratio is maintained
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+=head1 NAME
+
+picturebook -- generate HTML table of pictures
+
+S<$Id: picturebook.pl,v 2.5 1998/09/29 05:02:03 reece Exp $>
+
+=head1 SYNOPSIS
+
+C<picturebook> [files...]
+
+=head1 OPTIONS
+
+=item B<--verbose>, B<-v>
+
+print synopsis to stderr while processing
+
+=item B<--version>, B<-V>
+
+print version information and exit
+
+=head1 DESCRIPTION
+
+B<picturebook> generates on stdout an HTML table of pictures prescribed in
+the input files.  Each row in the table contains a thumbnail, description
+of the picture, and links to 1 or more pictures.  Each such links lists
+the file type, dimensions, and size (these parameters are determined
+automatically).  The links typically correspond to different qualities,
+dimensions, or sizes of the same or closely related images.
+
+The input file format has for types of lines:
+
+=item 1. Commentary 
+
+=item 3. Each Paragraph should be either a Section Title or a Image Specification.
+
+=item 4. A Section Title is just text to delimit a section of the output.
+
+=item 5. An Image Specification looks like this:
+
+    * Image Title
+    ** filename.jpg
+    ** filename-r1.jpg
+    Description of image1 series of pictures.
+
+You may use as many images as you like.  Currently, only gif and jpg files
+are understood.  A thumbnail picture (filename-tn.jpg) of the first named
+image will be created if it does not already exist.
+
+=head1 RETURN VALUES
+
+always 0
+
+=head1 EXAMPLES ($ is your prompt)
+
+=item 1. family pictures
+
+Input file family.pb:
+
+    # -*-outline-*-
+    
+    Family Pictures.
+    
+    * Harts
+    ** Harts.jpg
+    ** Harts-r1.jpg
+    Dad, Mom, Reece, Brooke at Uncle Bill''s. [1996 September]
+    
+    * Thanksgiving 1994 in Eureka
+    ** Thxg94.jpg
+
+$ picturebook -v family.pb >family.html
+
+=head1 BUGS, CAVEATS, MISFEATURES
+
+Input file parsing is primitive.  Be sure to make all comments paragraphs
+(i.e., follow by a blank line).
+
+=head1 INSTALLATION
+
+This packages requires the Image::Size module available from CPAN (See
+www.perl.com) and ImageMagick
+(http://www.wizards.dupont.com/cristy/ImageMagick.html).
+
+@@banner@@
+
+=cut
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+use File::Basename;
+use POSIX;
+use Getopt::Mixed 1.006;
+use Image::Size;
+use vars qw( $RCSId $jemappelle $opt_version $opt_verbose );
+
+$REECE_URL='http://www.in-machina.com/~reece';
+$PROG_URL="$REECE_URL/src/picturebook.pl";	# From redact?
+$REECE_EMAIL='reece@in-machina.com';
+$RCSId = '$Id: picturebook.pl,v 2.5 1998/09/29 05:02:03 reece Exp $ ';
+($jemappelle=$0) =~ s,^.*/,,;
+
+$opt_title = 'Picturebook';
+
+my(@OPTS)=
+  (
+   'title=s     t>title',
+   'verbose     v>verbose',
+   'version     V>version',
+  );
+Getopt::Mixed::getOptions(@OPTS);
+
+if ($opt_version) {print($RCSId,"\n"); exit(0);}
+
+print(html_header($opt_title),"\n");
+$tableopen=0;
+while(<>)
+  {
+  my($title);
+  if (not defined $_)
+	{last}
+  elsif (/^\*\s+(.+)/)
+	{
+	my($desc) = '';
+	if (!$tableopen) {print(table_header(), "\n"); $tableopen=1}
+	while(<>)
+	  {
+	  last if m/^\*/;
+	  $desc .= $_;
+	  }
+	print(table_section($1,$desc),"\n");
+	redo;
+	}
+  elsif (/^\*\*\s+(.+)/)
+	{
+	my($title) = $1;
+	my(@files);
+	my($desc) = '';
+	print(STDERR "$title:\n") if $opt_verbose;
+	while(<>)
+	  {
+	  if (/^\*\*\*\s+(.+)/) {push(@files,$1)}
+	  elsif (!/^[\*\s]/) {$desc.=$_}
+	  else {last}
+	  }
+	$desc =~ s/^\s+//;
+	$desc =~ s/\s+/ /g;
+	$desc =~ s/\s+$//;
+	($thumbnail=$files[0])=~s/\.jpg$/-tn.jpg/;
+	if (! -f $thumbnail)
+	  {
+	  convert($files[0],$thumbnail,$tngeom,$tnqual)
+		&& do {warn($jemappelle, ": thumbnail failed; skipping $title\n"); next}
+	  }
+	if (!$tableopen) {print(table_header(), "\n"); $tableopen=1}
+	print table_elem($thumbnail,"<STRONG>$title</STRONG>\n<BR>$desc",@files),"\n";
+	$npix++; $nfiles+=@files;
+	redo;
+	}
+  elsif (!/^[\s\*\#]/)
+	{
+	if ($tableopen) {print(table_footer(), "\n"); $tableopen=0}
+	print;
+	}
+  }
+if ($tableopen) {print(table_footer(), "\n"); $tableopen=0}
+print("The picturebook contains $nfiles images in $npix sections.\n");
+print(html_banner(), html_footer());
+exit(0);
+
+
+sub html_header
+  {
+  my($title) = @_;
+  return <<EOT;
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 3.0//EN">
+<!--
+Generated by $main::PROG_URL
+$main::RCSId
+Reece Kimball Hart <$main::REECE_EMAIL>
+-->
+
+<HTML>
+<HEAD>
+<TITLE>$title</TITLE>
+</HEAD>
+<BODY>
+EOT
+  }
+
+sub html_banner
+  {
+  my($timestamp) = strftime("%Y/%m/%d %H:%M:%SZ", gmtime(time()));
+return <<EOT;
+<HR>
+generated on $timestamp by <A HREF="$main::PROG_URL">$main::PROG_URL</A>
+<BR>$main::RCSId
+<ADDRESS>maintainer: $main::OWNER_NAME &lt;$main::OWNER_EMAIL&gt; 
+[ <A HREF="$main::OWNER_URL">home page</A> 
+| <A HREF="mailto:$main::OWNER_EMAIL">send mail</A> ]
+</ADDRESS>
+EOT
+  }
+
+sub html_footer
+  {
+  return <<EOT;
+</html>
+EOT
+  }
+
+
+sub table_header
+  {
+return <<EOT;
+<TABLE BORDER WIDTH=100%>
+<TR>
+  <TH>Thumbnail</TH>
+  <TH><B>Title</B> and Description</TH>
+  <TH>Type; Dimensions; Size<BR>(Click to view Image)</TH>
+</TR>
+EOT
+}
+
+sub table_section
+  {
+  return("<TR><TD BGCOLOR=YELLOW COLSPAN=3 ALIGN=CENTER>$_[0]</TD></TR>"
+		 . (defined $_[1] and $_[1]=~/./ ? "<TR><TD COLSPAN=3>$_[1]</TD></TR>\n" : ''));
+  }
+
+sub table_elem
+  {
+  my ($thumbnail) = shift;
+  my ($desc) = shift;
+  my ($filetable) = file_table(@_);
+  my ($tnw,$tnh) = imgsize($thumbnail);
+  $desc =~ s/\n/\n      /g;					# for html prettiness
+  return <<EOT
+<TR>
+  <TD ALIGN=CENTER><IMG WIDTH=$tnw HEIGHT=$tnh SRC="$thumbnail"></TD>
+  <TD>$desc</TD>
+  <TD>$filetable</TD>
+</TR>
+EOT
+  }
+
+sub file_table
+  {
+  my($filelist)="<TABLE>\n";
+  my($i);
+  for($i=0; $i<=$#_; $i++)
+	{
+	my ($file) = $_[$i];
+	my($meat);
+	if ($file eq '-')
+	  {
+	  $meat = '<hr>';
+	  }
+	else
+	  {
+	  my ($bytes) = (-s $file);				# file size
+	  if (! $bytes) {warn("$file: $!\n"); next}
+	  my ($w,$h) = imgsize($file);
+	  my ($type) = uc((fileparse($file,'\w+'))[2]);
+	  $file =~ s/\x00+$//;
+	  $fileinfo = sprintf('%s; %4d x %4d %4.0f kb %s',$type,$w,$h,$bytes/1024);
+	  print(STDERR "  $fileinfo\n") if $main::opt_verbose;
+	  $fileinfo =~ s/\s/&nbsp;/g;
+	  $meat="<A HREF=\"$file\"><CODE>$fileinfo</CODE></A>";
+	  }
+	$filelist .= "      <TR><TD>$meat</TD></TR>\n";
+	}
+  $filelist .= "      </TABLE>";
+  return($filelist);
+  }
+
+sub table_footer
+  {
+  return "</TABLE>\n"
+  }
+
+sub convert
+  {
+  ($file,$out,$geom,$quality)=@_[0..3];
+  $cmd="convert -geometry $geom -quality $quality $file jpg:$out";
+  print STDERR "+ $cmd\n";
+  system($cmd);
+  if ($? & 255 != 0)
+	{print STDERR "conversion failed: $!\n";}
+  return $? & 255;
+  }
+
+# Format: chunks of text separated by a blank line.  Chunks are either:
+# Text
+# <blank line>
+#--or--
+# * Short Title
+# Description (html okay)
+# ** picture1
+# ** picture2
+# <blank line>
+

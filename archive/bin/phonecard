@@ -1,0 +1,72 @@
+#!/usr/local/bin/perl -w
+# $Id: phonecard.pl,v 0.1 1998/03/06 13:56:44 reece Exp $
+
+$w = 2.0;
+$h = 3.25;
+$m = 2.0;
+$ppi = 72.0;
+$pw = $w * $ppi;
+$ph = $h * $ppi;
+$fs = 6.0;
+$ls = $fs + $m;
+
+print('%!PS-Adobe
+/BD { bind def } bind def
+/M  {moveto} BD
+/RM {rmoveto} BD
+/L  {lineto} BD
+/NP {newpath} BD
+/CP {closepath} BD
+/S  {stroke} BD
+/RL {rlineto} BD
+/LJ {show} BD
+/RJ {dup stringwidth neg exch neg exch RM show} BD
+/rect { 1 index 3 index 6 -2 roll 1 index 5 index NP M L L L CP } BD
+',
+"/Times-Roman findfont $fs scalefont setfont\n\n\n",
+sprintf("%5.1f %5.1f translate\n",-$pw+20,20));
+
+
+$open = 0;
+while (<>)
+  {
+  chomp;
+  @F = split(/\t/);
+
+  if (/--/ and $open)
+	{
+	printf("gsave 0.5 setlinewidth %5.1f %5.1f M %5.1f %5.1f L S grestore\n",
+		   0,$y+$fs-$m/2,$pw,$y+$fs-$m/2);
+	}
+
+  elsif (/^$/ and $open)
+	{
+	$y -= $ls;
+	$open = 0 if ($y < $m);
+	}
+
+  elsif (/^next$/ and $open)
+	{
+	$open = 0;
+	}
+
+  elsif (@F == 1 or @F == 2)
+	{
+	if (not $open)
+	  {
+	  printf("0 0 moveto %5.1f %5.1f translate\n",$pw,0);
+	  printf("NP %5.1f %5.1f M %5.1f %5.1f RL %5.1f %5.1f RL %5.1f %5.1f RL %5.1f %5.1f RL S\n",
+			 0,0,$pw,0,0,$ph,-$pw,0,0,-$ph);
+	  $open = 1;
+	  $y = $ph - $ls;
+	  }
+
+	printf("%-40s %-40s\n",
+		   (defined $F[0] and ($F[0]!~/^\s*$/) ? sprintf("%5.1f %5.1f M (%s) LJ", $m,$y,$F[0])     : ''),
+		   (defined $F[1] and ($F[1]!~/^\s*$/) ? sprintf("%5.1f %5.1f M (%s) RJ", $pw-$m,$y,$F[1]) : ''));
+
+	$y -= $ls;
+	$open = 0 if ($y < $m);
+	}
+  }
+print("showpage\n");

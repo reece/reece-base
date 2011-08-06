@@ -1,0 +1,140 @@
+#!/usr/local/bin/perl -w
+# $Id: xyzrt.pl,v 1.1 1998/11/21 22:31:49 reece Exp $
+# xyzrt -- translate and rotate coordinates of a Tinker xyz file
+# usage: xyzrt [-r rx,ry,rz] [-t tx,ty,tz] [start [stop]] <in.xyz >out.xyz
+
+# This script is simple-minded: it always rotates, then translates; it uses only the
+# xyz-convention (see Goldstein).
+
+package main;
+
+# initialize rotation
+if ($#ARGV>-1 and $ARGV[0] eq '-r')
+  {
+  shift;
+  ($R) = shift;
+  my($rx,$ry,$rz) = ($R =~ 'random') ? (rand(360),rand(360),rand(360)) : split(/,/,$R);
+  $RM = new RotationMatrix;
+  $RM->constructRM($rx,$ry,$rz);
+  $R = sprintf("R=<%.1f,%.1f,%.1f>", $rx,$ry,$rz);
+  }
+
+# initialize translation
+($tx,$ty,$tz) = (0,0,0);
+if ($#ARGV>-1 and $ARGV[0] eq '-t')
+  {
+  shift;
+  ($T) = shift;
+  my($d) = 0;
+  if ($T =~ 'random:(\d+)-(\d+)')
+	{
+	# random x,y,z translation
+	my($dmin,$dmax) = ($1,$2);
+	my($rr) = 2*$dmax;
+	do 
+	  {
+	  ($tx,$ty,$tz) = (rand($rr)-$dmax,rand($rr)-$dmax,rand($rr)-$dmax);
+	  $d = sqrt($tx*$tx + $ty*$ty + $tz*$tz);
+	  }
+	until ( ($d>=$dmin) and ($d<=$dmax) );
+	}
+  else
+	{
+	($tx,$ty,$tz) = split(/,/,$T);
+	$d = sqrt($tx*$tx + $ty*$ty + $tz*$tz);
+	}
+  $T = sprintf("T=<%.1f,%.1f,%.1f>, |T|=%.1f", $tx,$ty,$tz,$d);
+  }
+
+
+($start,$stop) = (shift,shift);
+$start = 1 if not defined $start;
+# undefined stop => to end
+
+
+# title line
+$_ = <>;
+chomp;
+$_ .= "; $R" if defined $R;
+$_ .= "; $T" if defined $T;
+print($_,"\n");
+#print(STDERR $_,"\n");
+
+
+while(<>)
+  {
+  if (m/^\s+\d+/)
+	{
+	my($n,$t,$x,$y,$z,$rest) = split(' ',$_,6);
+	if ($n>=$start and (not defined $stop or $n<=$stop))
+	  {
+	  ($x,$y,$z) = $RM->rotate($x,$y,$z) if (defined $RM);
+	  $x += $tx;
+	  $y += $ty;
+	  $z += $tz;
+	  }
+	printf("%6d %3.3s %12.6f%12.6f%12.6f   $rest",$n,$t,$x,$y,$z);
+	}
+  else
+	{
+	print;
+	}
+  }
+
+
+
+#################################################################################
+package RotationMatrix;
+sub new
+  {
+  my($type) = shift;
+  my($self) = bless([],$type);
+  return($self)
+  }
+
+sub constructRM
+  {
+  my($self,$phi,$theta,$psi) = @_;
+  my($deg_to_rad) = 3.14159265358979 / 180.0;
+  $phi   *= $deg_to_rad;
+  $theta *= $deg_to_rad;
+  $psi   *= $deg_to_rad;
+  my($cphi  ,$sphi  ) = (cos($phi  ),sin($phi  ));
+  my($ctheta,$stheta) = (cos($theta),sin($theta));
+  my($cpsi  ,$spsi  ) = (cos($psi  ),sin($psi  ));
+  @{$self} = 
+	(
+	 # xyz-convention (Goldstein, Appendix B)
+	 [           $ctheta*$cpsi           ,           $ctheta*$spsi           ,  -$stheta     ],
+	 [ $sphi*$stheta*$cpsi - $cphi*$spsi , $sphi*$stheta*$spsi + $cphi*$cpsi , $ctheta*$sphi ],
+	 [ $cphi*$stheta*$cpsi + $sphi*$spsi , $cphi*$stheta*$spsi - $sphi*$cpsi , $ctheta*$cphi ]
+
+	 # y-convention (Goldstein, Ch. 4)
+	 # [ $cpsi*$cphi - $ctheta*$sphi*$spsi,   $cpsi*$sphi + $ctheta*$cphi*$spsi,   $spsi*$stheta],
+	 # [-$spsi*$cphi - $ctheta*$sphi*$cpsi,  -$spsi*$sphi + $ctheta*$cphi*$cpsi,   $cpsi*$stheta],
+	 # [		  $stheta*$sphi,                        -$stheta*$cphi,                 $ctheta  ] 
+	);
+  return($self);
+  }
+
+sub sprint
+  {
+  my($self) = shift;
+  sprintf( "[%10.4f  %10.4f  %10.4f]\n"
+		  ."[%10.4f  %10.4f  %10.4f]\n"
+		  ."[%10.4f  %10.4f  %10.4f]\n",
+		 $self->[0][0],$self->[0][1],$self->[0][2],
+		 $self->[1][0],$self->[1][1],$self->[1][2],
+		 $self->[2][0],$self->[2][1],$self->[2][2]);
+  }
+
+sub rotate
+  {
+  my($self,$x,$y,$z) = @_;
+  return
+	(
+	 ($self->[0][0]*$x + $self->[0][1]*$y + $self->[0][2]*$z),
+	 ($self->[1][0]*$x + $self->[1][1]*$y + $self->[1][2]*$z),
+	 ($self->[2][0]*$x + $self->[2][1]*$y + $self->[2][2]*$z)
+	);
+  }

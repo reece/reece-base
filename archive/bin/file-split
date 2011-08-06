@@ -1,0 +1,25 @@
+#!/bin/sh
+# file-split -- split a file into chunks and md5sum the chunks
+
+SPLIT_SIZE=1000m
+PATH=/usr/bin:/bin
+
+if [ "$#" != 1 ]; then
+		echo "$0: exactly one arg, please" 1>&2
+		exit 1
+fi
+
+file="$1"
+basename="$(basename $file)"
+
+dir="$file.d"
+if [ -d "$dir" ]; then
+		echo "$0: $dir exists; aborting" 1>&2
+		exit 1
+fi
+
+set -ex
+mkdir "$dir"
+split --verbose -b$SPLIT_SIZE "$file" "$dir/$basename-"
+cd $dir
+md5sum "$basename-"* >md5s

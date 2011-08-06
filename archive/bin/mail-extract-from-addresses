@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use IO::File;
+use Mail::Internet;
+
+my $io = new IO::File;
+while (@ARGV) {
+  my $fname = shift;
+  $io->open('<'.$fname)
+	|| die("$fname: $!\n");
+  my $msg = new Mail::Internet($io);
+  $io->close();
+
+  my $from = $msg->head()->get('from');
+  chomp($from);
+
+  if (not defined $from) {
+	warn("$fname: 'From' header not defined\n");
+	next;
+  }
+
+  my ($a) = $from =~ m/([-=_.\w]+@[-_.\w]+)/;
+  if (not defined $a) {
+	warn("$fname: couldn't parse address from 'From: $from'\n");
+	next;
+  }
+  print ($a, "\n");
+}

@@ -1,0 +1,65 @@
+#!/usr/local/bin/perl -w
+# Print tree of processes
+# requires perl and linux-like /proc filesystem
+# 1998/03/09 22:03 Reece Kimball Hart <reece@in-machina.com>
+
+use vars qw( $ppid );
+
+$color = 1;
+
+@ARGV || unshift(@ARGV,1);
+
+opendir(D,"/proc")
+  || die("/proc: $!\n");
+@pids = grep(m/^\d+$/,readdir(D));
+closedir(D);
+
+if ($color)
+  {
+  $ci = "\033[";
+  $ce = "\033[0m";
+  $stat_S = 31;
+  $stat_R = 32;
+  $stat = 33;
+  }
+
+foreach $pid (@pids)
+  {
+  local($/) = undef;
+  open(F,"</proc/$pid/status")
+	|| next;
+  $_=<F>;
+  close(F);
+  if (m/^Name:\s+(.+)\nState:\s+(.).+\nPid:.+\nPPid:\s+(\d+)\nUid:\s+(\d+)/)
+	{
+	($exe[$pid],$stat[$pid],$ppid[$pid],$uid[$pid]) = ($1,$2,$3,$4);
+	push(@{$children[$3]},$pid);
+	}
+  }
+
+printprocess($_,1) for @ARGV;
+
+###############################################################################
+
+sub printprocess
+  {
+  my($pid,$indent)=@_;
+  my($children);
+  my($i,$e) = ('','');
+  if ($color)
+	{
+	my($s) = $stat[$pid];
+	my($sc) = $s eq 'S' ? $stat_S : $s eq 'R' ? $stat_R : $stat;
+	$i = "${ci}" . ($uid[$pid] == $< ? 1 : 0) . ";48;${sc}m";
+	$e = $ce;
+	}
+  print( ($indent>2 ? '  'x($indent-2) : '' ) ,
+		 ($indent>1 ? '|-' : ''),
+		 "$i$exe[$pid] ($stat[$pid], pid=$pid)$e",
+		 "\n" );
+  foreach $child (@{$children[$pid]})
+	{printprocess($child,$indent+1) if ($child != $pid)}
+  }
+
+
+

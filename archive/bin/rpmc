@@ -1,0 +1,135 @@
+#!/usr/bin/perl -w
+# rpmc - facilitates comparison of RPM database with list of available packages
+# 2001/08/13 15:08 Reece Hart <reece@in-machina.com>
+
+use strict;
+use Getopt::Long;
+use IO::File;
+use Pod::Usage;
+use Carp;
+
+# Get options
+my %opts = ('installed-only'	=> 0,
+			'verbose' 			=> 0,
+			'update' 			=> 0,
+			'update-filenames' 	=> 0,
+			'installed' 		=> 'rpm -qa|sort|'
+		   );
+Getopt::Long::Configure qw(bundling);
+GetOptions(\%opts, 
+		   'installed|i=s',
+		   'available|a=s',
+		   'update|u+',
+		   'installed-only|I',
+		   'update-filenames|U',
+		   'verbose|v+',
+		   'version',
+		  )
+  || pod2usage(2);
+$opts{'installed-only'}=1 if ($opts{'update-filenames'});
+
+
+# Read installed packages
+my %inst;
+my $ioh = new IO::File($opts{installed})
+	|| die("$opts{installed}: $!\n");
+while(my $line = <$ioh>)
+  {
+  chomp $line;
+  my ($p,$v,$r,$a) = parse($line);
+  if ( (defined $p) ) #and (not defined $a or $a ne 'src') )
+	{ $inst{$p} = [$v,$r,$line]; }
+  else
+	{ warn("couldn't parse line $.: $line\n"); }
+  }
+$ioh->close();
+printf(STDERR "# read %d installed packages from `$opts{installed}'\n", scalar keys %inst);
+
+
+# Read available packages from file or @ARGV
+if (exists $opts{available})
+  {
+  $ioh->open($opts{available})
+	|| die("$opts{available}: $!\n");
+  while(my $ps = <$ioh>)
+	{
+	compare($ps)
+	  || warn("A: couldn't compare $ps\n");
+	}
+  $ioh->close();
+  }
+foreach my $ps (@ARGV)
+  {
+  compare($ps)
+	|| warn("B: couldn't compare $ps\n");
+  }
+
+exit(0);
+
+
+
+#######################################################################
+sub compare
+  {
+  my $rpm = shift;
+  chomp $rpm;
+  my ($P,$V,$R,$A) = parse($rpm);
+  my $vctag;
+
+  return if (defined $A and $A eq 'src');
+
+  if (exists $inst{$P})						# installed
+	{
+	my $vcmp = vcmp([$inst{$P}[0]],[$V]) || vcmp([$inst{$P}[1]],[$R]);
+	return(1) if ( (($opts{'update-filenames'}>0) or ($opts{'update'}>0))
+				   and ($vcmp >= 0) );
+
+	if ($opts{'update-filenames'}>0)
+	  { print "$rpm\n" ; return(1); }
+
+	$vctag = tag($vcmp);
+	my $cmp = sprintf(" [%s-%s $vctag %s-%s]",$inst{$P}[0],$inst{$P}[1],$V,$R);
+	print("$vctag $P$cmp\n");
+	}
+  else										# not installed
+	{
+	$vctag = ' ';
+	print("$vctag $P\n") if (not $opts{'installed-only'});
+	}
+
+  return(1);
+  }
+
+sub parse
+  {
+  my $ps = shift;  chomp $ps;  $ps =~ s/^.+\///;
+  my ($a);
+  $a = $1 if $ps =~ s/\.(\w+)\.rpm\s*$//;
+  my ($p,$v,$r) = $ps =~ m/^(.+)-([^-]+)-([^-]+)/;
+  #printf("[%s/%s/%s/%s]  $ps\n",
+  #			defined $p ? $p : '-',
+  #			defined $v ? $v : '-',
+  #			defined $r ? $r : '-',
+  #			defined $a ? $a : '-');
+  return ($p,$v,$r,$a) if defined $p;
+  }
+
+sub vcmp
+  {
+  my (@a) = split(/\./,$_[0][0]); #, split(/\./,$_[0][1]) );
+  my (@b) = split(/\./,$_[1][0]); #, split(/\./,$_[1][1]) );
+  #print("a=", join("/",@a), "; b=", join("/",@b), "\n");
+  for(my $i=0; $i<=$#a; $i++)
+	{
+	if (not exists $a[$i] or not exists $b[$i])
+	  { return -1; }
+	next if ($a[$i] eq $b[$i]);
+	if ( ($a[$i] =~ m/\D/) or ($b[$i] =~ m/\D/) )
+	  { return ($a[$i] cmp $b[$i]) }
+	return ($a[$i] <=> $b[$i]);
+	}
+  return 0;
+  }
+
+sub tag
+  { $_[0] < 0 ? '<' : $_[0] == 0 ? '=' : '>'; }

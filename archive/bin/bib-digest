@@ -1,0 +1,90 @@
+#!/usr/local/bin/perl
+
+$/="\n\n";
+
+while (<>)
+  {
+  parse_bibtex_record($_);
+  }
+
+foreach $label (keys(%fields))
+  {
+  my($record);
+
+  if ( 1 || defined($fields{$label}{'print'} ) )
+	{
+	$type=$fields{$label}{'type'};
+	if ( $type eq "Article" )
+	  {
+	  $record = 
+		sprintf "%s\t%s; %s; %s %s:%s (%s).\n",
+		  $label,
+		  $fields{$label}{'author'},
+		  $fields{$label}{'title'},
+		  $fields{$label}{'journal'},
+		  $fields{$label}{'volume'},
+		  $fields{$label}{'pages'},
+		  $fields{$label}{'year'};
+	  }
+	elsif ( $type =~ /book/i )
+	  {
+	  $record = 
+		sprintf "%s\t%s; %s; %s (%s).\n",
+		  $label,
+		  $fields{$label}{'author'},
+		  $fields{$label}{'title'},
+		  $fields{$label}{'publisher'},
+		  $fields{$label}{'year'};
+	  }
+
+	# remove empty lines
+	$record =~ s/\n\s+\n/\n/g;
+	$record =~ s/-\s*\n\s+/- /g;
+
+	$toprint{$label} .= $record;
+	}
+  }
+
+foreach $label (sort (keys(%toprint)))
+  {
+  print "$toprint{$label}";
+  }
+
+
+
+
+sub parse_bibtex_record
+  {
+  my($record)=$_[0];
+  my($dummy,$type,$label,$body) = split(/@([^{]+){([^,]+),/,$record);
+
+  $fields{$label}{'type'}=$type;
+  parse_bibtex_fields($label,$body);
+
+  return $label;
+  }
+
+sub parse_bibtex_fields
+  {
+  my($label,$body)=($_[0],$_[1]);
+
+  foreach $line (split(/,\s*\n/,$body))
+	{
+	if (/=/)
+	  {
+		$line =~ s/\n/ /g;
+		$line =~ s/\s+/ /g;
+		
+		($field,$value) = ($line =~ /^\s*(\w+) = (.*)/);
+		$value =~ s,^[\s{]*,,;
+		$value =~ s,[\s}]*$,,;
+		
+		$fields{$label}{$field}=$value;
+	  }
+	else
+	  {
+	  print STDERR "suspicious line: $line\n";
+	  }
+    }
+  }	
+

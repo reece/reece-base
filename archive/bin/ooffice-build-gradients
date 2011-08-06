@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+# builds a family of gradients based upon the Genentech palette
+# run this, then paste into ~/.openoffice2/user/config/standard.sog
+
+use strict;
+use warnings;
+
+my @startspecs =
+  (
+   [ 'Green'					, '#00ff00' ],
+   [ 'Magenta'					, '#ff00ff' ],
+   [ 'Genentech Blue (294)'		,'#004b8c' ],
+   [ 'Genentech Yellow (123)'	, '#f5cc06' ],
+   [ 'Genentech Orange (144)'	, '#ff9900' ],
+   [ 'Genentech Red (1795)'		, '#e1293e' ],
+   [ 'Genentech Maroon (202)'	, '#913745' ],
+   [ 'Genentech Light Blue (297)' , '#8cd5f9' ],
+   [ 'Genentech Green (371)'	, '#496a08' ],
+   [ 'Genentech Light Green (367)' , '#b7d98b' ],
+   [ 'Genentech Blue (old)'		, '#150067' ],
+  );
+
+my @endspecs = 
+  (
+   [ 'White'					, '#ffffff' ],
+   [ 'Black'					, '#000000' ],
+  );
+
+foreach my $ss (@startspecs) {
+  my ($sname,$scolor) = @$ss;
+  foreach my $es ( @endspecs ) {
+	my ($ename,$ecolor) = @$es;
+	foreach my $angle ( qw/0 45 90 135 180 225 270 315/ ) {
+	  printf( '<draw:gradient draw:name=%-30s   draw:display-name=%-30s   draw:style="linear" draw:start-color="%s" draw:end-color="%s" draw:start-intensity="100%%" draw:end-intensity="100%%" draw:angle="%03d0"    draw:border="0%%"/>'."\n",
+			  "\"${sname}_${ename}_$angle\"",
+			  "\"${sname} ${ename} $angle°\"",
+			  $scolor, $ecolor, $angle );
+	}
+  }
+}

@@ -1,0 +1,25 @@
+#!/usr/bin/perl -w
+# filepaths -- given a list of files, return a list
+# of basenames and all directories in which it occurs
+# e.g., 
+# /a/b/c
+# /d/b/c
+# returns
+# c: /a/b, /d/b
+
+while(<>)
+  {
+  chomp;
+  if (m%^(.+)/([^/]+)%) 
+	{ push(@{$path{$2}},$1) }
+  else
+	{ push(@{$path{$_}},'.') }
+  }
+
+foreach $b (sort keys %path)
+  {
+  my(@p) = @{$path{$b}};
+  my($p) = $#p+1;
+  print("$p $b : $_\n") for (sort @p);
+  print("\n");
+  }

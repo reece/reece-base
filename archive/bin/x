@@ -1,0 +1,32 @@
+#!/bin/sh
+
+doit () {
+	set -x;
+	$@
+}
+
+vga_1280x1024 () {
+	# # 1280x1024 @ 60.00 Hz (GTF) hsync: 63.60 kHz; pclk: 108.88 MHz
+	# Modeline "1280x1024_60.00"  108.88  1280 1360 1496 1712  1024 1025 1028 1060  -HSync +Vsync
+	xrandr --output VGA-0 --newmode "1280x1024"  108.88  1280 1360 1496 1712  1024 1025 1028 1060  -HSync +Vsync
+	xrandr --addmode VGA-0 "1280x1024"
+    xrandr --output VGA-0 --right-of LVDS --mode 1280x1024
+}
+
+vga_1024x768 () {
+	##  # 1024x768 @ 60.00 Hz (GTF) hsync: 47.70 kHz; pclk: 64.11 MHz
+	##  Modeline "1024x768_60.00"  64.11  1024 1080 1184 1344  768 769 772 795  -HSync +Vsync
+	xrandr --output VGA-0 --newmode "1024x768"  64.11  1024 1080 1184 1344  768 769 772 795  -HSync +Vsync
+	xrandr --addmode VGA-0 "1024x768"
+    xrandr --output VGA-0 --right-of LVDS --mode 1024x768
+}
+
+
+case "$1" in
+	dvi) doit xrandr --output LVDS --auto --output DVI-0 --auto --same-as LVDS;;
+	vga) doit xrandr --output LVDS --auto --output VGA   --auto --same-as LVDS;;
+	vga_1280*) vga_1280x1024;;
+	vga_1024*) vga_1024x768;;
+	*) echo "$1 not grok'd" 1>&2; exit 1;;
+esac
+

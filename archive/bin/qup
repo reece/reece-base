@@ -1,0 +1,44 @@
+#!/usr/bin/env perl
+# qup -- submit qsub jobs from stdin, one job per line
+# $Id: qup,v 1.2 2003/10/22 19:32:27 rkh Exp rkh $
+# usage: qup [--job-prefix=pfx] [qsub options] <commands
+# eg$ perl -lne 'print "make $_" <targets | qup -qxeons
+
+use strict;
+use warnings;
+use Getopt::Long qw(:config gnu_getopt pass_through);
+
+my %opts =
+  (
+   'job-prefix' => undef
+  );
+
+GetOptions(\%opts,
+		   'job-prefix=s'
+		  )
+  || die("usage\n");
+
+
+if (defined $opts{'job-prefix'}
+	and $opts{'job-prefix'} !~ m/\%\d*d/) {
+  $opts{'job-prefix'} .= '%d'
+}
+
+
+my (@qsub) = ('qsub',@ARGV);
+undef @ARGV;
+
+print(STDERR "# commands to |@qsub\n");
+while( <> ) {
+  my $N = '';
+  if (defined $opts{'job-prefix'}) {
+	$N = sprintf("-N$opts{'job-prefix'}", $.);
+  }
+  substr($N,5,length($N)-15-1,'-') if length($N)>15; # -N arg length limit
+  open(Q,"|@qsub $N")
+	|| die("couldn't @qsub -N$N\n");
+  print(STDERR "$.: $_");
+  print(Q $_);
+  close(Q);
+}
+

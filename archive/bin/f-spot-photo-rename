@@ -1,0 +1,83 @@
+#!/usr/bin/perl
+# f-spot-photo-rename -- renames f-spot photos and updates db
+
+
+use strict;
+use warnings;
+use DBI;
+use Data::Dumper;
+use Error qw( :try );
+use File::Basename qw(dirname);
+use File::Copy qw(move);
+use File::Path qw(mkpath);
+
+
+my $PHOTO_DB = "$ENV{HOME}/.gnome2/f-spot/photos.db";
+my $EXPECTED_VERSION = '16.3';
+
+sub renamer($$);
+
+
+my $dbh;
+$dbh = DBI->connect('dbi:SQLite:'.$PHOTO_DB,'','',
+					{ RaiseError => 1, PrintError => 0, AutoCommit => 0 })
+  || die("$PHOTO_DB: connect failed\n");
+
+my $fspot_db_version = $dbh->selectrow_array(
+	qq/select data from meta where name='F-Spot Database Version'/
+	);
+
+if ($fspot_db_version ne $EXPECTED_VERSION) {
+  die("$PHOTO_DB is version $fspot_db_version, $EXPECTED_VERSION required\n");
+}
+
+
+my $sel_sth = $dbh->prepare(qq/SELECT * FROM photos WHERE uri like '%#%'/);
+my $upd_sth = $dbh->prepare(qq/UPDATE photos SET uri = ? WHERE id = ?/);
+
+my %rows = %{ $dbh->selectall_hashref( $sel_sth, 'id' ) };
+$dbh->commit();
+
+my @ids = keys %rows;
+printf(STDERR "%d photos to rename\n", scalar @ids);
+
+foreach my $id (@ids) {
+  my $row = $rows{$id};
+  my $new_uri = $row->{uri};
+  $new_uri =~ s/#/-/;
+  if ($row->{uri} ne $new_uri) {
+	try {
+	  printf("begin(%s -> %s)\n", $row->{uri}, $new_uri);
+#	  $dbh->begin_work();
+	  $upd_sth->execute( $new_uri, $row->{id} );
+	  renamer( $row->{uri}, $new_uri );
+	  printf("renamed `%s' to `%s'\n", $row->{uri}, $new_uri);
+	  $dbh->commit();
+	} catch Error::Simple with {
+	  $dbh->rollback();
+	  die( $_[0]->text() );
+	};
+  }
+  $dbh->{AutoCommit} = 0;
+}
+
+
+
+sub renamer($$) {
+  my ($old_uri,$new_uri) = @_;
+  my ($old_filepath, $new_filepath);
+  my $new_path;
+
+  ($old_filepath = $old_uri) =~ s%^file://%%;
+  ($new_filepath = $new_uri) =~ s%^file://%%;
+  $new_path = dirname($new_filepath);
+
+  ( -d $new_path)
+	|| mkpath( "$new_path", 0, 0711 )
+	|| throw Error::Simple "mkpath($new_path): $!";
+
+  move($old_filepath,$new_filepath)
+	|| throw Error::Simple "rename($old_filepath,$new_filepath): $!";
+
+  return 0;
+}

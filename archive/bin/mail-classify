@@ -1,0 +1,451 @@
+#!/usr/bin/perl
+# mail-classify -- classify and relocate mail based on headers
+# $Id: mail-classify,v 1.23 2008/06/13 04:07:54 hartsnet Exp hartsnet $
+
+# TODO:
+
+# * move hdr parsing & processing out of get_headers and into
+#   classify. classify should receive a Mail::Header and parse as
+#   needed. The means that classify will have access to unparsed data,
+#   which will useful for some classification (e.g., X-Launchpad-Bug)
+# * s/bin/class/ for name clarity
+# * spam should adopt the 0-today..9-ancient strategy. The rules should
+#   be identical with those for quarantine. Or perhaps not... maybe similar
+#   tiers, but perhaps auto-delete ancient spam?
+# * classify() and code rule args should be %msginfo, a hash that includes
+#   the header and other massaged elements from the current classify()
+# * consider *_re variants of from,to,to_cc for regexps; exact matches
+#   are likely better handled by hashing the address
+# * case fold by default
+# * pass either $msg or $msg->head() to filter routines, instead of the
+#   current hash, so that we can add a custom header such as
+#   X-Mail-Classify: <version>, <date>, <bin>
+# * allow global and per-user configs (especially from addresses)
+# * drop message into Reece's mailbox on failure?
+# * alternate invocations: client/server or periodic sweep of holding tank
+
+
+use strict;
+use warnings;
+
+use Data::Dumper;
+use Date::Parse;
+use Encode;
+use File::Basename;
+use File::Path;
+use Getopt::Long qw(:config gnu_getopt);
+use IO::File;
+use IO::Handle;
+use Mail::Internet;
+use MIME::Base64;
+use POSIX 'strftime';
+
+use lib "$ENV{HOME}/opt/perl/lib/perl5";
+use Date::Calc;
+
+
+# PROTOTYPES:
+sub my_decode($);
+sub logger(@);
+sub fatal(@);
+sub classify($);
+sub get_headers($);
+sub make_mail_dir($);
+sub re_from_file($);
+sub age_suffix($);
+
+
+# CONFIG:
+my $MAIL_ROOT = "/home/hartsnet/mail/harts.net";
+my $MAILDIRMAKE = '/usr/lib/courier-imap/bin/maildirmake';
+my $MT_DIR = '/home/hartsnet/opt/reece-base/mail-tools';
+my $MT_REGEXP_DIR = $MT_DIR . '/regexps';
+
+my $DISCARD = '*DISCARD*';
+my $SPAM_LIKELY = '.spam.*AGE*';
+my $SPAM_POSSIBLE = $SPAM_LIKELY;
+my $QUARANTINE = '.quarantine.*AGE*';
+
+
+my %opts =
+  (
+   verbose => 0,
+   dry_run => 0,
+
+   # The st_definite score of 8 is based on auditing several thousand
+   # spams for zero false positives
+   st_definite => 8,
+   st_likely => 6,
+   st_possible => 3,
+  );
+
+my %user_subdir =
+  # subdir under MAIL_ROOT/ for these users (matched in 'Received: ... for
+  # <user>' header)
+  (
+   'default'				=> 'reece',
+   'reece@in-machina.com'	=> 'reece',
+   'reece@harts.net'		=> 'reece',
+
+   'hanna@in-machina.com'	=> 'hanna',
+   'hanna@harts.net'		=> 'hanna',
+  );
+
+my @bin_rules =
+  (
+   # "definite" spam
+   [ $DISCARD			, sub { ( defined $_[0]{sa_score}
+								  and $_[0]{sa_score} >= $opts{st_definite} )
+							  } ],
+
+   # == BREAK
+
+   # these rules are here because they occasionally get tripped up by spam assassin and
+   # need to get filed before the "likely" threshold kicks in. (The "definite" threshold
+   # should be set so that there are no false positives.)
+   [ '.bulk.accounts'	, { from => qr/\@schwab\.com/ } ],
+   [ '.bulk.system.success'	, { subject => qr/cronexec SUCCESS|unison is up/i } ],
+   [ '.bulk.system'		, { subject => qr/cronexec|unison is/i,	# must follow success, above
+							from => qr/hartsnet\@|root\@whoville/i } ],
+
+   # == BREAK
+
+   [ $SPAM_LIKELY		, sub { (defined $_[0]{sa_score}
+								 and $_[0]{sa_score} >=  $opts{st_likely})
+							  } ],
+   [ $SPAM_LIKELY		, { subject => qr/=\?koi8|windows-1251/i } ],
+#   [ $SPAM_LIKELY		, { subject => qr/[АаБбВвГгДдЕеЖжЗзИиЙйКкЛлМмНнОоПпРрСсТтУуФфХхЦцЧчШшЩщЪъЫыЬьЭэЮюЯя]/ } ],
+
+   # == BREAK
+
+   [ '.bulk.accounts'	, { from => re_from_file("$MT_REGEXP_DIR/bulk-accounts-from.re") } ],
+   [ '.bulk.bioperl' 	, { to_cc => qr/bioperl(?:-announce)?-l\@/i } ],
+   [ '.bulk.bounces' 	, { from => qr/postmaster/i } ],
+   [ '.bulk.bugs'		, { from => re_from_file("$MT_REGEXP_DIR/bulk-bugs-from.re") } ],
+   [ '.bulk.facebook' 	, { from => qr/notification\+ykq2mmma\@facebookmail.com/i } ],
+   [ '.bulk.glenpark'   , { from => qr/Denis.O'Leary\@sfgov.org/i } ],
+   [ '.bulk.glenpark-parents'	, { to_cc => qr/glenparkparents/ } ],
+   [ '.bulk.glenridge-auction'	, { subject => qr/glenridge_auction/i} ],
+   [ '.bulk.glenridge-members'	, { to_cc => qr/glenridge-members/i} ],
+   [ '.bulk.glenridge-community', { to_cc => qr/glenridge-community/i} ],
+   [ '.bulk.ind-news'	, { from => re_from_file("$MT_REGEXP_DIR/bulk-ind-news-from.re") } ],
+   [ '.bulk.jobsearch'	, { from => re_from_file("$MT_REGEXP_DIR/bulk-jobsearch-from.re") } ],
+   [ '.bulk.miraloma'	, { from => qr/miralomak2/i,
+							to_cc => qr/miralomaschool\@yahoogroups.com/i
+						  } ],
+   [ '.bulk.postgresql'	, { to_cc => qr/\@postgresql.org/i,
+							subject => qr/\[postgresql/i 
+						  } ],
+   [ '.bulk.pdb' 		, { to_cc => qr/pdb-l@/i } ],
+   [ '.bulk.pymol' 		, { to_cc => qr/pymol-users@/i,
+							subject => qr/PyMOL/i
+						  } ],
+   [ '.bulk.science'	, {
+						   subject => re_from_file("$MT_REGEXP_DIR/bulk-science-subject.re"),
+						   from => re_from_file("$MT_REGEXP_DIR/bulk-science-from.re"),
+						   list_id => qr/rcsb-news.sdsc.edu|proteins.net.bio.net|open-bioinformatics-foundation.lists.open-bio.org/,
+						  } ],
+   [ '.bulk.sussexstreet' , { to_cc => qr/sussexstreet\@yahoogroups.com/i } ],
+   [ '.bulk.unison'		, { to_cc => qr/unison\@unison-db.org/i, 
+							subject => qr/SVN: unison-db:|unison-db-/i  # svnnotify subject line
+						  } ],
+   [ '.bulk.wotd' 		, { from => qr/doctor\@dictionary.com/i } ],
+
+
+   [ '.bulk'			, { from => re_from_file("$MT_REGEXP_DIR/bulk-from.re"),
+							to_cc => re_from_file("$MT_REGEXP_DIR/bulk-to.re"), 
+							subject => re_from_file("$MT_REGEXP_DIR/bulk-subject.re"),
+						  } ],
+
+
+   # == BREAK
+
+   [ ''					, { from => re_from_file("$MT_REGEXP_DIR/inbox-from.re") } ],
+   [ ''					, { from => re_from_file("$MT_REGEXP_DIR/inbox-from-family.re") } ],
+   [ ''					, { from => re_from_file("$MT_REGEXP_DIR/inbox-from-friends.re") } ],
+   [ ''					, { from => re_from_file("$MT_REGEXP_DIR/inbox-from-companies.re") } ],
+   [ ''					, { from => re_from_file("$MT_REGEXP_DIR/inbox-from-domains.re") } ],
+   [ ''					, { subject => re_from_file("$MT_REGEXP_DIR/inbox-subject.re") } ],
+
+   # == BREAK
+
+   [ '.backstop'		, { from => re_from_file("$MT_REGEXP_DIR/backstop-from.re") } ],
+
+   # == BREAK
+
+   [ $SPAM_POSSIBLE		, { to_cc => qr/\@in-machina.com/ } ],
+   [ $SPAM_POSSIBLE		, sub { defined $_[0]{sa_score} 
+								and $_[0]{sa_score} >= $opts{st_possible}
+							  } ],
+
+   # == BREAK
+
+   [ $QUARANTINE		, sub { 1 } ],
+  );
+
+
+
+############################################################################
+
+GetOptions(\%opts,
+		   'verbose|v+',
+		   'dry_run|dry-run|n+',
+		  )
+  || die("$0: usage\n");
+
+if ( $opts{verbose} ) {
+  logger('# ', q$Id: mail-classify,v 1.23 2008/06/13 04:07:54 hartsnet Exp hartsnet $);
+}
+
+if (@ARGV) {
+  foreach (@ARGV) {
+	process1($_)
+  }
+} else {
+  while (<>) {
+	chomp;
+	process1($_);
+  }
+}
+
+exit(0);
+
+
+############################################################################
+## INTERNAL
+############################################################################
+
+sub process1 {
+  my ($fname) = @_;
+
+  my $action;
+  my $dst;
+  my $usd;
+
+  my $hdr = get_headers($fname);
+
+  if (not defined $hdr->{recd_for}) {
+	logger( "!! recd_for is undefined for file $fname; skipping" );
+	next;
+  } elsif (defined $user_subdir{ $hdr->{recd_for} }) {
+	$usd = $user_subdir{ $hdr->{recd_for} };
+  } elsif ($hdr->{recd_for} =~ m/gene.com/) {
+	$usd = $user_subdir{'reece@harts.net'};
+  } else {
+	logger( "user subdir not defined for recd_for = $hdr->{recd_for}" );
+	$usd = $user_subdir{'default'};
+  }
+
+  my $bin = classify($hdr) || '';
+  $bin = strftime($bin,gmtime($hdr->{arr_ts}));	# should move to classify()
+
+  if ($bin =~ m/\Q*AGE*\E/) {
+	my $age_tag = age_suffix( $hdr->{age_d} );
+	if ($age_tag eq $DISCARD) {
+	  $bin = $DISCARD;
+	} else {
+	  $bin =~ s/\Q*AGE*\E/$age_tag/;
+	}
+  }
+
+  if ($bin eq $DISCARD) {
+
+	# discarding message
+	$dst = '';
+	if ($opts{dry_run}) {
+	  warn("unlink($fname): not executed because dry_run in effect\n") if $opts{verbose};
+	  $action = 'discarded (not really)';
+	} else {
+	  unlink($fname);
+	  $action = 'discarded';
+	}
+
+  } else {
+
+	# filing into mail folder
+	my $nc = ($fname =~ m%/cur/[^/]+$% ? 'cur' : 'new');
+	$dst = "$MAIL_ROOT/$usd/$bin";
+	make_mail_dir($dst) unless (-d "$dst/new");
+
+	$dst .= "/$nc";
+
+	my ($basename) = $fname =~ m%/([^/]+)$%;
+	$basename = './' if not defined $basename;
+	$dst .= '/' . $basename;
+
+	# TODO: check inodes of dirnames of fname and dst to see if this is a noop
+	if (-e $dst) {
+
+	  if ( (stat($fname))[1] == (stat($dst))[1] ) {
+		$action = 'no change'
+	  } else {
+		$action = 'dst exists; no change'
+	  }
+
+	} else {
+
+	  if ($opts{dry_run}) {
+		warn("rename($fname,$dst): not executed because dry_run in effect\n") if $opts{verbose};
+		$action = 'renamed (not really)';
+	  } else {
+		rename($fname,$dst)
+		  || fatal("rename($fname,$dst): $!");
+		$action = 'renamed';
+	  }
+
+	}
+  }
+
+  if ($opts{verbose} 
+	  or $action !~ 'no change') {
+	logger(join("\n  ",
+				"* $fname",
+				sprintf('from={%s}', $hdr->{from} || '<no from>'),
+				sprintf('reply-to={%s}', $hdr->{reply_to} || '<no reply-to>'),
+				sprintf('for={%s}', $hdr->{recd_for} || '<undef>'),
+				sprintf('list-id={%s}', $hdr->{list_id} || '<undef>'),
+				sprintf('subject={%s}', $hdr->{subject} || '<no subject>'),
+				sprintf('date={%s} (age=%s)', $hdr->{date} || '<no date>', $hdr->{age_d}),
+				sprintf('sa={%s/%s}', $hdr->{sa_call} || '?', $hdr->{sa_score} || 'n/a'),
+				sprintf('bin={%s} action={%s}', $bin, $action),
+				sprintf('dst={%s}', $dst),
+				)
+		  );
+  }
+}
+
+
+sub get_headers($) {
+  my $fname = shift;
+  my $io = new IO::File;
+
+  $io->open('<'.$fname)
+	|| fatal("$fname: $!\n");
+  my $msg = new Mail::Internet($io);
+  $io->close();
+
+  my $date = $msg->head()->get('date') || '';			chomp($date);
+  my (@to) = map {s/\n$//;$_} $msg->head()->get('to');
+  my (@cc) = map {s/\n$//;$_} $msg->head()->get('cc');
+  my $from = $msg->head()->get('from') || '';			chomp($from);
+  my $reply_to = $msg->head()->get('reply-to') || '';	chomp($reply_to);
+  my $subject = $msg->head()->get('subject') || '';		chomp($subject);
+  my $list_id = $msg->head()->get('list-id') || '';		chomp($list_id);
+
+  my @recd = $msg->head()->get('received');
+  my @recd_for = map { m/for\s+<?([^;>\s]+)/ms; lc($1); } @recd;
+  my $arr_ts = $recd[0] =~ m/;\s*([^;]+)$/ ? str2time($1) : gmtime();
+
+  my $xss = $msg->head()->get('x-spam-status');
+  my ($sa_call,$sa_score) = $xss =~ m/^(\w+), score=(\S+)/ if defined $xss;
+
+  return {
+		  age_d => int(-M $fname),
+		  date => $date,
+		  to => \@to,
+		  cc => \@cc,
+		  from => $from,
+		  reply_to => $reply_to,
+		  subject => my_decode( $subject ),
+		  recd_fors => \@recd_for,
+		  recd_for => $recd_for[0],
+		  list_id => $list_id,
+		  sa_score => $sa_score,
+		  sa_call => $sa_call,
+		  arr_ts => $arr_ts
+		 };
+}
+
+sub classify($) {
+  my $hdr = shift;
+  my @to = @{$hdr->{to}};
+  my @cc = @{$hdr->{cc}};
+  my $from = $hdr->{from} || '';
+  my $reply_to = $hdr->{reply_to} || '';
+  my $subject = $hdr->{subject} || '';
+  my $list_id = $hdr->{list_id} || '';
+  my $sa_score = $hdr->{sa_score};
+
+  foreach my $bin_rule (@bin_rules) {
+	my ($bin,$rules) = @$bin_rule;
+
+	if (ref $rules eq 'CODE') {
+	  return $bin if &$rules( $hdr );
+	  next;
+	}
+
+	return $bin if (defined $rules->{to}         and ( grep {$_ =~ $rules->{to}} @to) );
+ 	return $bin if (defined $rules->{to_cc}		and ( (grep {$_ =~ $rules->{to_cc}} @to)
+													  or (grep {$_ =~ $rules->{to_cc}} @cc) ) );
+ 	return $bin if (defined $rules->{from}		and ( $from =~ $rules->{from} 
+													  or $reply_to =~ $rules->{from} ) );
+
+ 	return $bin if (defined $rules->{subject}	and $subject =~ $rules->{subject}	);
+ 	return $bin if (defined $rules->{list_id}	and $list_id =~ $rules->{list_id}	);
+  }
+
+  return undef;
+}
+
+sub make_mail_dir($) {
+  my $dir = shift;
+  my $oneup = dirname($dir);
+  mkpath( [$oneup], 0, 0711 );
+  system($MAILDIRMAKE,$dir) == 0
+	or fatal("maildirmake($dir): $!\n");
+}
+
+
+sub logger(@) {
+  print(STDERR @_, "\n");
+}
+
+sub fatal(@) {
+  logger(@_);
+  die;
+}
+
+sub re_from_file($) {
+  my $fn = shift;
+  my @a;
+
+  my $fh = new IO::File;
+  $fh->open("<$fn")
+	|| die("$fn: $!\n");
+  while (my $a = <$fh>) {
+	next if $a =~ m/^#/ or not $a =~ m/\w/;
+	chomp $a;
+	push(@a,$a);
+  }
+  $fh->close();
+
+  return undef unless (@a);
+
+  my $a_re = join('|', map {s/\@/\\@/g; s/\./\\./g; $_} @a);
+  return qr/$a_re/i;
+}
+
+sub age_suffix($) {
+  my $age = shift;
+
+  return (   ($age ==  0) ? '0-today'
+		   : ($age <=  1) ? '1-yesterday'
+		   : ($age <=  7) ? '2-last-7d'
+		   : ($age <= 28) ? '3-last-28d'
+		   : ($age <= 90) ? '5-last-90d'
+		   : '9-ancient'
+		 );
+}
+
+sub my_decode($) {
+  # decode MIME strings encoded like =?UTF-8?B?...?=, or pass through others
+  my ($c,$e,$t) = $_[0] =~ m/^=\? ([^?]+) \? ([QB]) \? (.*) \?=$/x;
+  if ( defined $c ) {
+	# (c,e,t) = (charset, encoding, text)
+	if ($e eq 'B') {
+	  return decode_base64($t);
+	}
+  }
+
+  return $_[0];
+}

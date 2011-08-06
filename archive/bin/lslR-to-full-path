@@ -1,0 +1,17 @@
+#!/usr/bin/perl
+# lslR-to-full-path -- convert `ls -lR' listings to full paths
+
+my $root;
+
+while(<>) {
+  if (m/^(.+):\s*\n/) {
+	$root = $1;
+  } elsif (m/^(\S+\s+\d+\s+\S+\s+\S+\s+\d+\s+\d{4}-\d{2}-\d{2} \d+:\d+) (.+)/) {
+	if (not defined $root) {
+	  die("line $.: dirent with undefined root -- malformed ls -lR?\n");
+	}
+	#$_ = "$1 $root/$2\n";
+	$_ = "$root/$2\n";
+  }
+  print;
+}

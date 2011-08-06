@@ -1,0 +1,437 @@
+#!/usr/local/bin/perl -w
+
+##############################################################################
+## Customize here
+##############################################################################
+
+$URL_BASE='http://www.in-machina.com/~reece';	# base URL for your site
+
+$OWNER_URL="$URL_BASE/";					# your que pasa page
+
+$OWNER_NAME='Reece Kimball Hart';			# your name
+
+$OWNER_EMAIL='reece@in-machina.com';		# your email address
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+=head1 NAME
+
+bookmarkpub.pl -- reformat Netscape bookmarks
+
+=head1 SYNOPSIS
+
+C<bookmarkpub.pl [options] bookmarks.html>
+
+S<$Id: bookmarkpub.pl,v 1.11 1998/09/29 05:02:03 reece Exp $>
+
+=head1 DESCRIPTION
+
+B<bookmarkpub.pl> generates a framed HTML, unframed HTML, or an emacs
+outline of a Netscape bookmarks file. It optionally removes bookmarks and
+folders marked 'private', generate indicies, and sorts folders.
+
+=head1 OPTIONS
+
+=item B<--framed> dir, B<-f> dir
+
+output framed HTML into the specified directory.
+
+=item B<--html>, B<-h>
+
+output single-file HTML to standard output; overrides B<--outline>
+
+=item B<--index>, B<-i>
+
+include an index in the framed or unframed html
+
+=item B<--number> depth, B<-n> depth
+
+number folders to the specified depth
+
+=item B<--outline>, B<-o>
+
+output an emacs-style outline; overridden by B<--html>
+
+=item B<--public>, B<-p>
+
+do not included bookmarks or folders marked private (first word in
+description is 'private'), or if the URL begins 'file:'
+
+=item B<--sort>, B<-s>
+
+alpha sort all folders
+
+=head1 EXAMPLE ($ is your prompt)
+
+$ bookmarkpub.pl -spin99 -fbookmarks bookmarks.html >pubbookmarks.html
+
+generates a public, sorted, indexed version of your bookmarks with folders
+numbered 99 deep.  A framed version is placed in boomarks/ directory and
+the unframed is redirected to the pubbookmarks.html file.
+
+=head1 INSTALLATION and REQUIREMENTS
+
+You will need Getopt::Mixed, available via CPAN (http://www.perl.com/CPAN).
+
+@@banner.pm@@
+
+=cut
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+use Carp;
+use FileHandle;
+use File::Basename;
+use Getopt::Mixed 1.006;
+
+use vars qw( $date $RCSId $jemappelle @OPTS $opt_index $opt_sort $opt_framed
+			 $opt_html $opt_outline $opt_number $opt_public );
+
+$RCSId = '$Id: bookmarkpub.pl,v 1.11 1998/09/29 05:02:03 reece Exp $ ';
+($jemappelle=$0) =~ s,^.*/,,;
+print(STDERR '# ', $RCSId, "\n");
+
+@OPTS=
+  (
+   'framed=s f>framed',
+   'html     h>html',
+   'index    i>index',
+   'number=i n>number',
+   'outline  o>outline',
+   'public   p>public',
+   'sort     s>sort',
+  );
+Getopt::Mixed::getOptions(@OPTS);
+
+# Alas, POSIX strftime isn't available on, ahem, other machines
+my(@time)=(gmtime(time()))[5,4,3,2,1]; $time[1]+=1;
+$date=sprintf("19%02d/%02d/%02d %02d:%02dZ",@time);
+
+$REECE_URL='http://www.in-machina.com/~reece';
+$PROG_URL="$REECE_URL/src/bookmarkpub.pl";	# From redact?
+$REECE_EMAIL='reece@in-machina.com';
+
+
+package Base;
+sub new     {bless {}, shift}
+sub title   {if (defined $_[1]) 
+			   {$_[0]->{'title'}=$_[1];($_[0]->{'sortkey'}=uc($_[1]))=~s/^(?:THE|A|AN)\s+//g;}
+			 $_[0]->{'title'}}
+sub private {if (defined $_[1]) {$_[0]->{'private'}=$_[1]};     $_[0]->{'private'}}
+sub comment {if (defined $_[1]) {$_[0]->{'comment'}=$_[1]}; $_[0]->{'comment'}}
+sub sortkey {if (defined $_[1]) {$_[0]->{'sortkey'}=$_[1]}; $_[0]->{'sortkey'}}
+
+
+
+package Href;
+@ISA = qw( Base );
+sub text {sprintf("%s%s <URL:%s>\n",'  'x$_[1],$_[0]->{'title'},$_[0]->{'href'})}
+sub html {sprintf("%s<DT><A HREF=\"%s\">%s</A>\n",'  'x$_[1],$_[0]->{'href'},$_[0]->{'title'})}
+sub href   {if (defined $_[1]) {$_[0]->{'href'}=$_[1]}; $_[0]->{'href'}}
+sub private {$_[0]->{'href'}=~/^file:/i || Base::private(@_)}
+
+
+
+package Folder;
+@ISA = qw( Base );
+sub new         {my($self)={}; @{$self->{'elements'}}=(); bless($self); }
+sub elements    {@{$_[0]->{'elements'}}}
+sub number      {if (defined $_[1]) {$_[0]->{'number'}=$_[1]}; $_[0]->{'number'}}
+sub tag         {if (defined $_[1]) {$_[0]->{'tag'}=$_[1]};
+				 defined $_[0]->{'tag'} ? $_[0]->{'tag'} : $_[0]->title()}
+sub label       {(defined $_[0]->number()?'§'.$_[0]->number().' ':'') . $_[0]->title()}
+sub addelements {my($self)=shift; push(@{$self->{'elements'}}, @_);  $self}
+sub addfolder
+  {
+  my($element) = new Folder;
+  $element->title($_[1]);
+  $_[0]->addelements($element);
+  $element;
+  }
+sub addhref
+  {
+  my($element) = new Href;
+  $element->title($_[1]);
+  $element->href($_[2]);
+  $_[0]->addelements($element);
+  $element;
+  }
+sub sortelements
+  {
+  @{$_[0]->{'elements'}} = sort {$a->sortkey() cmp $b->sortkey()} @{$_[0]->{'elements'}};
+  $_[0];
+  }
+sub html
+  {
+  my($self) = shift;
+  my($level) = shift;
+  my($indent) = '  'x$level;
+  my($text);
+  my($elem);
+  if (defined $self->tag())
+	{$text = sprintf("%s<A NAME=\"%s\">\n", $indent, $self->tag())}
+  $text .= sprintf("%s<DT>%s\n%s<DL>\n",
+				   $indent, $self->label(), $indent);
+  foreach $elem ($self->elements()) {$text .= $elem->html($level+1)}
+  $text .= $indent . "</DL>\n";
+  $text;
+  }
+sub html_index
+  {
+  my($self) = shift;
+  my($level) = shift;
+  my($indent) = '  'x$level;
+  my($text)='';
+  if (defined $self->tag())
+	{
+	my($elem);
+	my($tag) = $main::opt_framed ? 'bookmarks.html#' : '#';
+	$tag .= $self->tag();
+	my(@children) = grep(ref($_) eq 'Folder',$self->elements()); 
+	$text = sprintf("%s<DT><A HREF=\"%s\"%s>%s</A>\n",
+					$indent, $tag, $main::opt_framed ? ' target="frame2"' : '',
+					$self->label());
+	if ($#children > -1)
+	  {
+	  $text .= "$indent<DL>\n";
+	  foreach $elem (@children) {$text .= $elem->html_index($level+1)}
+	  $text .= "$indent</DL>\n";
+	  }
+	}
+  $text;
+  }
+sub text
+  {
+  my($self) = shift;
+  my($level) = shift;
+  my($text);
+  $text = '*'x$level . ($level>=1 ? ' ' : '') . $self->label() ."\n";
+  foreach $elem ($self->elements()) {$text .= $elem->text($level+1)}
+  $text;
+  }
+sub html_header
+  {
+  my($title)=$_[0]->title();
+  return <<EOT
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 3.0//EN">
+<!--
+Generated by $main::RCSId
+Reece Kimball Hart <$main::REECE_EMAIL>
+-->
+
+<HTML>
+
+<HEAD>
+<TITLE>$title</TITLE>
+</HEAD>
+
+EOT
+  }
+sub html_banner
+  {
+return <<EOT;
+<HR>
+<BR>generated by <A HREF="$main::PROG_URL">$main::RCSId</A>
+<BR>on $main::date
+<ADDRESS>maintainer: $main::OWNER_NAME &lt;$main::OWNER_EMAIL&gt; 
+[ <A HREF="$main::OWNER_URL">home page</A> 
+| <A HREF="mailto:$main::OWNER_EMAIL">send mail</A> ]
+</ADDRESS>
+EOT
+  }
+sub html_footer
+  {
+  return <<EOT;
+</HTML>
+EOT
+  }
+sub html_frameset
+  {
+return <<EOT;
+<frameset cols="20%,80%">
+  <frame name="frame1" src="bookmarks-idx.html">
+  <frame name="frame2" src="bookmarks.html">
+<noframes>
+  <body>
+	Your browser doesn\'t support frames.
+  </body>
+</noframes>
+</frameset>
+EOT
+  }
+
+
+
+package main;
+my($lastelem) = my($top) = new Folder;
+my($currentfolder) = $top;
+
+while (<>)
+  {
+  die($jemappelle, ": no current folder\n") if not defined $currentfolder;
+
+  # new bookmark file
+  if (m!^\s*<TITLE>(.*)</TITLE>$!i)
+	{
+	$top->title($1);
+	$nfolders++;
+	while (<>) {last if /^<DD>|^\s*<DL><p>/}; redo if /^<DD>/;
+	}
+
+  # new folder
+  elsif (m!^\s*<DT><H3.*>(.*)</H3>$!i)
+	{
+    if  ($1 ne 'Personal Toolbar Folder')
+      {
+	  push(@folderstack, $currentfolder);
+	  $lastelem = $currentfolder = $currentfolder->addfolder($1);
+	  $nfolders++;
+	  while (<>) {last if /^<DD>|^\s*<DL><p>/}; redo if /^<DD>/;
+      }
+	}
+
+  # bookmark
+  elsif (m!^\s*<DT><A HREF="([^\"]*)".*>(.*)</A>$!i)
+	{
+	die($jemappelle, ": no folder open\n") if (not defined($currentfolder));
+	$lastelem = $currentfolder->addhref($2,$1);
+	$nbookmarks++;
+	}
+
+  # end of folder
+  elsif (m!^\s*</DL><p>$!i)
+	{
+	$currentfolder = pop(@folderstack);
+
+	# This is a kludge.  currentfolder is undef if we folded the Personal Toolbar Folder
+	# into the top folder
+	$currentfolder = $top if (not defined $currentfolder);
+	
+	undef $lastelem;
+	}
+
+  # comment
+  elsif (s!^<DD>!!i)
+	{
+	my($comment)=$_;
+	while(/<BR>$/)
+	  {
+	  $_ = <>;
+	  $comment .= $_;
+	  }
+	$comment=~s/<BR>/ /g;
+	$comment=~s/\n/ /g;
+	$comment=~s/&lt;/</g;
+
+	if (not defined $lastelem)
+	  {
+	  die($jemappelle, ": $.: found comment out of bookmark or folder context\n");
+	  }
+	$lastelem->comment($comment);
+	$lastelem->private($comment=~m/^private/i);
+	}
+  }
+
+printf(STDERR "# read %d folders, %d bookmarks\n", $nfolders, $nbookmarks);
+
+if ($opt_public)
+  {
+  my(@stack);
+  push(@stack,$top);
+  while($#stack >= 0)
+	{
+	my($folder) = shift(@stack);
+	my(@removed) = grep( $_->private(), $folder->elements() );
+	@{$folder->{'elements'}} = grep( !$_->private(), $folder->elements() );
+	if ($#removed>=0)
+	  {
+	  printf(STDERR "# removed %d private element(s) from folder %s:\n  %s\n",
+			 $#removed+1, $folder->title(),
+			 join( "\n  "
+				   , map( $_->title() . (ref($_) eq "Href" ? ' ('.$_->href().')' : '' )
+						  , @removed )));
+	  };
+	unshift(@stack, grep( ref($_) eq 'Folder', $folder->elements()));
+	}
+  }
+
+if ($opt_sort)
+  {
+  my(@folderstack);
+  push(@folderstack,$top);
+  while($#folderstack > -1)
+	{
+	my($folder) = shift(@folderstack);
+	$folder->sortelements();
+	unshift(@folderstack, grep( ref($_) eq 'Folder', $folder->elements()));
+	}
+  }
+
+
+if ($opt_number)
+  {
+  my($folder,@folderstack);
+  push(@folderstack,$top);
+  $top->number('');
+  while( $folder = shift(@folderstack) )
+	{
+	my($cid);
+	my($counter)=$folder->number();
+	my(@children) = grep( ref($_) eq 'Folder', $folder->elements() );
+	for ($cid=0; $cid<=$#children; $cid++) {
+	  my($number) = ($counter ne '' ? "$counter." : '').($cid+1);
+	  $children[$cid]->number( $number )}
+	push(@folderstack,@children) unless ( ($counter =~ tr/\././)+1 ==  $opt_number );
+	}
+  undef $top->{number};
+  }
+
+
+if (not ($opt_outline or $opt_html or $opt_framed) )
+  {die("you didn't select an output format\n")}
+
+if ($opt_html)
+  {
+  print($top->html_header());
+  print("<BODY>\n");
+  if ($opt_index)
+	{
+	printf($top->html_index(0), "<hr>\n");
+	}
+  print($top->html(0), $top->html_banner(), "</BODY>\n", $top->html_footer);
+  }
+elsif ($opt_outline)
+  {
+  print("# $RCSId -*-outline-*-\n", $top->text(0));
+  }
+
+if ($opt_framed)
+  {
+  my($fh,$fn);
+  my(@folderstack);
+  $fh = new FileHandle;
+
+  $fn="$opt_framed/index.html";
+  $fh->open(">$fn") || die($jemappelle, ": $fn: $!\n");
+  print($fh $top->html_header(), $top->html_frameset(),
+		$top->html_banner(), "</BODY>\n", $top->html_footer());
+  $fh->close();
+  
+  $fn="$opt_framed/bookmarks-idx.html";
+  $fh->open(">$fn") || die($jemappelle, ": $fn: $!\n");
+  print($fh $top->html_header(), "<BODY><FONTSIZE -2>\n");
+  print($fh "<FONT SIZE=-6>\n", $top->html_index(0));
+  print($fh $top->html_banner(), "</BODY>\n", $top->html_footer());
+  $fh->close();
+
+  $fn="$opt_framed/bookmarks.html";
+  $fh->open(">$fn") || die($jemappelle, ": $fn: $!\n");
+  print($fh $top->html_header(), "<BODY>\n");
+  print($fh $top->html(0));
+  print($fh $top->html_banner(), "</BODY>\n", $top->html_footer());
+  $fh->close();
+  }

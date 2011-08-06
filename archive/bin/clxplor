@@ -1,0 +1,414 @@
+#!/bin/ksh
+##
+## $RCSfile: clxplor.ksh,v $
+## $Revision: 1.9 $
+## $Date: 1995/07/29 19:07:33 $
+##
+## NAME
+##   xplor-interface -- a command-line interface to x-plor
+##
+## SYNOPSIS
+##   xplor-interface [args]
+##
+## DESCRIPTION
+##   xplor-interface simplifies frequent operations involving xplor jobs,
+## specifically such that editing xplor scripts is not required for most
+## operations.  This is done by providing a variety of variables for
+## substitution into template xplor scripts (scripts which have placeholders
+## for variable substitution).
+##
+## There are two environment variables:
+##   XPLORSCRIPTS (mandatory) - directory with xplor template scripts
+##   XIARGS (optional) - a list of command-line arguments to be /prepended/ to
+##     those provided at invocation time.
+##
+## FLAGS
+## args are either flags or variable bindings.  Flags are:
+##  -available
+##     print available scripts and their required substitution variables
+##  -echo
+##     echo command line to stdout (for logging, this is the default)
+##  +echo
+##     don't -echo
+##  -help
+##     get this info
+##  -sedscript
+##     send sed script to stdout (and don't do anything else)
+##  -variables
+##     send variable binding to stdout (useful for seeing possibilities)
+##  -xplorscript
+##     send xplor script to stdout (and don't do anything else)
+##
+## Variable bindings have the form <variable>=<value>. There are two
+## types of variables: those used for substitution and those used to
+## control xplor-interface.  If the same variable is assigned more
+## than once, the last (as read left to right) assignment is
+## used. Substitution variables may be found with the -available
+## flag. Script variables are:
+## script - directs which xplor script should be run (see -available). If it is
+##     not set, it defaults to the name of this command script. This means that
+##     % xplor-interface [args without script=] looks for a script called
+##     xplor-interface.$SCRIPTSFX. This was done so that linking, for example,
+##     xplor-interface to genpsf automatically runs the genpsf.xplor script
+##  savescript - if set, saves the substituted xplor script as the specified
+##     name; otherwise the script is not saved.
+##  log - if set, the xplor job is started in the background and output (stdout
+##     & stderr) is redirected to the specified file; otherwise, the xplor job
+##     is run in place.
+##
+## EXAMPLES
+## $ xplor-interface
+##   script=genpsf \
+##   coordin=1crn.pdb \
+##   coordout=1crnH.pdb \
+##   strctout=1crnH.psf >& log-file
+## ...runs xplor with the genpsf script with 1crn.pdb as input, 1crnH.pdb and
+## 1crnH.psf as output, and progress and error messages redirected to log-file.
+##
+## INSTALLATION
+##   place it anywhere in your path
+##
+## @@banner@@
+## 
+
+
+#
+# System-dependent variables -- you may need to change these for your system
+#
+case `uname -s` in
+	IRIX)
+		TIMECMD=timex
+		;;
+	*)
+		TIMECMD=time
+		;;
+esac
+TMP=/tmp
+XPLORCMD=xplor
+SCRIPTSFX=xplor
+
+
+#
+# Defaults for flags and user-definable variables
+# These are used in sed, and you will therefore need to escape any slash ('/')
+# you have.  For instance, topset=@TOPPAR:charmm22\\/topallh22x.pro results in
+# @TOPPAR:charmm22/topallh22x.pro when substituted by sed.
+#
+# NOTE: I now recommend that users put this info in the environment variable
+# XIARGS.  i.e.:
+#   % setenv XIARGS topset=@TOPPAR:charmm22\\/topallh22x.pro
+#
+
+
+
+################################################################################
+################################################################################
+##
+##          YOU SHOULDN'T NEED TO CHANGE ANYTHING BELOW THIS LINE
+##
+################################################################################
+################################################################################
+
+
+#
+# internal variables
+#
+       DATE="\$Date: 1995/07/29 19:07:33 $";DATE=${DATE#*: };DATE=${DATE% \$}
+      IDENT="\$Id: clxplor.ksh,v 1.9 1995/07/29 19:07:33 reece Exp $"
+     BYLINE="by Reece Hart, reece@dasher.wustl.edu"
+    PGMNAME=${0##*/}
+    VERSION="\$Revision: 1.9 $";VERSION=${VERSION#*: };VERSION=${VERSION% \$}
+   REALNAME=xplor-interface
+  SEDSCRIPT=$TMP/sed-script
+ERRORSIGNAL=__ERRROR
+VARIABLETMP=$TMP/variables
+XPLORSCRIPT=$TMP/xplor-script
+
+#
+# defaults for flags and variables
+#
+	     script=$PGMNAME
+           ECHO=1
+      ECHOREDIR=
+     XPLORREDIR=
+   SEDSCRIPTOUT=0
+   VARIABLESOUT=0
+ XPLORSCRIPTOUT=0
+
+rm -f $SEDSCRIPT $XPLORSCRIPT $VARIABLETMP
+
+
+showhelp ()
+	{
+	/bin/sed -n -e "2,/^$/p" $0
+	}
+
+
+if [[ $# = 0 ]]
+then
+	showhelp
+	exit
+fi
+
+VERBOSE=0
+if [ $1 = "-v" ]
+then
+	VERBOSE=1
+	shift
+fi
+
+#
+# Check for -available and -help flags first
+#
+for flag in "$@"
+do
+	case $flag in
+		-available)
+			echo "These are the available scripts and their required variables in"
+			echo "$XPLORSCRIPTS:"
+			cd $XPLORSCRIPTS
+			for file in *.${SCRIPTSFX}
+			do
+				echo ${file%.${SCRIPTSFX}}: `grep "_[a-zA-Z]*_" $file | \
+					cut -d"_" -f2,4,6,8 | tr "_" "\012" | sort | uniq`
+			done
+			exit;;
+		-help)
+			showhelp
+			exit;;
+	esac
+done
+
+
+#
+# user-specifiable variables are obtained by grep'ing for _<var>_ in the
+# XPLORSCRIPTS directory.
+# XVARIABLES are variables which may be substituted into the scripts; 
+# VARIABLES is a list of all variables which may be accepted on the command line
+#   but which may or may not be substitution variables (ie. script).
+#
+XVARIABLES=`grep "_[a-zA-Z]*_" ${XPLORSCRIPTS}/*.${SCRIPTSFX} | \
+			cut -d"_" -f2,4,6,8 | tr "_" "\012" | sort | uniq`
+VARIABLES="log \
+	savescript \
+	script \
+	${XVARIABLES}"
+
+#
+# accept XIARGS environment variable for default flags & args to
+# xplor-interface
+#
+ARGS="$XIARGS $@"
+set -- $XIARGS "$@"
+
+#
+# now parse for valid flags (other than -available and -help) and variable
+# assignments
+#
+while [[ $# -ge 1 ]]
+do
+	if [ $VERBOSE = 1 ]
+	then
+		echo "parsing '$1'"
+	fi
+
+	case $1 in
+		# Check for flags first
+		-available|-help)
+			echo "$REALNAME: Warning $1 flag in XIARGS ignored"
+			shift;;
+		-echo)
+			ECHO=1
+			shift;;
+		+echo)
+			ECHO=0
+			shift;;
+		-sedscript)
+			SEDSCRIPTOUT=1
+			shift;;
+		-variables)
+			VARIABLESOUT=1
+			shift;;
+		-xplorscript)
+			XPLORSCRIPTOUT=1
+			shift;;
+
+		# It's not a flag, check for an arg of the form <var>=<value>
+		# by doing a case match against 
+		*)	for i in $VARIABLES $ERRORSIGNAL
+			do
+				if [ "$i" = "${1%%=*}" ]
+				then
+					eval ${1%%=*}=\"${1#*=}\"
+					shift
+					break
+				fi
+			done
+			if [ $i = $ERRORSIGNAL ]
+			then
+				# no valid flags or variables found
+				echo "$REALNAME: ${1%=*} is not a valid flag or variable; get -help"
+				exit
+			fi
+			;;
+	esac
+done
+
+
+XPLORSCRIPTSRC=$XPLORSCRIPTS/$script.$SCRIPTSFX
+
+# setup redirection
+ECHOREDIR=${log:+\>\> $log}
+XPLORREDIR=${log:+\>\> $log 2\>&1 &}
+cat < /dev/null > $log
+
+#
+# ensure that the specified xplor script exists
+#
+if [ \! -r $XPLORSCRIPTSRC ]
+then
+	echo "$REALNAME: $XPLORSCRIPTSRC not found; try $PGMNAME -available"
+	exit
+fi
+
+
+#
+# simplify some script argument passing
+#
+case $script in
+	genpsf)
+		if [ -n "$mol" ]
+		then
+			coordin=${mol}.pdb
+			coordout=${mol}H.pdb
+			strctout=${mol}H.psf
+		fi;;
+	pos)
+		if [ -n "$mol" ]
+		then
+			coordin=${mol}.pdb
+			coordout=${mol}.pdb
+		fi;;
+esac
+
+
+#
+# output variables
+#
+if [ $VARIABLESOUT = 1 ]
+then
+	for var in $VARIABLES
+	do
+		echo $var
+		# This is a little tricky... if the var is zero length, do not print it
+		# this will allow a user who doesn't provide enough subs to see what's 
+		# missing in the xplor script
+		eval test -z \"\$$var\" || \
+			eval echo ${var} = \$${var}
+	done
+fi
+
+
+#
+# Perform the substitution
+#
+cat < /dev/null > $SEDSCRIPT			# clear SEDSCRIPT file, create if nec.
+for var in $XVARIABLES
+do
+	# See comment in above for what this is doing.
+	eval test -z \"\$$var\" || \
+		eval echo s/_${var}_/\$${var}/g >> $SEDSCRIPT
+done
+sed -f $SEDSCRIPT $XPLORSCRIPTSRC > $XPLORSCRIPT
+
+#
+# output the sed script, xplor script, or begin the xplor job
+#
+if [ $SEDSCRIPTOUT = 1 ]
+then
+	cat $SEDSCRIPT
+else
+	if [ $XPLORSCRIPTOUT = 1 ]
+	then
+		cat $XPLORSCRIPT
+	else
+		grep "_[a-zA-Z]*_" $XPLORSCRIPT > $VARIABLETMP
+		if [ $? = 0 ]
+		then
+			echo "$PGMNAME: Error: The following variables appear to be unsubstituted:"
+			cut -d"_" -f2,4,6,8 $VARIABLETMP | tr "_" "\012" | sort | uniq | nl
+			rm -f ${TMP}/unsubstituted
+			echo "$PGMNAME: Aborting..."
+			exit 1
+		fi
+		if [ $ECHO = 1 ]
+		then
+			eval echo "+ $PGMNAME [$REALNAME v. $VERSION $DATE]" $ECHOREDIR
+			for arg in $ARGS
+			do
+				eval echo "\"  $arg\"" $ECHOREDIR
+			done
+		fi
+		eval $TIMECMD $XPLORCMD < $XPLORSCRIPT $XPLORREDIR
+		if [ -n "$log" ]
+		then
+			echo "xplor job $! started at `date`"
+		fi
+	fi
+fi
+
+if [ -n "$savescript" ]
+then
+	cp $XPLORSCRIPT $savescript
+fi
+rm -f $SEDSCRIPT $VARIABLETMP $XPLORSCRIPT
+
+exit $?
+
+################################################################################
+#
+# $Log: clxplor.ksh,v $
+# Revision 1.9  1995/07/29 19:07:33  reece
+# * moved help to comments at top and included showhelp function
+#
+# Revision 1.7  1994/09/01  15:15:25  reece
+# 1) fixed parsing of multi-word variables.  Command-line args like
+#    "omitrgn=resid 22" and "weight=wa=15000" now work as expected.
+# 2) added savescript variable
+# 3) added log and REDIRECTION variables
+# 4) reformatted showhelp and included docs for omitted info and 2 & 3 above.
+#
+# Revision 1.5  1994/08/31  14:11:26  reece
+# 1) first-pass check for -available and -help, then prepend XIARGS, then parse
+#    for substution variables.
+# 2) reworked showhelp
+#
+# Revision 1.4  1994/08/31  13:21:47  reece
+# 1) -variables only prints variables pertinent to the specified script
+# 2) now removes temp files
+#
+# Revision 1.3  1994/08/29  17:43:10  reece
+# 1) modified -available flag to include required arguments for each script.
+# 2) now gets substitution variable list "on the fly" by grep'ing for _<var>_
+#    in the XPLORSCRIPTS directory.  Works correctly for multiple variables on
+#    the same line (up to 4 per line).
+# 3) checks for unsubstituted variables in the xplor script, and display the
+#    errors.
+#
+# Revision 1.2  1994/08/29  15:46:49  reece
+# 1) made minor changes to showhelp description.
+#
+# Revision 1.1  1994/08/27  03:49:29  reece
+# 1) filled in help screen (showhelp)
+# 2) added environment variable support (XIARGS)
+# 3) added -echo/+echo command line echo support
+#
+# Revision 1.0  1994/08/27  03:31:25  reece
+# Initial revision
+#
+################################################################################
+
+#future
+# prompt for args
+# report location of error in parsing if in XIARGS
+# timecmd on cmd line

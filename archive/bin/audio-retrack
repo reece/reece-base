@@ -1,0 +1,5 @@
+#!/bin/sh -x
+# audio-retrack -- rename all flacs and oggs from 'nn. title' to 'nn - title'
+
+find "$@" \( -name \*.ogg -o -name \*.flac \) -print0 \
+| xargs -0r renamer -v 's%/(\d\d)\. %/$1 - %'

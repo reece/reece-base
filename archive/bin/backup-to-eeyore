@@ -1,0 +1,65 @@
+#!/bin/bash
+# backup laptop
+
+
+# go root if not called as root
+if [ "$EUID" != 0 ]; then
+    exec sudo "$0" "$@"
+    echo "$0: re-exec as sudo root failed. No backup." 1>&2
+    exit 1
+fi
+
+
+if [ -z "$LOCKFILE" ]; then
+	export LOCKFILE=`/bin/date +"/tmp/rsync-%Y%m%d.lock"`
+	if ! flock -n -x "$LOCKFILE" -c "$0" "$@"; then
+		echo "$0: Couldn't obtain lock on $LOCKFILE" 1>&2
+		/bin/rm -f "$LOCKFILE"
+		exit 2
+	fi
+	/bin/rm -f "$LOCKFILE"
+	exit 0
+fi
+
+
+
+# !: We're root and we've got a lock
+
+PATH=`dirname $0`:/usr/sbin:/usr/bin:/sbin:/bin
+MY_HOSTNAME=$(uname -n)
+HOSTNAME=172.16.0.129
+BACKUP_DIR="/backup"
+RSYNC_DST="$HOSTNAME:$BACKUP_DIR/$MY_HOSTNAME"
+RSYNC_OPTS="-HRalvx --no-implied-dirs --delete --progress"
+  # --delete-excluded"
+EXCLUDES_FILE="$HOME/opt/reece-base/share/rsync/common-exclusions"
+
+TARGETS="/local /etc"
+EXTRA_TARGETS=
+
+echo ============================================================
+if on-wireless; then
+	echo '== WIRELESS (limiting bandwidth)'
+	RSYNC_OPTS_BW='--bwlimit=100'
+else
+if at-home; then
+	echo '== AT HOME (& not wireless => backing up VirtualBox)'
+	EXTRA_TARGETS=${HOME}/.VirtualBox
+fi
+fi
+echo ============================================================
+
+
+cleanup () { 
+	[ -n "$SSH_AGENT_PID" ] && kill $SSH_AGENT_PID;
+}
+trap cleanup EXIT;
+
+
+eval `ssh-agent`
+ssh-add /etc/ssh/snafu-eeyore-0
+
+dpkg -l >/local/adm/config/dpkg-l
+(set -x; rsync $RSYNC_OPTS $RSYNC_OPTS_BW --exclude-from="$EXCLUDES_FILE" $TARGETS $EXTRA_TARGETS $@ "$RSYNC_DST")
+
+exit

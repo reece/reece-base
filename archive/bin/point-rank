@@ -1,0 +1,27 @@
+#!/u/reece/opt/bin/perl -w
+# $Id: point-rank.pl,v 0.0 1999/08/12 15:01:57 reece Exp $
+# for a list of points <x,y>, return a new list of points <xr,yr> 
+# which is the rank of x and y in the original data set.
+
+$consecutive_rank_numbering = 0;
+
+while(<>)
+  {
+  my($x,$y) = split;
+  push(@Xa,$x);  $Xc{$x}++;
+  push(@Ya,$y);  $Yc{$y}++;
+  }
+
+if ($consecutive_rank_numbering)
+  {
+  $r=1; foreach $_ (sort({$a<=>$b} keys %Xc)) { $Xr{$_}=$r; $r++; }
+  $r=1; foreach $_ (sort({$a<=>$b} keys %Yc)) { $Yr{$_}=$r; $r++; }
+  }
+else
+  {
+  $r=1; foreach $_ (sort({$a<=>$b} keys %Xc)) { $Xr{$_}=$r; $r+=$Xc{$_}; }
+  $r=1; foreach $_ (sort({$a<=>$b} keys %Yc)) { $Yr{$_}=$r; $r+=$Yc{$_}; }
+  }
+
+for(my $i=0; $i<=$#Xa; $i++ )
+  {printf("%10s %10s %10s %10s\n", $Xa[$i],$Ya[$i],$Xr{$Xa[$i]},$Yr{$Ya[$i]});}

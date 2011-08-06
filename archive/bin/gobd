@@ -1,0 +1,157 @@
+#!/usr/local/bin/perl
+
+use GD;
+
+$height=500;
+$width=$height;
+$leftmargin=40;
+$rightmargin=40;
+$topmargin=40;
+$bottommargin=40;
+$bdsize=19;
+$hlinespacing=int($height-$topmargin-$bottommargin)/($bdsize-1);
+$vlinespacing=int($width-$leftmargin-$rightmargin)/($bdsize-1);
+$stonedia=($hlinespacing>$vlinespacing) ? $vlinespacing : $hlinespacing;
+$labelfont=\gdMediumBoldFont;  # gdLargeFont, gdMediumBoldFont, gdTinyFont
+
+@collabels=(A..H,J..Z);
+@blackrgb=(0,0,0);
+@whitergb=(255,255,255);
+@redrgb=(255,0,0);
+@bluergb=(0,0,255);
+@yellowrgb=(255,250,205);
+@bgrgb=(242,200,135);
+
+# create the drawing area
+$im = new GD::Image($width,$height);
+#$im->transparent($white);	# white color is transparent
+$im->interlaced(1);		# cool venetian blinds effect
+
+# allocate colors
+# first color allocated is background color
+$bg = $im->colorAllocate(@bgrgb);
+$white = $im->colorAllocate(@whitergb);
+$black = $im->colorAllocate(@blackrgb);
+$red = $im->colorAllocate(@redrgb);      
+$blue = $im->colorAllocate(@bluergb);
+$yellow = $im->colorAllocate(@yellowrgb);
+
+# setup stones as gdBrushes
+$blackstone = new GD::Image($stonedia,$stonedia);
+$blackstone->transparent($blackstone->colorAllocate(@bgrgb));
+$stonecolor = $blackstone->colorAllocate(@blackrgb);
+$blackstone->arc($stonedia/2,$stonedia/2,$stonedia,$stonedia,0,360,$stonecolor);
+$blackstone->fill($stonedia/2,$stonedia/2,$stonecolor);
+$whitestone = new GD::Image($stonedia,$stonedia);
+$whitestone->transparent($whitestone->colorAllocate(@bgrgb));
+$stonecolor = $whitestone->colorAllocate(@whitergb);
+$whitestone->arc($stonedia/2,$stonedia/2,$stonedia,$stonedia,0,360,$stonecolor);
+$whitestone->fill($stonedia/2,$stonedia/2,$stonecolor);
+
+# draw the board
+($fontw,$fonth) = ($$labelfont->width,$$labelfont->height);
+
+## horizontal lines
+for ($yi=0; $yi<=$bdsize-1; $yi++)
+	{
+	$y=$topmargin+$yi*$hlinespacing;
+	$im->line($leftmargin,$y,$width-$rightmargin,$y,$black);
+	$im->string($$labelfont,$leftmargin-3*$fontw-$stonedia/2,$y-$fonth/2,sprintf("%2d",$bdsize-$yi),$black);
+	$im->string($$labelfont,$width-$rightmargin+$fontw+$stonedia/2,$y-$fonth/2,sprintf("%d",$bdsize-$yi),$black);
+	}
+## vertical lines
+for ($xi=0; $xi<=$bdsize-1; $xi++)
+	{
+	$x=$leftmargin+$xi*$vlinespacing;
+	$im->line($x,$topmargin,$x,$height-$bottommargin,$black);
+	$im->char($$labelfont,$x-$fontw/2,$topmargin-$fonth-$stonedia/2,$collabels[$xi],$black);
+	$im->char($$labelfont,$x-$fontw/2,$height-$bottommargin+$stonedia/2,$collabels[$xi],$black);
+	}
+
+while (<DATA>)
+	{
+	drawstone($im,($.%2==0?$whitestone:$blackstone),$_,$.);
+	}
+
+print $im->gif;
+exit(0);
+
+
+sub drawstone
+	{
+	my ($im,$stone,$rc,$label)=@_[0..3];
+	my ($x,$y)=rc2xy($rc);
+	$im->setBrush($stone);
+	$im->setPixel($x,$y,gdBrushed);
+	$im->string($$labelfont,$x-length($label)*$fontw/2,$y-$fonth/2,$label,$bg);
+	}
+
+sub rc2xy
+	{
+	my ($rc)=$_[0];
+	$rc =~ s/([A-Za-z])(\d{1,2})/\U$1$2/;
+	($rc =~ m/([A-Z])(\d{1,2})/)
+	  && return ( (ord($1)-65-(ord($1)>73?1:0))*$vlinespacing+$leftmargin,
+				  (19-$2)*$hlinespacing+$topmargin );
+	}
+
+__DATA__
+H1
+I2
+J3
+K4
+A1
+B2
+C3
+H3
+I3
+A19
+C15
+H10
+__END__
+#!/usr/local/bin/perl -w
+# 1. S1, Q1, pass, T2, R3, F6
+# 1. B: S1, pass, R3; W: Q1, T2, F6
+
+$bdsize=19;
+
+while (<DATA>)
+	{
+	if (/(\w+)(\d+)/)
+		{
+		$r=$2;
+		$c=ord($1)-64;
+		$bd{$r}{$c}=($. % 2);						# 1 for B, 0 for W
+		}
+	elsif (/B: (.*); W: (.*)/)
+		{
+		die "unsupported format";
+		}
+	else
+		{
+		die "malformed stone coordinate";
+		}
+	}
+
+print  '     ' . join (" ", A..chr(64+$bdsize)) . " \n"
+     . '   ' . '-' x (3+2*$bdsize) . "\n";
+
+
+for ($r=$bdsize; $r>=1; $r--)
+	{
+	printf "%2d | ", $r;
+	for ($c=1; $c<=$bdsize; $c++)
+		{
+		printf "%c ", (defined($bd{$r}{$c}) ? 
+					  (($bd{$r}{$c} == 0) ? ord('O') : ord('#')) : ord('.'))
+		}
+	printf "| %2d\n", $r;
+	}
+
+print  '   ' . '-' x (3+2*$bdsize) . "\n" 
+     . '     ' . join (" ", A..chr(64+$bdsize)) . " \n";
+
+__DATA__
+A1
+B2
+C3

@@ -1,0 +1,117 @@
+#!/bin/ksh
+##
+## $RCSfile: fintofob.ksh,v $
+## $Revision: 1.3 $
+## $Date: 1996/02/11 09:54:04 $
+##
+## NAME
+## fin2fob --
+##    convert .fin xray crystallographic data to .fob format for x-plor
+##
+## SYNOPSIS
+## fin2fob [-f] file[.suffix] [...]
+##   if suffix is provided, it is used; otherwise '.fin' is assumed
+##   -f flag forces overwrite of file.brick if it exists
+##
+## @@banner@@
+## 
+
+
+PGMNAME=${0##*/}
+INSFX=fin
+OUTSFX=fob
+if [ $PGMNAME = "fin2crd" ]
+then
+	OUTSFX=crd
+fi	
+
+ShowUsage ()
+	{
+	echo "fin2fob - convert .fin xray crystallographic info to .fob format for x-plor"
+	echo "usage:
+	echo "  % fin2fob [-f] file[.suffix] [...]"
+	echo "if suffix is provided, it is used; otherwise '.fin' is assumed"
+	echo "-f flag forces overwrite of file.brick if it exists
+	}
+
+
+FORCE=0
+while [[ $# -ge 1 ]]
+do
+	case $1 in
+	?)	ShowUsage
+		exit;;
+	-f)	FORCE=1
+		shift;;
+	*)	break;;
+	esac
+done
+
+if [[ $# = 0 ]]
+then
+	ShowUsage
+	exit 1
+fi
+
+for i in $*
+do
+	FNROOT=${i%.*}		# strip suffix, if any
+	SFX=${i##*.}
+	if [ $SFX = $i ]
+	then
+		# no suffix on this file... assume INSFX
+		SFX=$INSFX
+	fi
+	SOURCE=${FNROOT}.${SFX}
+	DEST=${FNROOT}.${OUTSFX}
+
+	# ensure that source file exists
+	if [[ ! -f ${SOURCE} || ! -r ${SOURCE} ]]
+	then
+		echo "$PGMNAME: ${SOURCE} does not exist... skipping."
+		continue
+	fi
+
+	# ensure that if destination exists, it's writeable and not a directory
+	echo -n "$PGMNAME: "
+	if [[ -a ${DEST} ]]
+	then
+		echo -n "${DEST} exists and "
+		if [[ $FORCE = 0 ]]
+		then
+			echo "overwrite option off... skipping."
+			continue
+		elif [[ ! -w ${DEST} ]]
+		then
+			echo "file not writable... skipping."
+			continue
+		elif [[ -d ${DEST} ]]
+		then
+			echo "is a directory... skipping."
+			continue
+		else
+			echo "will be overwritten."
+		fi
+	else
+		echo "converting ${SOURCE} and writing as ${DEST}."
+	fi
+
+	# perform the conversion
+	nawk \
+		'{printf " INDEX %3d %3d %3d  FOBS %7.2f  SIGMA %6.2f\n",$1,$2,$3,$4,$5}'\
+		${SOURCE} > ${DEST}
+
+done
+
+##
+##$Log: fintofob.ksh,v $
+##Revision 1.3  1996/02/11 09:54:04  reece
+##*** empty log message ***
+##
+## Revision 1.2  1995/06/07 20:41:43  reece
+## *** empty log message ***
+##
+## Revision 1.1  1994/08/29  18:07:12  reece
+## cleaned up program commentary
+## checks for fin2crd to call the output .crd instead of .fob
+##

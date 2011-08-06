@@ -1,0 +1,40 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+use LWP::UserAgent ();
+use LWP::MediaTypes qw(guess_media_type media_suffix);
+use URI ();
+use HTTP::Request;
+use HTTP::Date ();
+use POSIX qw(strftime);
+
+my $ua = LWP::UserAgent->new(
+   agent => "time-url ",
+   keep_alive => 1,
+   env_proxy => 1,
+);
+
+while(my $url = shift(@ARGV)) {
+  my $req = HTTP::Request->new(GET => $url);
+
+  my $start = time;
+  my $res = $ua->request($req,'/dev/null');
+  my $stop = time;
+  my $dur = $stop-$start;
+
+  my $ts = strftime('%F %T', localtime(time()));
+  my $pfx_fmt = "$ts %-80s %6.1d %3d";
+  my @pfx_args = ($url, $dur, $res->code());
+
+  if ( $res->is_success() ) {
+	printf("$pfx_fmt %10dKB %5dKB/s\n",
+		   @pfx_args,
+		   $res->content_length()/1000,
+		   $res->content_length()/1000/$dur);
+  } else {
+	printf("$pfx_fmt %s\n",
+		   @pfx_args, $res->message());
+  }
+}
+

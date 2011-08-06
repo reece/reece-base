@@ -1,0 +1,11 @@
+#!/usr/local/bin/perl -w
+undef $/;
+while (<>)
+  {
+  my(%deps,@deps);
+  while (m/^[ ]{6,}include\s+'(\w+\.(?:i|inc))'/gm)
+	{$deps{$1}++}
+  $o=$ARGV; $o=~s/^.+\///; $o=~s/\.f/.o/;
+  @deps = keys %deps;
+  print($o,': ',join(' ',sort @deps),"\n") if @deps;
+  }	

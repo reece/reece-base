@@ -1,0 +1,6 @@
+#!/bin/bash
+
+cd $HOME
+
+find mail/harts.net/{reece,hanna}/{.quarantine.*,.spam.*}/{cur,new} -type f \
+| xargs ./opt/reece-base/mail-tools/bin/mail-classify

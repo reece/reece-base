@@ -1,0 +1,53 @@
+#!/bin/sh
+
+PATH=/usr/bin:/bin
+
+write_dir=${1:-$(pwd)}
+
+cleanup () { [ -n "$tmp_dir" -a -d "$tmp_dir" ] && echo NOT DOING /bin/rm -fr "$tmp_dir"; }
+trap cleanup EXIT
+tmp_dir=$(mktemp -dt "dvd-rip-$$-XXXXXXXXX")
+
+cd $tmp_dir
+
+lsdvd >dvd.ls
+
+title="$(sed -ne '1s/Disc Title: //p' dvd.ls)"
+out="$write_dir/$title.avi"
+
+chapter=1
+
+
+echo "Title: $title"
+echo "Chapter: $chapter"
+echo "output: $out"
+echo "working directory: $tmp_dir"
+
+
+mplayer dvd://$chapter -dumpstream -dumpfile dvd.vob
+
+rm subtitles.idx subtitles.sub
+
+mplayer dvd://$chapter -vf cropdetect
+
+mencoder -v\
+         dvd.vob\
+        -alang en\
+        -vf crop=720:352:0:64,scale=752:320\
+        -ovc x264 -x264encopts subq=4:bframes=4:b_pyramid:weight_b:pass=1:psnr:bitrate=1500:turbo=1\
+        -oac copy\
+        -ofps 24000/1001\
+        -vobsubout subtitles -vobsuboutindex 0 -slang en\
+        -o /dev/null
+
+mencoder -v\
+         dvd.vob\
+        -alang en\
+        -vf crop=720:352:0:64,spp,scale,hqdn3d=2:1:2\
+        -ovc x264 -x264encopts subq=5:4x4mv:8x8dct:frameref=3:me=2:bframes=4:b_pyramid:pass=2:psnr:bitrate=1500\
+        -oac faac -faacopts object=0:tns:quality=100\
+        -ofps 24000/1001\
+        -o "$out.tmp"
+
+mv "$out.tmp" "$out"
+

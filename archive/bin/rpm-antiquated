@@ -1,0 +1,46 @@
+#!/usr/local/bin/perl -w
+# rpm-antiquated -- generate a list of files which need upgrading
+# usage:
+# rpm-andtiquated <updatelist>
+
+$opt_showuninstalled = 1;
+
+open(R,$fn="rpm -qa|")
+  || die("couldn't open $fn: $!\n");
+while(<R>)
+  {
+  my ($p,$v,$r,$a) = pvra($_);
+  $inst{$p} = [$v,$r];
+  }
+close(R);
+
+
+while(<>)
+  {
+  chomp;
+  s/^.+\s(\S+)$/$1/;
+  my ($p,$v,$r,$a) = pvra($_);
+  #print("$_ => $p / $v / $r / ", defined $a ? $a : '?', "\n");
+  if (exists $inst{$p})
+	{  
+	print "$_\n" if (     ($inst{$p}[0] lt $v)
+					 or ( ($inst{$p}[0] eq $v) and ($inst{$p}[1] lt $r) ));
+	}
+  elsif ($opt_showuninstalled)
+	{
+	print(STDERR "# $p not installed\n");
+	}
+
+  }
+
+sub pvra
+  # package, version, release, arch
+  {
+  my $spec = shift;
+  chomp $spec;
+  my $a = $1 if $spec =~ s/\.(noarch|i[356]86|alpha)(?:\.rpm)?$//;
+  my $r = $1 if $spec =~ s/-([^-]+)$//;
+  my $v = $1 if $spec =~ s/-([^-]+)$//;
+  my $p = $spec;
+  return($p,$v,$r,$a);
+  }

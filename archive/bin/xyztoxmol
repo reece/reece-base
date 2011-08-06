@@ -1,0 +1,128 @@
+#!/usr/local/bin/perl -w
+##
+## $RCSfile: xyztoxmol.pl,v $
+## $Revision: 1.17 $
+## $Date: 1998/10/21 20:27:07 $
+##
+## NAME
+##   xyztoxmol -- convert Tinker's xyz files to xmol format
+##
+## SYNOPSIS
+##   xyztoxmol -[hrsSvw] [files...]
+##
+## DESCRIPTION
+##   xyztoxmol converts files named on the command line to xmol format.  With
+## -s flag, the second and subsequent files are superimposed on the first.  -q
+## supresses diagnostic output.
+##
+## OPTIONS
+## -h    add hydrogens
+## -r    specify range of match
+## -s    superimpose files on first file
+## -S file  superimpose files on arbitrary file
+## -v    verbose
+## -w    weighting
+##
+## EXAMPLE
+##
+## REQUIREMENTS
+##
+## INSTALLATION
+##
+## @@banner@@
+## 
+
+$RCSId = '$Id: xyztoxmol.pl,v 1.17 1998/10/21 20:27:07 reece Exp $ ';
+$RCSId =~ s/\$//g; $RCSId =~ s/\s+$//;
+($jemapelle=$0) =~ s,^.*/,,;
+
+use Tinker;
+use Getopt::Mixed;
+
+
+my ($superfn,$superstrx)=undef;
+
+# Read options
+Tinker::parseoptions(\%Tinker::options,
+					  'superpose   s>superpose superfile=s S>superfile');
+if (not defined($Tinker::options{'params'}))
+  {
+  ($Tinker::options{'paramsfile'},$Tinker::options{'params'})=Tinker::findparams('opls');
+  defined($Tinker::options{'params'})
+	|| die "$jemapelle: couldn't find parameter file for opls\n";
+  }
+
+print(STDERR "# $RCSId\n") if $Tinker::options{'verbose'};
+
+# setup superposition
+if (defined $Tinker::options{'superfile'})
+  {
+  $superfn=$Tinker::options{'superfile'};
+  }
+elsif (defined $Tinker::options{'superpose'})
+  {
+  $superfn=$ARGV[0];
+  }
+if (defined $superfn)
+  {
+  $superstrx=Tinker::readxyz($superfn)
+	|| die("$jemapelle: couldn't read $superfn\n");
+  }
+
+
+# Skip through list of files, superposing if desired.  All valid files
+# (including redundancies) are output.  superstrx and superfn contain the
+# structure and filename to which others should be superposed.  They are
+# undefined iff we're not superposing.
+if (defined $superstrx)
+  {
+  foreach $fn (@ARGV)
+	{
+	print(STDERR "$fn ") if $Tinker::options{'verbose'};
+	if ( (defined $superfn) && ($fn eq $superfn) )
+	  {$strx=$superstrx}
+	else
+	  {
+	  $strx = Tinker::readxyz($fn) 
+		|| do {warn "$jemapelle: couldn't read $fn\n"; next;};
+	  if (defined $superstrx)
+		{
+		($strx,$rmsd)=Tinker::superpose(\$superstrx,\$strx,\%Tinker::options);
+		Tinker::addcomment(\$strx,"rmsd($superfn)=$rmsd");
+		}
+	  }
+	print(STDERR Tinker::title(\$strx),"\n") if $Tinker::options{'verbose'};
+	$xmolstrx=Tinker::xyztoxmol(\$strx);
+	print($xmolstrx);
+	}
+  }
+else
+  {
+  foreach $fn (@ARGV)
+	{
+	my($newdesc);
+	open(F,"<$fn")
+	  || die("$fn: $!\n");
+	$_ = <F>;
+	my($n,$desc) = m/^\s*(\d+)(?:\s+(.+))?/;
+	if (not defined $n)
+	  {
+	  warn("$fn: $.: first line doesn't contain number of atoms; skipping.\n");
+	  close(F);
+	  next;
+	  }
+
+	$newdesc = ( defined $desc
+				 ? sprintf("%s: %s",$fn,$desc)
+				 : $fn );
+
+	print(STDERR "$newdesc\n") if $Tinker::options{'verbose'};
+	print("$n\n$newdesc\n");
+	while(<F>)
+	  {
+	  m/^\s*\d+\s+(\S)\S*\s+(\S+\s+\S+\s+\S+)/
+		&& print($1,'   ',$2,"\n");
+	  }
+	close(F);
+	}
+  }

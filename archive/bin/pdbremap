@@ -1,0 +1,44 @@
+#!/usr/local/bin/perl -w
+
+use IO::File;
+$fh = new IO::File;
+
+($fn = shift)
+  || die("missing template argument\n");
+$fh->open("<$fn")
+  || die("$fn: $!\n");
+$prs = '';
+while(<$fh>)
+  {
+  #    ATOM     11  C   VAL    17
+  if ( (/^ATOM..\s*\d+.\s*\w+.\s*(\w{3}..[\s\d]{4})/)
+	   and ($1 ne $prs) )
+	{
+	push(@rs,$1);
+	$prs = $1;
+	}
+  }
+$fh->close();
+
+#print(join(",",@rs),"\n");
+
+($fn = shift)
+  || die("missing template argument\n");
+$fh->open("<$fn")
+  || die("$fn: $!\n");
+$prs = $rs = '';
+while(<$fh>)
+  {
+  #print("1:$_");
+  if ( (/^ATOM..\s*\d+.\s*\w+.\s*(\w{3}..[\s\d]{4})/)
+	   and ($1 ne $prs) )
+	{
+	$rs = shift(@rs);
+	$prs = $1;
+	#print(STDERR "  prs=$prs, rs=$rs\n");
+	}
+  s/^(ATOM..\s*\d+.\s*\w+.\s*)\w{3}..[\s\d]{4}/$1$rs/;
+  #print("2:$_");
+  print;
+  }
+$fh->close();

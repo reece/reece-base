@@ -1,0 +1,47 @@
+#!/usr/local/bin/perl -w
+# $Id: fexpand.pl,v 1.0 1997/11/04 15:37:10 reece Exp $
+# fexpand -- expand regexps on stdin to files
+# regexps may be any perl re.  If the expansion is a directory
+# regexps with no matches are silently ignored
+
+while(<>)
+  {
+  chomp;
+  push(@pre,$_);
+  while($#pre>=0)
+	{
+	$pre = shift(@pre);
+	if    ( -f $pre ) { print($pre,"\n")}
+	elsif ( -d $pre ) { unshift(@pre,map("$pre/$_",dircontents($pre))) }
+	else 
+	  {
+	  my (@newpre) = expand_pre($pre);
+	  if ($#newpre >= 0) {unshift(@pre,@newpre)}
+	  }
+	}
+  }
+
+sub filefilter {not /^\.{1,2}$/ and not /(.bak|~|,v)$/}
+sub dircontents
+  {
+  opendir(D,$_[0]);
+  if (defined D) {return grep( &filefilter , readdir(D) ) }
+  warn("$_[0]: $!\n");
+  }
+
+sub expand_pre
+  {
+  my($real,$re,$rest) = decompose($_[0]);
+  $rest = ( (defined $rest) and ($rest ne '') ? "/$rest" : '' );
+  return $real if (not defined $re);
+  return map("$real/$_$rest", grep( (m/$re/), dircontents($real)));
+  }
+
+sub decompose
+  {
+  my(@pe) = split( /\/+/, $_[0] );
+  my($i)=0;
+  while( $i<=$#pe and -e (join('/',@pe[0..$i]).'/')) {$i++}
+  return( join('/',@pe[0..$i-1]), $pe[$i], @pe[$i+1..$#pe] );
+  }
+

@@ -1,0 +1,180 @@
+#!/usr/bin/perl
+# drupal-to-wordpress -- transfer pages and posts from drupal to wordpress
+# 2010-06-23 20:34 Reece Hart <reece@harts.net>
+# License: MIT (text at end of this file)
+#
+# This script pulls posts and pages out of a drupal database and injects
+# them into wordpress using xmlrpc.  UTF-8 is translated to HTML entities.
+# Creation dates and teasers are preserved. Pages are posted as drafts
+# (prevents inadvertent alterations to menus). Titles indicate source node
+# in drupal.  The Drupal database is unchanged.
+#
+# This is known to work with Drupal 6.16 and WordPress 3.0.
+# 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# 
+# EXAMPLE:
+#
+# backup your wordpress database:
+# eg$ wp-backup blog
+#
+# edit XMLRPC URL in drupal-to-wordpress.pl
+# convert nodes 1..10:
+# eg$ drupal-to-wordpress.pl dbname pass wpuser wppass $(seq 1 10)
+#
+# restore your database from a backup:
+# eg$ bzip2 -cd ~/wp-backups/.../blog.sql.bz2 \
+#     | mysql -h localhost -u bloguser -D blogdb -pblogpasswd
+# 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# 
+# Thanks to Leo Charre for the excellent WordPress-API module, without
+# which this script probably wouldn't exist.
+#
+# Known Gotchas:
+# 1) no attempt is made to preserve categories or tags
+# 2) page hierarchies are not maintained
+# 3) the list of gotchas is terribly incomplete
+#
+
+use strict;
+use warnings;
+
+use DBI;
+use Data::Dumper;
+use POSIX qw(strftime);
+use HTML::Entities;
+
+use lib "$ENV{HOME}/perl/lib64/perl5/site_perl", "$ENV{HOME}/perl/lib/perl5/site_perl";
+use WordPress::API;
+
+my $ENCODING = 'utf8';
+
+select(STDERR); $|++;
+select(STDOUT); $|++;
+
+my $drpl_db = shift;
+my $drpl_pass = shift;
+my $wp_user = shift;
+my $wp_pass = shift;
+
+my %opts = (
+			drpl_database => $drpl_db,
+			drpl_host => 'localhost',
+			drpl_user => $drpl_db,
+			drpl_pass => $drpl_pass,
+
+			wp_xmlrpc_url => 'http://beaconcoaching.com/test/xmlrpc.php',
+			wp_user => $wp_user,
+			wp_pass => $wp_pass,
+
+			annotate_title => 0,
+		   );
+
+
+my $dsn = "DBI:mysql:database=$opts{drpl_database}";
+my $dbh = DBI->connect($dsn, $opts{drpl_user}, $opts{drpl_pass});
+
+my $w = new WordPress::API({
+      proxy => $opts{wp_xmlrpc_url},
+      username => $opts{wp_user},
+      password => $opts{wp_pass},
+   });
+
+my $query = q/SELECT N.nid,N.vid,type,format,created,NR.title,body,teaser
+ FROM node N 
+ JOIN node_revisions NR ON N.vid=NR.vid
+ /;
+
+if (@ARGV) {
+  $query .= ' WHERE N.nid = ?';
+  my $sth = $dbh->prepare($query);
+  while (my $nid = shift) {
+	my $ref = $dbh->selectrow_hashref($sth,undef,$nid);
+	if (not defined $ref) {
+	  warn("Node $nid doesn't exist\n");
+	  next;
+	}
+	push1($ref);
+  }
+  $sth->finish();
+} else {
+  die "remove this die statement to convert all";
+  my $sth = $dbh->prepare($query);
+  $sth->execute();
+  while (my $ref = $sth->fetchrow_hashref()) {
+	push1($ref);
+  }
+  $sth->finish();
+}
+$dbh->disconnect();
+
+
+
+sub push1 {
+  my $ref = shift;
+  my $p = ( $ref->{type} eq 'blog') ? $w->post() : $w->page();
+  my $date = strftime('%Y%m%dT%H:%M:%S', gmtime($ref->{created}));
+  my $body = $ref->{body};
+  my $title = $ref->{title};
+  my $leader = substr($body,0,70).'...';
+  $leader =~ s/\n/ /g;
+  my $flags = '';
+
+  printf("* %d. %s (%s/%s)\n  date=%s, vid=%d\n  %s\n", 
+		 $ref->{nid}, $ref->{title}, $ref->{type}, $p->object_type(),
+		 $date, $ref->{vid},
+		 $leader);
+
+  #$p->permaLink(sprintf('http://beaconcoaching.com/node/%d',$ref->{nid}));
+  $p->date_created_gmt($date);
+
+  if ($p->object_type() eq 'Page') {
+	$p->excerpt($ref->{teaser});
+	$p->page_status('draft');				# alas, no similar method for posts
+  } elsif ($p->object_type() eq 'Post') {
+	$p->mt_keywords('migrated');
+	# find teaser in body and insert <!--more--> immediately afterwards
+	if ($ref->{teaser} =~ m/\w/) {
+	  if (not $body =~ s/\Q$ref->{teaser}\E/$&<!--more-->/) {
+		warn("Couldn't find teaser in post ($ref->{nid})\n", $ref->{teaser});
+		$flags .= 'T';
+	  }
+	  $body =~ s/\s*(<!--more-->)\s*/\n$1\n/s;
+	}
+  }
+  $body = encode_entities($body,'^\n\r\x20-\x25\x27-\x7e');
+  $body =~ s/^/<!--imported from drupal node $ref->{nid}-->\n\n/;
+  $p->description($body);
+
+  $title .= " (IMPORTED; $ref->{nid}; $flags)" if $opts{annotate_title};
+  $p->title($ref->{title});
+
+  $p->save();
+}
+
+
+############################################################################
+# LICENSE
+#
+# Copyright (c) 2010 Reece Hart
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+# OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#

@@ -1,0 +1,460 @@
+#! /usr/bin/env perl
+# gltop -- top-like summary of geneland cluster nodes
+# $Id: gltop,v 1.6 2004/06/10 00:31:29 rkh Exp $
+# $Source: /usr/local/cvs/miscellanea/gltop,v $
+
+use warnings;
+use strict;
+use Carp;
+use Env qw($USER);
+use Getopt::Long qw(:config gnu_getopt);
+use POSIX;
+use Pod::Usage;
+use Term::ANSIScreen qw/:color :cursor :screen/;
+
+
+my @DEFAULT_HOSTS = qw/ala cys cytosine guanine leu met trp/;
+# thymine offline as of 2004/06/04
+
+my %sorters =
+  (
+   'load'    => sub { $a->load1()   <=> $b->load1()   },
+   'host'    => sub { $a->host()    cmp $b->host()    },
+   'memfree' => sub { $b->memfree() <=> $a->memfree() }
+  );
+
+my %opts =
+  (
+   hosts => undef,
+   sortorder => 'load',
+   cput => 10,
+   rsst => '24M',
+   sleeptime => 60,
+   maxprocs => 10,
+   threaded => 0,
+   inverse => 0,
+   help => 0,
+   version => 0,
+
+   # options not settable on the command line:
+   display_width => 80,
+   recheck => 60*15				  			# secs between retrying offline boxes
+  );
+
+sub formatted_time($);
+
+GetOptions(\%opts,
+		   'cput|c=i',
+		   'rsst|rest|r=s',
+		   'hosts|H=s@',
+		   'inverse|i',
+		   'maxprocs|M=i',
+		   'sleeptime|s=i',
+		   'sortorder|S=s',
+		   'threaded|t!',
+		   'help|?+',
+		   'version|V',
+		  )
+  || die("$0: you've got usage issues (try --help)\n");
+
+if ($opts{version})
+  { print('$Id: gltop,v 1.6 2004/06/10 00:31:29 rkh Exp $ ', "\n"); exit; }
+
+($opts{help})
+  && pod2usage( { -verbose=>2 } );
+
+if (defined $opts{hosts}) {
+  # split comma-separated hosts, if any
+  @{$opts{hosts}} = map {split /,/} @{$opts{hosts}};
+} else {
+  @{$opts{hosts}} = @DEFAULT_HOSTS;
+}
+
+$opts{rsst} = mem($opts{rsst});
+
+(exists $sorters{$opts{sortorder}})
+  || die("sortorder `$opts{sortorder}' isn't valid (try ",
+		 join(' or ', map {"`$_'"} sort keys %sorters), ")\n");
+my $sorter = $sorters{$opts{sortorder}};
+
+my $inverse = $opts{inverse} ? 'black on ' : '';
+
+if ($opts{sleeptime} < 60 and $ENV{USER} ne 'rkh') {
+  die("sleeptime must be >=60 seconds\n");
+}
+
+if ($opts{threaded}) {
+  eval 'use Thread';
+  if ($@) {
+	die("threading not supported with this perl\n"); 
+  }
+  warn("CAUTION: threading segfaults occasionally... not sure why.\n");
+}
+
+
+endless_loop( );
+exit(0);
+
+
+###############################################################################
+sub endless_loop {
+  my @hosts = @{$opts{hosts}};
+  my @infos = map { new Hostinfo ( 'host' => $_ ) } @hosts;
+  display(@infos);
+  while( 1 ) {
+	my @check = grep { not $_->offline() 
+						 or time()-$_->lastcheck() >= $opts{recheck} } @infos;
+	if ($opts{threaded}) {
+	  collect_threaded(@check);
+	} else {
+	  collect(@check);
+	}
+
+	my @offline = grep { $_->offline() } @infos;
+	my @online = grep { not $_->offline() } @infos;
+	@infos = ( (sort $sorter @online),
+			   (sort {$a->host cmp $b->host} @offline) );
+	display(@infos);
+	sleep $opts{sleeptime};
+  }
+}
+
+sub collect {
+  # collect data from hosts sequentially
+  foreach my $hi (@_) { $hi->collect() };
+}
+
+sub collect_threaded {
+  # collect data from hosts in parallel
+  my @t = Thread->list();
+  foreach my $hi (@_) {
+	my $t = Thread->new(sub {$_[0]->collect()}, $hi);
+  }
+  while( @t = grep { not $_->equal(Thread->self) } Thread->list() ) {
+	(shift @t)->eval()
+  }
+}
+
+sub display {
+  my $stardate = formatted_time( time() );
+  my @infos = @_;
+
+  cls;
+
+  locate 1,1;
+  printf( "%d hosts = {%s}\n", $#infos+1, join(',', map {$_->host()} @infos) );
+  locate 1,($opts{display_width}-length($stardate));
+  print $stardate;
+
+  locate 2,1;
+  printf("sleep=%2ds, cput=%2d%%, rsst=%4dM, maxprocs=%d, sort=%s, threaded=%s\n",
+		 $opts{sleeptime}, $opts{cput}, $opts{rsst}, $opts{maxprocs}, $opts{sortorder}, 
+		 $opts{threaded}?'Y':'N');
+
+  locate 4,1;
+  foreach my $i (@infos) {
+	my $banner = sprintf("%-10s", $i->host());
+
+	if ( $i->offline() ) {
+	  my $color = "bold blink white on red";
+	  $banner .= sprintf("offline since %s; %s\n", 
+						 formatted_time($i->offline()), $i->error());
+	  print colored( "! $banner", $color );
+	  next;
+	}
+
+	if ( not defined $i->rawtop() ) {
+	  my $color = "bold $inverse yellow";
+	  $banner .= "  collecting...\n";
+	  print colored( $banner, $color );
+	  next;
+	}
+
+	if ( not defined $i->load1() ) {
+	  my $color = 'yellow on red BLINK';
+	  $banner .= "  ERROR COLLECTING DATA\n";
+	  my $err = $i->rawtop();  $err =~ s/^/  /mg;
+	  print colored( $banner, $color ), $err;
+	  next;
+	}
+
+	$banner .= sprintf( "  %4.1f/%4.1f/%4.1f   %6dM/%6dM/%6dM   %s\n",
+						$i->load1(), $i->load5(), $i->load10(),
+						$i->memtot(), $i->memused(), $i->memfree(), $i->time());
+	my $color = ($i->load1() < 3 ? "bold $inverse green"
+				 : $i->load1() < 6 ? "bold $inverse yellow"
+				 : 'bold '.($opts{inverse} ? 'yellow on' : '').'red');
+	print colored($banner, $color);
+	my @procs = @{$i->processes()};
+	splice(@procs,$opts{maxprocs}) if ($#procs>$opts{maxprocs});
+	foreach my $procline (@procs) {
+	  my $color = $procline =~ m/^\s*\d+\s+$USER/ ? 'REVERSE' : 'RESET';
+	  $procline =~ s/^(\d+)/sprintf("  %7d",$1)/e;
+	  $procline =~ s/\s+(\d+\.\d+)\%/sprintf(" %5.1f%%",$1)/e;
+	  print colored( $procline . ' 'x(80-length($procline)), $color ), "\n"; #/
+	}
+  }
+}
+
+sub mem {
+  # return memory with [GMK] suffix in megabytes (without suffix)
+  my $in = $_[0];
+  return unless defined $in;
+
+  my ($v) = $in =~ m/^(\d+)/;
+  if (not defined $v)
+	{ croak( "$in not a number\n" ); return; }
+
+  my ($u) = $in =~ m/^\d+(.*)/;  $u=uc($u);
+  if ($u eq '')
+	{ $u = 'M' }
+  elsif ($u =~ m/^[GMK]$/i)
+	{ }
+  else
+	{ croak( "how many bytes in a $u?\n" ); return; }
+
+  $v =   $u eq 'G' ? $v*1024 
+	   : $u eq 'K' ? int($v/1024+0.5)
+       :             $v;
+  #print(' -> ', $v, "M\n"); exit;
+  return($v);
+}
+
+sub formatted_time($) {
+  strftime("%Y/%m/%d %H:%M:%S", localtime($_[0]));
+}
+
+
+
+###########################################################################
+## HOSTINFO
+BEGIN{
+package Hostinfo;
+use strict;
+use Class::Struct;
+use IO::Scalar;
+use POSIX;
+#use Net::Ping;
+
+struct( __PACKAGE__,
+		[
+		 host => '$',
+		 load1 => '$', load5 => '$', load10 => '$', time => '$',
+		 memtot => '$', memused => '$', memfree => '$',
+		 rawtop => '$', header => '$', processes => '@',
+		 offline => '$', lastcheck => '$', error => '$'
+		] ); #'
+
+sub collect {
+  my $self = shift;
+  my $host = $self->host();
+
+  $self->error( undef );
+  $self->lastcheck( time() );
+
+  # The following doesn't work on geneland for unknown reasons
+  #if (not Net::Ping->new()->ping($host,2)) {
+  #	$self->error('no ping response');
+  #	$self->offline( $self->lastcheck() ) unless defined $self->offline();
+  #	return $self;
+  #}
+
+  my $rawtop = `rsh $host /usr/local/bin/top -b 2>&1`;
+  if ($?) {
+	$self->error('no rsh response');
+	$self->offline( $self->lastcheck() ) unless defined $self->offline();
+	return $self;
+  }
+
+  $self->rawtop( $rawtop );
+  $self->extract();
+  $self->offline( undef );
+  return $self;
+}
+
+sub extract  {
+  my $self = shift;
+  my $rt = $self->rawtop();
+  my $real_re = '\d+\.\d+';
+
+  # load averages:  0.27,  3.22,  5.16    17:14:22
+  if ($rt =~ m/load averages:\s+($real_re),\s+($real_re),\s+($real_re)\s+(\S+)/) {
+	$self->load1($1); $self->load5($2); $self->load10($3); $self->time($4); 
+  } elsif ($^W) {
+	warn($self->host(), ": couldn't parse load averages\n"); 
+  }
+
+  # Memory: Real: 13G/24G act/tot  Virtual: 738M use/tot  Free: 10G
+  if ( $rt =~ m/Memory: Real: (\d+.)\/(\d+.) .+ Free: (\S+)/ ) {
+	$self->memtot(mem($2)); $self->memused(mem($1)); $self->memfree(mem($3));
+  } elsif ($^W) {
+	warn($self->host(), ": couldn't parse memory stats\n");
+  }
+
+  #tallac$ rsh ala top -b
+  #load averages:  0.25,  0.20,  0.17    10:12:34
+  #142 processes: 2 running, 65 waiting, 24 sleeping, 51 idle
+  #
+  #Memory: Real: 5864M/8035M act/tot  Virtual: 12288M use/tot  Free: 1510M
+  #
+  #  PID USERNAME PRI NICE  SIZE   RES STATE   TIME    CPU COMMAND
+  #2750474 root      42    0 4728K  540K sleep   0:00  4.40% kshd 
+  my $ios = new IO::Scalar \$rt;
+  my @procs;
+  while ( defined( my $line = $ios->getline() ) ) {
+	#                        pid usr pri ni  siz res   st  ti    cpu
+	my $pfmt = join('\s+',qw/\d+ (\w+) \d+ \d+ \S+ (\S+) \w+ \S+/, "($real_re)\%");
+	if ($line =~ m/^\s*PID/) {
+	  $self->header($line) 
+	} elsif ($line =~ m/^$pfmt/) {
+	  if ( ($3 eq $main::USER)
+		   or (defined $opts{rsst} and mem($2)>=$opts{rsst})
+		   or (defined $opts{cput} and     $3 >=$opts{cput}) ) {
+		chomp $line; push( @procs, $line );
+	  } else {
+		last;
+	  }
+	}
+  }
+
+  @{ $self->processes() } = ();
+  $self->processes($_,$procs[$_]) for 0..$#procs;
+}
+
+
+sub mem { main::mem(@_) }
+
+
+## BROKEN:
+# use overload '<=>' => \&Hostinfo::cmp;
+# sub cmp
+# 	 {
+# 	 my ($a,$b) = @_;
+# 	 return
+# 		  ($a->load1()  <=> $b->load1())
+# 	   || ($a->load5()  <=> $b->load5())
+# 	   || ($a->load10() <=> $b->load10())
+# 	   || ($#{$a->processes()} <=> $#{$b->processes()});
+# 	 }
+}
+
+
+=pod
+
+=head1 NAME
+
+gltop -- top-like summary of geneland cluster nodes
+
+$Id: gltop,v 1.6 2004/06/10 00:31:29 rkh Exp $
+
+=head1 SYNOPSIS
+
+gltop [B<--cpu|-c> I<%cpu>] [B<--host|-h> I<hostlist>] [B<--maxprocs|-m> I<nprocs>] [B<--sleeptime|-s> I<secs>] [B<--sortorder|-S> B<load>|B<host>|B<memfree>] [B<--threaded|-t>]
+
+gltop [B<--version|-V>]
+
+gltop [B<--help|-?>]
+
+
+=head1 USAGE
+
+=item B<--cput> I<%cpu> | B<-c> I<%cpu>
+
+list processes using >= I<%cpu> percent of a CPU.
+
+=item B<--host> I<hostlist> | B<-h> I<hostlist>
+
+list of hosts to monitor; comma-separated hosts and multiple --host/-h
+flags are supported
+
+=item B<--maxprocs> I<nprocs> | B<-m> I<nprocs>
+
+show no more than I<nprocs> procs for each host
+
+=item B<--rsst> I<mem>[KMG] | B<-r> I<mem>[KMG]
+
+list processes with size >= mem (rounded to nearest MB)
+
+=item B<--sleeptime> I<secs> | B<-s> I<secs>
+
+sleep I<secs> seconds between updates (excludes the time required to
+gather information).
+
+=item B<--sortorder> I<load|host|memfree> | B<-S> I<load|host|memfree>
+
+specifies the order in which hosts are sorted.  I<load> sorts by 1-minute
+load average; I<host> sorts hosts alphabetically; I<memfree> sorts hosts
+by free memory.
+
+=item B<--threaded> | B<-t>
+
+EXPERIMENTAL!  Collect data with independent threads.  I (Reece) often get
+spurious segfaults when I use this.  This option requires a threaded
+version of perl (>5.6.x).  This is surely my fault.
+
+
+=head1 EXAMPLES
+
+$ gltop -hala,cys -htrp -z4607k
+
+
+=head1 SEE ALSO
+
+xgltop (a wrapper which invokes gltop in a colorized shell)
+
+
+=head1 BUGS & MISFEATURES
+
+- threading support is weak.  In particular, new threads are created and
+destroyed for every round of collecting.  That's a waste. 
+
+- timeouts due to deaf remote hosts are not handled well.
+
+- if a lot of people decide to use this, we should centralize the
+collection process (perhaps using Schedule::* and Proc::ProcessTable
+modules).  Those modules weren't used because I didn't want to spawn a
+perl job on the remote side for each collect.
+
+- probably should have used a custom ps command, like ps
+-opid,cmd,rss,pmem...
+
+- no attempt is made to keep the display from scrolling
+
+
+=head1 AUTHOR and SOURCE
+
+Reece Hart <rkh@gene.com> 2001/12/20
+
+$Id: gltop,v 1.6 2004/06/10 00:31:29 rkh Exp $
+
+$Source: /usr/local/cvs/miscellanea/gltop,v $
+
+=cut
+
+
+__END__
+$Log: gltop,v $
+Revision 1.6  2004/06/10 00:31:29  rkh
+* show offline time
+
+Revision 1.5  2004/06/04 21:33:53  rkh
+* options $opt_* -> %opts{*}
+* removed thymine (offline as of 2004-06-04)
+* added display_width
+* added rudimentary offline detection and handling (doesn't handle
+  complete non-responders like thymine)
+* now uses Pod::Usage for help
+
+Revision 1.1  2004/06/04 21:21:39  rkh
+Initial revision
+
+Revision 1.4  2002/01/16 20:00:28  rkh
+*** empty log message ***
+
+Revision 1.3  2002/01/16 19:56:10  rkh
+*** empty log message ***
+
+Revision 1.2  2002/01/16 19:51:48  rkh
+* added rss memory threshold
+* added some documentation
+

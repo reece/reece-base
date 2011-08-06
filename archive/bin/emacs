@@ -1,0 +1,4 @@
+#!/bin/sh
+# run emacs using emacs client/server if available, || just exec emacs
+
+emacsclient -n "$@" 2>/dev/null || exec /usr/bin/emacs "$@"

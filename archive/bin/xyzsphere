@@ -1,0 +1,30 @@
+#!/usr/local/bin/perl -w
+# print proximity sorted atoms within specified sphere
+use Range;
+
+$RCSId = '$Id: xyzsphere.pl,v 0.3 2000/07/22 23:05:38 reece Exp $ ';
+$RCSId =~ s/\$//g; $RCSId =~ s/\s+$//;
+($jemappelle=$0) =~ s,^.*/,,;
+
+use Tinker;
+
+($#ARGV+1 < 3)
+  && die("usage: $jemappelle file radius atom rangelist\n");
+($fn,$radius,@arl) = @ARGV;
+$strx=Tinker::readxyz($fn) 
+  || die("$jemappelle: $fn: $!\n");
+$aref=Tinker::buildatoms(\$strx);
+
+@al = Range::RangeList_To_Enum(\@arl);
+foreach $atom (@al)
+  {$exclude[$atom]++;}
+foreach $atom (@al) {
+for ($i=1; $i<=$#$aref; $i++)
+  { 
+  if (    not $exclude[$i]
+	  and not $inside{$i}
+	  and atom::distance($aref->[$atom], $aref->[$i]) <= $radius)
+	{$inside{$i}++;}
+  }}
+@inside = sort {$a<=>$b} keys %inside;
+print( join(',',Range::Enum_To_RangeList(\@inside)), "\n" );

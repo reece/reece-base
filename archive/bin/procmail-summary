@@ -1,0 +1,37 @@
+#!/usr/bin/env perl
+# procmail-summary -- summarize procmail logs
+
+use IO::File;
+use IO::Pipe;
+use IO::Zlib;
+
+$/ = "\nFrom";
+
+while(@ARGV) {
+  my $fn = shift;
+  # Sigh... this doesn't work because IO::Zlib doesn't honor $/
+  # my $fh = ($fn =~ m/\.gz/) ? new IO::Zlib : new IO::File;
+  # if (not $fh->open($fn,"rb")) {
+  # 	warn("$fn: $!\n");
+  # 	next;
+  # }
+  # So, instead...
+
+  my $fh;
+  if ($fn =~ m/\.gz/) {
+	$fh = new IO::Pipe;
+	$fh->reader( 'gzip', '-cdq', $fn );
+  } else {
+	$fh = new IO::File;
+	$fh->open($fn,'rb');
+  }
+
+  while( $_ = <$fh> ) {
+	chomp;
+	$_="$/$_" if $.-1;
+	my ($from) = m/From (\S+)/;
+	my ($folder) = m/Folder: (\S+)/;
+	$folder =~ s%/home/reece/Maildir/([^/]+)/.+%$1%;
+	printf("%-20s $from\n",$folder)
+  }
+}

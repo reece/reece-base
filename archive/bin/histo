@@ -1,0 +1,146 @@
+#!/usr/bin/env perl
+# Generate a histogram of multicolumn (1,n) data
+# todo:
+# * spec nbins or binwidth
+# * user spec bins
+# * push data or reread file
+# * cumulative bins
+# * open min,max
+
+use strict;
+use warnings;
+use Getopt::Long qw(:config gnu_getopt);
+use vars qw( $RCSId $jemappelle );
+
+$RCSId = qq$Id: histo.pl,v 1.0 1998/11/02 22:57:00 reece Exp $;
+($jemappelle=$0) =~ s,^.*/,,;
+unshift(@ARGV,$ENV{$jemappelle}) if (defined($ENV{$jemappelle}));
+my $invocation = join( ' ', @ARGV);
+
+my $opt_binwidth;
+my $opt_help = 0;
+my $opt_max;
+my $opt_min;
+my $opt_nbins;
+my $opt_normalize = 0;
+my $opt_quiet;
+my $opt_showzeros = 1;
+my $opt_verbose = 0;
+my $opt_version = 0;
+
+my (@OPTIONS)=
+  (
+   'binwidth|w=f' 	=> \$opt_binwidth,
+   'help|?'			=> \$opt_help,
+   'max=f',       	=> \$opt_max,
+   'min=f'			=> \$opt_min,
+   'nbins|b=i'    	=> \$opt_nbins,
+   'normalize|n'  	=> \$opt_normalize,
+   'quiet|q'      	=> \$opt_quiet,
+   'showzeros|showzeroes|z' => \$opt_showzeros,
+   'verbose|v'		=> \$opt_verbose,
+   'version|V'		=> \$opt_version,
+  );
+
+GetOptions (@OPTIONS)
+  || die("you've got usage issues... try $0 --help\n");
+
+if ($opt_version) {
+  print($RCSId,"\n"); exit(0);
+}
+
+if ($opt_help) {
+  print("Try perldoc $0\n");
+  exit(0);
+}
+
+
+unshift(@ARGV,'-') unless ($#ARGV >= 0);
+
+die("$jemappelle: can't specify nbins AND binwidth.  Bad user, no biscuit!\n")
+  if (defined $opt_nbins and defined $opt_binwidth);
+
+# read data and accumulate basic stats
+my $ncols = -1;
+my $dmin;
+my $dmax;
+my @n;
+while(<>) {
+  my(@e);
+  next if /^\#/;
+  @e = split;
+  if ($ncols == -1)
+	{$ncols = $#e;}
+  elsif ($#e != $ncols and 0) {
+	warn("line $.: expected $ncols cols, got $#e.  Skipping line.\n");
+	next;
+  }
+
+  for(my $col=0; $col<=$#e; $col++) {
+	my($e) = $e[$col];
+	$dmin = $e if (not defined $dmin or $e<$dmin);
+	$dmax = $e if (not defined $dmax or $e>$dmax);
+	push(@{$n[$col]},$e);
+  }
+}
+
+
+# compute bin sizes, etc
+my $drange = (defined $dmax and defined $dmin) ? $dmax - $dmin : 0;
+my $s = $drange>0 ? int(log($drange)/log(10) - 1) : 0;
+my $f = 10**$s;
+my $min = defined $opt_min ? $opt_min : int( $dmin / $f - 1.0 ) * $f;
+my $max = defined $opt_max ? $opt_max : int( $dmax / $f + 1.0 ) * $f;
+my $range = $max - $min;
+my $nbins;
+my $binwidth;
+if ( defined $opt_nbins ) {
+  $nbins = $opt_nbins;
+  $binwidth = $range / $nbins;
+  } else {
+  $binwidth = (defined $opt_binwidth ? $opt_binwidth : $f);
+  $nbins = $range / $binwidth;
+}
+
+my $i;
+$i = "# $RCSId\n"
+  . "# $jemappelle $invocation\n"
+#  . '# '.(1+$ncols).' cols, N={'. ($ncols>-1 ? join(',',map {1+$#{$n[$_]}} 0..$ncols) : 'N/A') ."}\n"
+  . '# '.(1+$ncols).' cols, N={'. join(',',map {1+$#{$n[$_]}} 0..$ncols) ."}\n"
+  . "# data: [min,max]=[" . ((defined $dmin and defined $dmax) ? "$dmin,$dmax" : ',') ."], range=$drange\n"
+  . "# shift=$s, factor=$f, normalize=$opt_normalize\n"
+  . "# histogram: [min,max]=[$min,$max], range=$range\n"
+  . "# $nbins bins, $binwidth units wide\n";
+print($i);
+print(STDERR $i) if ($opt_verbose);
+
+
+# accumulate counts for each bin, each column
+my @count;
+for(my $c=0; $c<=$ncols; $c++) {
+  for($i=0; $i<=$#{$n[$c]}; $i++) {
+	my $bin = ($n[$c][$i]-$min) / $binwidth;
+	$count[$bin][$c]++;
+  }
+}
+
+
+# write bin counts
+my $fmt = $opt_normalize ? '%5.2f' : '%d';
+for(my $bin=0; $bin<$nbins; $bin++) {
+  my($a) = $min + $bin*$binwidth;
+  my($b) = $min + ($bin+1.0)*$binwidth;
+  my($c) = $min + ($bin+0.5)*$binwidth;
+  printf("%10f", $c);
+  for(my $col=0; $col<=$ncols; $col++) {
+	my $t = '';
+	if ( defined $count[$bin][$col] ) {
+	  $t = sprintf($fmt, $opt_normalize ? ($count[$bin][$col]/(1+$#{$n[$col]}))
+				   : $count[$bin][$col] ) ;
+	} elsif ($opt_showzeros) {
+	  $t = sprintf($fmt,0); 
+	}
+	print("\t$t");
+  }
+  print("\n");
+}

@@ -1,0 +1,3 @@
+URI ldap://ldap.gene.com
+BASE ou=people,dc=gene,dc=com
+BIND o=Genentech

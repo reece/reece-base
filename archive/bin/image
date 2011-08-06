@@ -1,0 +1,111 @@
+sub imgsize
+  {
+  my $file = $_[0];
+  
+  open(STREAM, "<$file") || do {warn "couldn't open $file"; return undef};
+
+  if ($file =~ /.jpg/i || $file =~ /.jpeg/i)
+	{
+	@size = &jpegsize(STREAM);
+	}
+  elsif($file =~ /.gif/i)
+	{
+	@size = &gifsize(STREAM);
+	}
+  elsif($file =~ /.xbm/i)
+	{
+	@size = &xbmsize(STREAM);
+	}
+  
+  close(STREAM);
+
+  return @size;
+  }
+
+sub gifsize
+  {
+  my $GIF = $_[0];
+  read($GIF, $type, 6); 
+
+  if ( ($type =~ /GIF8[7,9]a/) && (read($GIF, $s, 4) == 4) )
+	{
+	($a,$b,$c,$d)=unpack("C"x4,$s);
+	$w=$b<<8|$a;
+	$h=$d<<8|$c;
+	return ($w,$h);
+	}
+
+  return undef;
+  }
+
+sub xbmsize
+  {
+  my $XBM = $_[0];
+  my $input ='';
+  
+  $input .= <$XBM>;
+  $input .= <$XBM>;
+  $_ = $input;
+  if( /\#define\s*\S*\s*(\d*)\s*\n\#define\s*\S*\s*(\d*)\s*\n/i )
+	{
+	return ($1,$2);
+	}
+
+  return undef;
+  }
+
+# jpegsize : gets the width and height (in pixels) of a jpeg file
+# Andrew Tong, werdna@ugcs.caltech.edu           February 14, 1995
+# modified slightly by alex@ed.ac.uk
+sub jpegsize 
+  {
+  my $JPEG = $_[0];
+  my $done = 0;
+  my $size="";
+  my $c1=$c2=$ch=$s=$junk=0;
+
+  read($JPEG, $c1, 1); read($JPEG, $c2, 1);
+  if( ((ord($c1) == 0xFF) && (ord($c2) == 0xD8)) )
+	{
+	while (ord($ch) != 0xDA && !$done)
+	  {
+	  # Find next marker (JPEG markers begin with 0xFF)
+	  # This can hang the program!!
+	  while (ord($ch) != 0xFF)
+		{  read($JPEG, $ch, 1); }
+	  # JPEG markers can be padded with unlimited 0xFF's
+	  while (ord($ch) == 0xFF)
+		{ read($JPEG, $ch, 1); }
+	  # Now, $ch contains the value of the marker.
+	  if ((ord($ch) >= 0xC0) && (ord($ch) <= 0xC3))
+		{
+		read ($JPEG, $s, 3); read($JPEG, $s, 4);
+		($a,$b,$c,$d)=unpack("C"x4,$s);
+		$h=$a<<8|$b;
+		$w=$c<<8|$d;
+		return ($w,$h);
+		}
+	  else
+		{
+		# We **MUST** skip variables, since FF's within variable names are
+		# NOT valid JPEG markers
+		read ($JPEG, $s, 2); 
+		($c1, $c2) = unpack("C"x2,$s); 
+		$length = $c1<<8|$c2;
+		if( ($length < 2) )
+		  {
+		  print "Erroneous JPEG marker length";
+		  $done=1;
+		  }
+		else
+		  {
+		  read($JPEG, $junk, $length-2);
+		  }
+		}
+	  }
+	}
+  return undef;
+  }
+
+1;
+

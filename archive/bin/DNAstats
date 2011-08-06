@@ -1,0 +1,35 @@
+#!/usr/local/bin/perl -w
+# simple statistics from a file containing ONLY a DNA sequence
+
+undef $/;
+$_ = <>;
+
+s/\s+//mg;
+$_ = uc($_);
+
+$n{A}=tr/A//;
+$n{C}=tr/C//;
+$n{G}=tr/G//;
+$n{T}=tr/T//;
+$l = length($_);
+%p = map { $_ => $n{$_}/$l } keys %n;		# base frequencies
+
+while(m/.../g) { $codon{$&}++; $c++; }
+
+for($i=0;$i<$l-1;$i++) { $di{substr($_,$i,2)}++; $di++; }
+
+printf("AT=%d, %%AT=%5.2f%%\n", $n{A}+$n{T},($p{A}+$p{T})*100);
+
+print("bases:\n", 
+	  map {sprintf("  %-3s %5d %5.2f%%\n",
+				   $_,$n{$_},$p{$_}*100)}
+	  sort keys %n);
+
+print("dinucs:\n", 
+	  map {sprintf("  %-3s %5d %5.2f%% %5.2f%%\n",
+				   $_,$di{$_},$di{$_}/$di*100,$p{substr($_,0,1)}*$p{substr($_,1,1)}*100)}
+	  sort keys %di);
+
+print("codons:\n", 
+	  map {sprintf("  %-3s %5d %5.2f%%\n",$_,$codon{$_},$codon{$_}/$c*100)} 
+	  sort keys %codon)

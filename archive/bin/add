@@ -1,0 +1,4 @@
+#!/usr/local/bin/perl
+BEGIN {$sum=0}
+while(<>) {$sum+=$_}
+END {print($sum,"\n")}

@@ -1,0 +1,29 @@
+#!/bin/sh
+# file-email [box] <email
+# box should be '' for top, or something like 'harts.net/reece/.bulk'
+# mail always goes into the new/ subdir
+
+PATH=/usr/lib/courier-imap/bin:/usr/bin:/bin
+home="/home/hartsnet"
+mail_dir="/home/hartsnet/mail"
+
+exec >>"$home/logs/file-email.log" 2>&1
+
+folder="$1"
+shift
+
+folder_dir="$mail_dir/$folder"
+echo "folder=$folder; folder_dir=$folder_dir"
+if ! [ -d "$folder_dir" ]; then
+    echo "creating $folder_dir" 1>&2
+    maildirmake "$folder_dir"
+fi
+
+
+template="$folder_dir/new/in-$(date +"%Y%m%d%H%M%S")-XXXXXX"
+tmpfn="$(mktemp "$template")"
+
+cat >"$tmpfn"
+size=$(( $(stat --format '%s' "$tmpfn") / 1000 ))
+
+date "+%F %T: From: $SENDER, To: $RECIPIENT, Id: $MESSAGE_ID, folder: $folder, file $tmpfn, size ~$size KB" 1>&2

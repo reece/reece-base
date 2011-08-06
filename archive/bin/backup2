@@ -1,0 +1,686 @@
+#!/usr/bin/env perl
+## perlpod documentation appears at the end of this file.  It is readable
+## with a texteditor, but looks better with perlpod.  Try 
+## $ perldoc backup
+
+## TBD
+## 1) default output is btd/datestamp.tar; override with tape device
+## 2) backup profiles ala kdat
+## 3) reread tape to verify
+## 4) tape headers
+
+use strict;
+use warnings;
+use POSIX;
+use FileHandle;
+use Cwd;
+use Getopt::Long qw(:config gnu_getopt);
+use Data::Dumper;
+
+##############################################################################
+## Customize here
+##############################################################################
+
+# what's the name of your GNU tar?
+my $gnutar = ( defined $ENV{'GNUTAR'} ? $ENV{'GNUTAR'} : 'tar' );
+
+# where can tar, gzip, and sendmail be found?
+$ENV{'PATH'} = '/usr/local/bin:/bin:/usr/bin:/usr/sbin';
+
+my %opts =
+  (
+   verbose => 0,
+
+   # default media type for tape label dimensions; choices: `tr', `4mm', `8mm'
+   media => '4mm',
+
+   # where are logs and incremental backups kept?
+   backupdirectory => defined $ENV{'BACKUPDIRECTORY'} ? $ENV{'BACKUPDIRECTORY'} : '/mnt/backups' ,
+
+   # full path to tape device
+   tapedevice => defined $ENV{'TAPE'} ? $ENV{'TAPE'} : '/dev/tape',
+  );
+
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+my $RCSId = '$Id: backup.pl,v 0.60 2000/11/05 22:26:23 reece Exp $ ';
+my $jemappelle; ($jemappelle=$0) =~ s,^.*/,,;
+
+my %dim =
+  (
+   #             tape media dimensions, *=mm
+   #            w*  h1*  h2*  m* lw*   fs1 fs2
+   '4mm' => [  73,  54,  11,  2, 0.5,   10,  6 ],
+   '8mm' => [  95,  58,  14,  2, 0.5,   15, 10 ],
+   'tr'  => [  88,  67,  12,  2, 0.5,   15, 10 ]
+  );
+
+### Parse options
+unshift(@ARGV,$ENV{'BACKUP'}) if defined $ENV{'BACKUP'};
+my $invocation = join(' ', $jemappelle, @ARGV);
+GetOptions
+  (\%opts,
+   'backupdirectory|d=s',
+   'blocking-factor|b=i',
+   'compress|z',
+   'dryrun',
+   'eject|e',
+   'incremental|i',
+   'group|g=s',
+   'mail|m=s',
+   'media=s',
+   'new|n',
+   'now=s',
+   'one-file-system|one-filesystem|l',
+   'remove|r',
+   'tapedevice|t:s',
+   'verbose|v+',
+  )
+  || die("usege issues, homey\n");
+
+my @addresses  = split(/,/,$opts{mail}) if exists $opts{mail};
+$ENV{'GZIP'} = '-9q';
+
+### Check for invocation errors which are immediately fatal
+if (not (-d $opts{backupdirectory} and -r $opts{backupdirectory} and -x $opts{backupdirectory} ))
+  {die($jemappelle, ": $opts{backupdirectory}/ doesn't exist or isn't a directory\n");}
+if (not gnutarexists($gnutar))
+  {die($jemappelle, ": $gnutar doesn't exist or isn't GNU tar; exiting.\n");}
+if ($opts{compress} and not gzipexists('gzip'))
+  {die($jemappelle, ": compression requested and gzip doesn't exist; exiting.\n");}
+if (not exists $dim{$opts{media}})
+  {die($jemappelle, ":media type $opts{media} not defined\n")}
+  
+
+### Mail log is accumulated as a large text string
+my $mlog;
+my $mlogref;
+if (@addresses)
+  {
+  $mlog = '';
+  $mlogref = \$mlog;
+  }
+
+
+### @tar contains the command and options
+my @tar;
+push(@tar,
+	 $gnutar,
+	 ('-cv'
+	  .(exists $opts{'one-file-system'} ? 'l' : '')
+	  .(exists $opts{compress}        ? 'z' : ''))
+	 ,'--totals');
+if (exists $opts{'blocking-factor'}) 
+  {push(@tar,sprintf('-b%d',$opts{'blocking-factor'}))}
+if (-f "$opts{backupdirectory}/exclusions")
+  {push(@tar,"-X $opts{backupdirectory}/exclusions")}
+
+
+### Do the backups
+my $nerrors = 0;
+if (exists $opts{group})
+  {$nerrors += backup($opts{group},@ARGV);}
+else
+  {
+  foreach my $bt (@ARGV)
+	{
+	my($bg) = '';
+	$bg = cwd() unless $bt=~/^\//;
+	$bg .= ($bt=~m/^\//?'':'/').$bt;
+	$nerrors += backup($bg,$bt);
+	}
+  }
+if (@addresses)
+  {sendmail(\@addresses,$jemappelle.": $nerrors error".($nerrors==1?'':'s'),$mlogref);}
+if ($opts{eject})
+  {system("mt offline");}
+exit( $nerrors > 0 );
+
+
+
+### ############################################################################
+### Subroutines
+
+sub advise
+  {
+  my($fd,$ls,$fh,@advices) = @_;
+  my($text) = join('',@advices);
+  if (defined $fd)
+	{
+	if ($fd == 1) {print(STDOUT $text)}
+	else          {print(STDERR $text)}
+	}
+  if (defined $ls) {$$ls .= $text}
+  if (defined $fh) {print($fh $text); $fh->flush;}
+  }
+
+sub backup
+  {
+  my($bg,@bts) = @_;
+  my($backuptype) = ($opts{incremental} ? 'incremental' : 'full');
+  my($nerrors) = 0;
+  my($now) = (exists $opts{now} ? $opts{now} : strftime("%Y%m%d", localtime()) );
+  my(@cmd) = @tar;
+  my($btlog) = '';
+  my($cmd, $status, $btd, $incfn, $logfn, $logfh, $bp, $since,
+	 $prevbackup,$datestamp,$dev,$bdesc);
+
+  advise(2,\$btlog,undef,"$RCSId\n");
+  advise(2,\$btlog,undef,"$invocation\n");
+
+  # btd: the backup target directory (where the logs and incrementals are kept)
+  $btd = prettypath("$opts{backupdirectory}/$bg");
+  if (not mkpath($btd))
+	{
+	advise(2,\$btlog,undef,$jemappelle,": $btd: $!\n"); 
+	return(++$nerrors);
+	}
+
+  # generate the backup command
+  if ( not $opts{incremental} )	
+	{
+	$datestamp = $now;
+	$bp = "$btd/$datestamp";
+	$dev = exists $opts{tapedevice} 
+	  ? $opts{tapedevice} 
+	  : "$btd/$datestamp.tar" . ($opts{compress} ? '.gz' : '');
+	}
+  else
+	{
+	my($when);
+	$prevbackup = prevbackup($btd);
+	if ( not defined $prevbackup )
+	  {
+	  advise(2,\$btlog,undef,$jemappelle,": $bg: no previous backup; skipping.\n");
+	  return(++$nerrors);
+	  }
+	($since,$when) = xdaterange($prevbackup);
+	if (not defined $since)
+	  {
+	  advise(2,\$btlog,undef,$jemappelle,
+			 ": $prevbackup: doesn't match a date or date range; skipping.\n");
+	  return(++$nerrors);
+	  }
+	if ( ($now lt $since) 
+		 or ( (defined $when) and ($now lt $when) ) )
+	  {
+	  advise(2,\$btlog,undef,$jemappelle,": $prevbackup: made before $now?!\n");
+	  return(++$nerrors);
+	  }
+	$since = $when if ( defined $when and $opts{new} );
+	$datestamp = "$since~$now";
+	$bp = "$btd/$datestamp";
+	$incfn = "$bp.tar" . ($opts{compress} ? '.gz' : '');
+	$dev = $incfn;
+	push(@cmd,"-N $since");
+	}
+  push(@cmd, "-f $dev");
+  $bdesc = sprintf("$backuptype backup $bg $datestamp (%s)",join(',',@bts));
+  substr($bdesc,57) = '...' if length($bdesc)>59;
+  $bdesc = quote($bdesc);
+  push(@cmd, "-V '$bdesc'");
+  push(@cmd,"-X $btd/exclusions") if ( $opts{backupdirectory} ne $btd and -f "$btd/exclusions" );
+  push(@cmd,map(shell_escape($_),@bts));
+  $cmd = join( ' ', @cmd );
+
+  # Open the log file unless dry run
+  $logfn = "$bp.log";
+  $logfh = undef;
+  if (not $opts{dryrun})
+	{
+	if (not defined ($logfh = new FileHandle ">$logfn"))
+	  {
+	  advise(2,\$btlog,undef,$jemappelle,": $logfn: $!\n");
+	  return(++$nerrors);
+	  }
+	}
+
+  advise($opts{verbose}, \$btlog, $logfh, "* $bdesc\n");
+  if ( $opts{incremental} )
+	{
+	advise($opts{verbose}, \$btlog, $logfh,
+		   "# previous backup was $prevbackup\n",
+		   "# backing up files modified since $since",
+		   ($opts{new} ? ' (new incremental series)' : ''), "\n",
+		   "# incremental tar filename is $incfn\n")
+	}
+  advise($opts{verbose}, \$btlog, $logfh,
+		 "# log filename is $logfn\n",
+		 "# $cmd\n",
+		 "# started at ",strftime("%Y/%m/%d %H:%M:%SZ",gmtime()),"\n");
+
+  # execute command
+  $status = "N/A";
+  if ( not $opts{dryrun} )
+	{
+	$status = execute($cmd, $opts{verbose}, \$btlog, $logfh);
+	advise($opts{verbose}, \$btlog, $logfh, "tar: exit status is $status\n");
+	
+	# huge kludge: print label for all runs, regardless of device, inc/full,
+	# or exit status
+	my($psfn) = "$bp.ps";
+	print_ps_label($psfn,$opts{media},$bg,\@bts,$now,$invocation,\@cmd);
+	system("lpr $psfn");
+
+	if (     $status == -1
+		 or	 $status ==  0					# no significant error
+	     or  $status ==  1					# I hope
+	     or  $status ==  2 )
+	  {
+	  if ( not $opts{incremental} )
+		{
+		# moved above
+		#my($psfn) = "$bp.ps";
+		#print_ps_label($psfn,$opts{media},$bg,\@bts,$now,$invocation,\@cmd);
+		#system("lpr $psfn");
+		}
+	  else									# incremental
+		{
+		#** advise($opts{verbose}, \$btlog, $logfh, "to delete or no?\n");
+		if (     ($opts{remove})				# removal requested
+			 and (not $opts{new})				# not a new incr. series
+			 and ($prevbackup =~ /~/) )		# prev backup was incr.
+		  {
+          my($sfx);
+		  #** advise($opts{verbose}, \$btlog, $logfh, "YES\n");
+		  foreach $sfx ('log', 'log.gz', 'tar', 'tar.gz')
+			{
+			my($file) = "$btd/$prevbackup.$sfx";
+			#** advise($opts{verbose}, \$btlog, $logfh, "thinking about deleting $file\n");
+			if ( (-f $file)
+				 and ($file !~ /^$bp/) )	# in case 2 incrementals on same day
+			  {
+			  if (unlink($file))
+				{advise($opts{verbose}, \$btlog, $logfh, "# deleted $file\n")}
+			  else
+				{advise(2,\$btlog,undef,$jemappelle,": $file: $!\n")}
+			  }
+			}
+		  }
+		else
+		  {
+		  #** advise($opts{verbose}, \$btlog, $logfh, "NO\n");
+		  }
+		}
+	  }
+	else
+	  {
+	  $nerrors++;
+	  $btlog =~ s§^\* §* FAILED: §;
+	  }
+	}
+
+  advise($opts{verbose}, \$btlog, $logfh,
+		  "# completed at ",strftime("%Y/%m/%d %H:%M:%SZ",gmtime()),", status $status\n\n");
+
+  $logfh->close() if defined $logfh;
+  ($opts{compress}) && system("gzip -f '$logfn'"); # fails? oh well.
+  $mlog .= $btlog if (defined $mlogref);
+  return($nerrors);
+  }
+
+sub execute
+  {
+  my($cmd,$verbose,$logref,$fh)=@_;
+  my($status,$pid);
+  my($s2);
+  $pid = open(TAR, "$cmd 2>&1|");
+  if (defined $pid)
+	{
+	my($fatal) = 0;
+	while(<TAR>)
+	  {
+	  if (defined $fh) {print($fh $_); $fh->flush;}
+ 	  advise(2,$logref,undef,$_) if (/^(?:$gnutar:|gzip)/); 
+ 	  $fatal++ if /^$gnutar: Error is not recoverable/;
+ 	  }
+	wait;
+ 	close(TAR);
+	$status = $?;
+	#print("1.1: $status\n");
+	$status >>= 8 if ($status > 0);
+	#print("1.2: $status\n");
+	$status = 3 if ($fatal);
+	#print("1.3: $status\n");
+	}
+  else
+	{
+	advise(2, $logref, $fh, $jemappelle,": $cmd: $!\n");
+	$status = 3;
+	#print("3.1: $status\n");
+	}
+  #print("0: $status\n");
+  return( $status );
+  }
+
+sub gnutarexists
+  {
+  my($cmd)=@_;
+  open(T,"$cmd --version 2>&1|") 
+	|| do {advise(2,$mlogref,undef,$jemappelle,": $cmd: $!\n"); return(0);};
+  $_ = <T>;
+  close(T);
+  return( (defined $_) && (m/GNU/) );
+  }
+
+sub gzipexists
+  {
+  my($cmd)=@_;
+  open(T,"$cmd --version 2>&1|")
+	|| do {advise(2,$mlogref,undef,$jemappelle,": $cmd: $!\n"); return(0);};
+  $_ = <T>;
+  close(T);
+  return( (defined $_) && (m/^gzip/) );
+  }
+
+sub mkpath
+  {
+  my(@dirs) = split(m|/+|,$_[0]);
+  my($path) = ( ($dirs[0] eq '') ? '' : './' );
+  my($dir);
+  foreach $dir (@dirs)
+	{
+	$path .= "$dir/";
+	( -d $path ) || mkdir($path,0755) || return(0);
+	}
+  return(1);
+  }
+
+sub prettypath
+  {
+  my($path) = @_;
+  $path	=~ s§/{2,}§/§g;
+  $path	=~ s§/\./§/§g;
+  $path	=~ s§/\w+/\.\./§/§g;
+  $path	=~ s§/+$§§;
+  return($path);
+  }
+
+sub prevbackup
+  {
+  my($btd) = @_;
+  my($prevbackup);
+  opendir( DIR, $btd ) || die($jemappelle,": $btd: $!\n");
+  $prevbackup = (sort({$b cmp $a} grep(/^\d{8}(?:~\d{8})?\.log(?:\.gz)?/,readdir(DIR))))[0];
+  close( DIR );
+  $prevbackup =~ s/\.log(?:\.gz)?// if defined $prevbackup;
+  return($prevbackup);
+  }
+
+sub print_ps_label
+  {
+  my($psfn,$media,$bg,$bt,$now,$invocation,$cmdr) = @_;
+  my($x, $y1, $y2, $fs1,$fs2, $mgn, $lw) = (270, 165, 45, 5, 3, 15, 10);
+  my($ppcm) = 72/25.4;
+  my (@cmd) = map {s/[()]/\\$1/g;$_} @$cmdr;
+  if ($#cmd+1 > 20) {splice(@cmd,19); push(@cmd,'...');}
+
+  ($x,$y1,$y2,$mgn,$lw,$fs1,$fs2) = @{$dim{$media}} if exists $dim{$media};
+  $x *= $ppcm;  $y1 *= $ppcm;  $y2 *= $ppcm;  $mgn *= $ppcm;  $lw *= $ppcm;
+
+  my $hostname = `hostname`;  chomp $hostname;
+  open(P, ">$psfn") 
+	|| do {advise(2,$mlogref,undef,$jemappelle,": $!\n"); return};
+  print (P "%!PS-Adobe\n");
+  printf(P "%% dim{\$media=$media} = (%d, %d, %d, %d, %d, %d, %d)\n",
+		 $x, $y1, $y2, $fs1,$fs2, $mgn, $lw);
+  print (P "/scalefont {/FS exch def FS scalefont} bind def\n");
+  print (P "/sa {dup show stringwidth pop neg FS neg rmoveto} bind def\n");
+  printf(P "%.1f setlinewidth\n",$lw);
+  print (P "50 50 translate\n");
+  printf(P "\nnewpath\n  %3d %3d moveto\n  %3d %3d lineto\n  %3d %3d lineto\n  %3d %3d lineto\n"
+		  ."  %3d %3d lineto\n  %3d %3d lineto\n  %3d %3d lineto\n  stroke\n"
+		 , 0, $y2, 0, $y1+$y2, $x, $y1+$y2, $x, 0, 0, 0, 0, $y2, $x, $y2);
+
+  printf(P "\n/Times-Bold findfont %d scalefont setfont\n", $fs1);
+  printf(P "  %3d %3d moveto (%s) show\n", $mgn, $fs1/2,"$hostname:$bg"); 
+  printf(P "  %3d %3d moveto (%s) dup stringwidth pop neg 0 rmoveto show\n", $x-$mgn, $fs1/2, $now);
+  printf(P "  %3d %3d moveto (%s) show\n", $mgn, $y1+$y2-$fs1, "$hostname:$bg"); 
+  printf(P "  %3d %3d moveto (%s) dup stringwidth pop neg 0 rmoveto show\n", $x-$mgn, $y1+$y2-$fs1, $now);
+
+  printf(P "\n/Times-Roman findfont %d scalefont setfont\n", $fs2);
+  printf(P "  %3d %3d moveto\n", $mgn, $y1+$y2-$fs1*2);
+  #printf(P "(%s) sa\n", $invocation);
+  printf(P "  %3d %3d rmoveto\n",0,-10);
+  print (P map { "  ($_) sa\n" } @cmd);
+  printf(P "\n%3d FS 2 div add %3d FS 2 div add moveto\n(%s) show\n", 0, $y2, $RCSId);
+  print(P "showpage\n");
+  close(P);
+  }
+
+sub sendmail
+  {
+  my($adref,$subject,$mlogref) = @_;
+  my($address);
+  foreach $address (@{$adref})
+    {
+	advise($opts{verbose},undef,undef,$jemappelle,": sending mail log to $address\n");
+	my($pid) = open(M, "|sendmail $address");
+	if (defined $pid)
+	  {
+	  print(M "Subject: ", $subject, "\n") if defined $subject;
+	  print(M "\n");
+	  print(M $$mlogref);
+	  close(M);
+	  }
+	else
+	  {advise(2,$mlogref,undef,$jemappelle,": couldn't send to $address: $!\n");}
+	}
+  }
+
+sub xdaterange
+  {return( $_[0] =~ m/(\d{8})(?:~(\d{8}))?/ );}
+
+sub quote
+  { my $t = shift; $t =~ s/\'/\'\"\'\"\'/g; return $t; }
+sub shell_escape
+  { my $t = shift; $t =~ s/[\'\"\&\s]/\\$&/g; return $t; }
+
+__END__
+
+=head1 NAME
+
+backup -- manage full and incremental backups
+
+Z<>$Id: backup.pl,v 0.60 2000/11/05 22:26:23 reece Exp $
+
+=head1 SYNOPSIS
+
+C<backup> [options] C<target> [...]
+
+=head1 DESCRIPTION
+
+This script automates a full and incremental backup strategy for
+directories and filesystems.  Full backups are made to tape and
+incremental backups are made to a file (presumably on another disk).
+
+Incremental backups are made to files and span the period since a previous
+incremental or full backup to the present.  
+
+Incremental backups and logs are stored in a B<backup directory> appended
+with the current backup target.  For instance, if the backup directory is
+/backups and /home is being backed up, logs and incremental files will be
+stored in /backups/home/.  It is intended that the backup directory be on
+a different disk.  Full and incremental backups and log files may be
+compressed with gzip (B<-z>).
+
+Many files do not need to be backed up.  To facilitate this, an
+``exclusions'' file may exist in the backup directory or the target's
+backup subdirectory.  For the example above, ``exclusions'' may exist in
+neither, either, or both the /backups/ and /backups/home/ directories.
+These files are passed to GNU tar with -X (which see).  See Examples.
+
+A label which fits 8mm and Travan tape boxes is printed to C<lpr> when a
+full backup completes.
+
+=head1 OPTIONS
+
+=item B<--backupdirectory> dir, B<-d> dir
+
+override default log and incremental backup directory location
+
+=item B<--blocking-factor> dir, B<-b> dir
+
+tar blocking factor (passed through to tar).  For modern drives, try
+-b2048 for faster backups.
+
+=item B<--compress>, B<-z>
+
+compress archive and logs
+
+=item B<--dryrun>
+
+show what would be done, but don't really do it
+
+=item B<--incremental>, B<-i>
+
+perform incremental backup; the default is a full backup
+
+=item B<--mail> address[,address,...], B<-m> address[,address,...]
+
+send mail to addresses upon completion
+
+=item B<--new>, B<-n>
+
+start new incremental backup series (checkpoint)
+
+=item B<--now> YYYYMMDD
+
+fake the current date
+
+=item B<--one-file-system>, B<-l>
+
+backup only files on the same filesystem as target
+
+=item B<--remove>, B<-r>
+
+remove the immediately previous incremental redundant backup (not if B<--new>)
+
+=item B<--tapedevice> device, B<-t> device
+
+override the default tape device
+
+=item B<--verbose>, B<-v>
+
+yakety yak
+
+=head1 EXAMPLES
+
+=item 1. full backup
+
+$ backup --bd /mnt/backups /home
+
+=item 2. Monday-Saturday: incremntal backup
+
+$ backup --bd /mnt/backups --incremental /home
+
+=item 3. Sunday: checkpoint incremental backup
+
+$ backup --bd /mnt/backups --incremental --new /home
+
+=item 4. reconstruct /home from tape, then from incremental backups:
+
+S<$ cd /                                                             >
+S<$ tar -xvzf /dev/tape                                              >
+S<$ for f in /mnt/backups/home*tar.gz; do tar -xvzf $f; done         >
+
+=item 5. Real Life (my setup)
+
+In crontab:
+  S<0 5 * * 0    /backups/backup -ilvzn />
+  S<0 5 * * 1-6  /backups/backup -ilvzr />
+
+In /backups/exclusions:
+  .netscape/cache
+  .netscape-cache
+  tmp
+  *.o
+  *.a
+  *.so
+  /proc
+  *~
+  *.bak
+  *.aux
+  *.dvi
+  *.log
+  *.old
+  *_old
+  *-old
+
+
+=head1 EXIT STATUS
+
+=item 0 -- successful for all backups
+
+=item 1 -- 1 or more failures of the backup targets
+
+=head1 FILES
+
+=item /backup/directory/backuptarget/date.log.gz
+
+full backup log file
+
+=item /backup/directory/backup/target/date1~date2.{log,tar}[.gz]
+
+incremental backup of files modified between date1 and date2 (inclusive)
+
+=head1 REQUIREMENTS and INSTALLATION
+
+Requires: perl (tested with 5.003), GNU tar (tested with 1.12), gzip
+(tested with 1.24), and Getopt::Mixed (tested with 1.006).  All are free
+software available from http://www.gnu.ai.mit.edu/ or CPAN
+(http://www.perl.com).
+
+=head1 BUGS, CAVEATS, MISFEATURES
+
+In the case of multiple incremental backups on the same day, the earlier
+log and tar files will be overwritten.
+
+Tar status codes defy easy interpretation because significant and
+insignificant errors may return the same status.  This script is fooled by
+certain kinds of errors and may do bad things, like delete an incremental
+backup when it should not.  It is imperative that users read the logs.
+
+=head1 DISCLAIMER
+
+I make no warranties that this script is robust and take no responsibility
+for your backups.  This script is offered as a starting point for your
+backup strategy, not a solution for it.
+
+=head1 SEE ALSO
+
+gzip, tar
+
+@@banner@@
+
+=cut
+
+## $Log: backup.pl,v $
+## Revision 0.60  2000/11/05 22:26:23  reece
+## * quote -V arg, and escape shell chars in @bts
+## * use mt offline instead of mt unload, rename option to eject
+## * truncate long -V args to <=60 chars
+## * truncate @bts on printed label
+##
+## Revision 0.59  2000/09/25 21:17:26  reece
+## *** empty log message ***
+##
+## Revision 0.58  2000/07/23 04:13:41  reece
+## made files the default full backup device (as with incremental)
+##
+## Revision 0.57  1999/12/10 03:59:54  reece
+## *** empty log message ***
+##
+## Revision 0.56  1999/04/05 23:39:19  reece
+## * default backup directory now /mnt/backups
+## * --media option to control printed label size
+##
+## Revision 0.53  1998/06/11 18:44:06  reece
+## * fixed status reporting bug
+## * fixed -r bug which didn't remove old backups
+## * fixed bug: multiple backups on same day with -r flag caused
+##   deletion of backup
+##

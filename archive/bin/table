@@ -1,0 +1,137 @@
+#!/usr/local/bin/perl -w
+## $Id: table.pl,v 0.5 1998/02/13 04:12:02 reece Exp $
+## Documentation appears below in pod format.  It is best viewed by typing
+## $ perldoc <thisfile>
+
+##############################################################################
+## Customize here
+##############################################################################
+
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+=head1 NAME
+
+table.pl -- build table from files
+
+S<$Id: table.pl,v 0.5 1998/02/13 04:12:02 reece Exp $>
+
+=head1 SYNOPSIS
+
+C<table [opts] files>
+
+=head1 OPTIONS
+
+=item B<--help>, B<-\?>
+
+print commentary to stderr
+
+=item B<--verbose>, B<-v>
+
+print commentary to stderr
+
+=item B<--version>, B<-V>
+
+print version information and exit
+
+=head1 DESCRIPTION
+
+B<table.pl> builds tables of information from specific lines in files.
+
+=head1 RETURN VALUES
+
+=head1 EXAMPLES ($ is your prompt)
+
+=item 1. full backup
+
+$ backup --bd /mnt/backups --full /home
+
+=head1 FILES
+
+=head1 BUGS, CAVEATS, MISFEATURES
+
+=head1 INSTALLATION
+
+Put this file in your perl lib directory (usually /usr/local/perl5/lib) or
+one of the directories in B<$PERL5LIB>.
+
+@@banner@@
+
+=cut
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+use Carp;
+#use strict;
+use FileHandle;
+use File::Basename;
+use POSIX;
+use Getopt::Mixed 1.006;
+use vars qw($RCSId $jemappelle $inv $opt_colre $opt_help $opt_quiet $opt_rowre
+			$opt_specre $opt_verbose $opt_version $opt_colwidth $P $E $col $row);
+
+$RCSId = '$Id: table.pl,v 0.5 1998/02/13 04:12:02 reece Exp $ ';
+($jemappelle=$0) =~ s,^.*/,,;
+
+$opt_rowre =  q{(.+)\/[^\/]+$};
+$opt_colre =  q{[^\/]+\/([^\.\/]+)[^\/]*$};
+$opt_specre = q{^user\s+(\d+(?:\.\d+))};
+$opt_colwidth = 10;
+$opt_evalexpr =  'eval( sprintf("(%s)/%d",join("+",@S),$N) )';
+$opt_printexpr =  'sprintf(" %${opt_colwidth}.${opt_colwidth}s", defined $P{$row}{$col} ? $P{$row}{$col} : "")';
+
+my(@OPTS)=
+  (
+   'help        ?>help',
+   'quiet       q>quiet',
+   'verbose     v>verbose',
+   'version     V>version',
+   'rowre=s     r>rowre',
+   'colre=s     c>colre',
+   'specre=s    s>specre',
+   'printexpr=s p>printexpr',
+   'evalexpr=s  e>evalexpr',
+   'colwidth=i  w>colwidth',
+  );
+unshift(@ARGV,$ENV{$jemappelle}) if (defined($ENV{$jemappelle}));
+$inv = join( ' ', map( sprintf("'$_'"), @ARGV) );
+Getopt::Mixed::getOptions(@OPTS);
+
+if ($opt_version) {print($RCSId,"\n"); exit(0);}
+if ($opt_verbose) {printf(STDERR "# %s\n# %s %s\n# specre=%s\n# rowre=%s\n# colre=%s\n",
+						  $RCSId,$0,$inv,$opt_specre,$opt_rowre,$opt_colre)}
+
+$fh = new FileHandle;
+foreach $fn (@ARGV)
+  {
+  if (!$fh->open($fn))
+	{warn("$jemappelle: $fn: $!\n");next;}
+  my($col) = $fn=~/$opt_colre/;
+  my($row) = $fn=~/$opt_rowre/;
+  my(@S) = ();
+  if (not defined $row)
+	{warn("$jemappelle: $fn: couldn't parse row with $opt_rowre\n");$fh->close();next;}
+  if (not defined $col)
+	{warn("$jemappelle: $fn: couldn't parse col with $opt_colre\n");$fh->close();next;}
+  while(<$fh>)
+	{/$opt_specre/ && push(@S,$1)}
+  $fh->close();
+  my($N) = $#S+1;
+  if ($N==0)
+	{warn("$jemappelle: $fn: no specs found.\n");$fh->close();next;}
+  $P{$row}{$col} = eval( "$opt_evalexpr" );
+  if (not defined $rowseen{$row}) {push(@rows,$row); $rowseen{$row}++}
+  if (not defined $colseen{$col}) {push(@cols,$col); $colseen{$col}++}
+  }
+
+print(' 'x$opt_colwidth,map(sprintf(" %${opt_colwidth}.${opt_colwidth}s",$_),@cols),"\n");
+foreach $row (@rows)
+  {
+  printf("%-${opt_colwidth}.${opt_colwidth}s",$row);
+  foreach $col (@cols)	{print( eval( "$opt_printexpr" ) )}
+  print("\n");
+  }

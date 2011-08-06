@@ -1,0 +1,75 @@
+#!/usr/local/bin/perl -w
+##
+## $RCSfile: xyzdihedrals.pl,v $
+## $Revision: 1.6 $
+## $Date: 1998/09/29 20:51:19 $
+##
+## @@banner@@
+## 
+
+$RCSId = '$Id: xyzdihedrals.pl,v 1.6 1998/09/29 20:51:19 reece Exp $ ';
+($jemappelle=$0) =~ s,^.*/,,;
+print("# $RCSId\n");
+
+use Tinker;
+use atom;
+die("usage: $jemappelle dihedralfile [xyzfile ...]\n") if ($#ARGV+1<2);
+
+open(DH,"<$ARGV[0]") 
+  || die $jemappelle, ": couldn't open dihedral file $ARGV[0]\n";
+shift;
+$fnw = 8;									# filename width
+$colw = 10;									# min col width
+while (<DH>)
+  {
+  if ( ($ia,$ib,$ic,$id,$label) = (m/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(.*)/) )
+	{
+	push(@ia, $ia);
+	push(@ib, $ib);
+	push(@ic, $ic);
+	push(@id, $id);
+	push(@label, $label);
+	if ( (defined $label) and ($colw < length($label)) )
+	  {$colw=length($label)}
+	}
+  }
+close(DH);
+
+foreach $file (@ARGV)
+  {$fnw = length($file) if ($fnw<length($file))}
+
+# print banner
+# read in the first structure to get atom names
+# yes, it's wasteful, but there are so many bored cpus in the world
+$strx = Tinker::readxyz($ARGV[0]) 
+  || die "couldn't read $ARGV[0]\n";
+$aref = Tinker::buildatoms(\$strx);
+$ldr = '#'.' 'x($fnw-1);
+$fmt = " %$colw.${colw}s";
+
+print($#$aref,"\n");
+print($ldr, map(sprintf($fmt,$_),                   @label), "\n");
+print($ldr, map(sprintf($fmt,$aref->[$_]->name()),@ia   ), "\n");
+print($ldr, map(sprintf($fmt,$aref->[$_]->name()),@ib   ), "\n");
+print($ldr, map(sprintf($fmt,$aref->[$_]->name()),@ic   ), "\n");
+print($ldr, map(sprintf($fmt,$aref->[$_]->name()),@id   ), "\n");
+
+$[=0;
+$ldr = "%-$fnw.${fnw}s";
+$fmt = " %+$colw.2f";
+foreach $file (@ARGV)
+  {
+  $strx=Tinker::readxyz($file) || warn("couldn't read $file\n");
+  $aref=Tinker::buildatoms(\$strx);
+  printf($ldr,$file);
+  for($i=0; $i<=$#ia; $i++)
+	{
+	$ia=$ia[$i]; $ib=$ib[$i]; $ic=$ic[$i]; $id=$id[$i];
+	printf($fmt,
+		   atom::dihedral($aref->[$ia],
+						  $aref->[$ib],
+						  $aref->[$ic],
+						  $aref->[$id]));
+	}
+  print("\n");
+  }

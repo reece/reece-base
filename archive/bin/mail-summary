@@ -1,0 +1,13 @@
+#!/bin/sh
+
+do1 () {
+	echo "* $1";
+	formail -c -X Date: -X From: -X To: -X Subject: <"$1"
+}
+
+
+if [ $# -gt 0 ]; then
+	while [ $# -gt 0 ]; do do1 "$1"; shift; done
+else
+	while read file; do do1 "$file"; done
+fi

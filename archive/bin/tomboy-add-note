@@ -1,0 +1,49 @@
+#!/usr/bin/python
+# tomboy-add-note -- create a new note in tomboy
+# http://arstechnica.com/open-source/news/2007/09/using-the-tomboy-d-bus-interface.ars
+
+import sys
+import dbus, gobject, dbus.glib
+from optparse import OptionParser
+from warnings import warn
+
+
+parser = OptionParser()
+parser.add_option("--tags",
+                  dest="tags",
+                  action='append',
+                  help="tags to add to the new note")
+parser.add_option("--title", "-T",
+                  action="store",
+                  dest="title",
+                  help="title of the new note")
+
+(options, args) = parser.parse_args()
+
+
+if not options.title:
+    sys.exit('title is required')
+
+
+# Get the D-Bus session bus
+bus = dbus.SessionBus()
+
+# Access the Tomboy D-Bus object
+obj = bus.get_object("org.gnome.Tomboy",
+  "/org/gnome/Tomboy/RemoteControl")
+
+# Access the Tomboy remote control interface
+tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
+
+
+
+note = tomboy.FindNote(options.title)
+if not note: note = tomboy.CreateNamedNote(options.title)
+tomboy.SetNoteContents(note, 
+                       options.title + "\n"
+                       + "(imported from Palm with tag(s) " + ", ".join(options.tags) + ")\n\n"
+                       + sys.stdin.read().decode('latin-1'))
+
+for t in     tomboy.AddTagToNote(note,t)
+
+tomboy.DisplayNote(note)

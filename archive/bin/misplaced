@@ -1,0 +1,103 @@
+#!/usr/local/bin/perl -w
+
+$sfxs = 'gz|bz2';
+map($fignore{$_}++,
+	qw( Makefile %README %source .FFLAGS .CFLAGS .LDFLAGS .cFLAGS .makefile .packlist ));
+@fignorere = qw( \d{4}-\d{4} \.o$ \.in$ \.a$ );
+map($dignore{$_}++,
+	qw( ));
+@dignorere = qw( lib/perl humor picturebook alpha-osf1-4.0 i686-linux-2.0 );
+
+
+use FileHandle;
+$fh = new FileHandle;
+
+
+$fn = shift || die("$0: missing filename\n");
+$fh->open("<$fn") || die("$0: $fn: $!\n");
+$fn1=$fn;
+while(<$fh>)
+  {
+  chomp;
+  if (m%^(.+)/RCS%)
+	{$f1{RCS}{$1}++;}
+
+  if (m%^((?:.*/)?)([^/]+)$%)
+	{
+	my($d,$f)=($1,$2);
+	next if ( exists $fignore{$f} 
+			  or exists $dignore{$d} 
+			  or matchrelist($f,\@fignorere)
+			  or matchrelist($d,\@dignorere)
+			);
+	$k = $f;
+	if ($k=~s/\.($sfxs)$//)
+	  { $sfx{$k}{$1}++; }
+	$f1{$k}{$d} = $f;
+	$k{$k}++;
+	}
+  }
+$fh->close();
+
+
+$fn = shift || die("$0: missing filename\n");
+$fh->open("<$fn") || die("$0: $fn: $!\n");
+$fn2=$fn;
+while(<$fh>)
+  {
+  chomp;
+  if (m%^(.+)/RCS%)
+	{$f2{RCS}{$1}++;}
+
+  if (m%^((?:.*/)?)([^/]+)$%)
+	{
+	my($d,$f)=($1,$2);
+	$d = '' if not defined $d;
+	next if ( exists $fignore{$f} 
+			  or exists $dignore{$d} 
+			  or matchrelist($f,\@fignorere)
+			  or matchrelist($d,\@dignorere)
+			);
+	$k = $f;
+	if ($k=~s/\.($sfxs)$//)
+	  { $sfx{$k}{$1}++; }
+	$f2{$k}{$d} = $f;
+	$k{$k}++;
+	}
+  }
+$fh->close();
+
+
+@d = grep(defined $f2{RCS}{$_}, keys %{$f1{RCS}});
+print("common RCS directories:\n  ",join(', ',@d),"\n") if @d;
+
+
+foreach $k (sort keys %k)
+  {
+  if ( defined $f1{$k} and defined $f2{$k} )
+	{
+	my($misplaced) = 1;
+	foreach $d (keys %{$f1{$k}})
+	  { if (defined $f2{$k}{$d}) {$misplaced=0;last} }
+	if ($misplaced)
+	  {
+	  my($f1)=join(', ', sort keys %{$f1{$k}});
+	  my($f2)=join(', ', sort keys %{$f2{$k}});
+	  print( $k,
+			 (exists $sfx{$k} ? '.{' . join(',',sort keys %{$sfx{$k}}) . '}' : '' ),
+			 ":\n  $fn1: ",$f1,"\n  $fn2: ",$f2,"\n") if ($f1 ne $f2);
+	  }
+	}
+  }
+
+
+exit;
+
+sub matchrelist
+  {
+  my($s,$ar)=@_;
+  my($i);
+  for($i=0;$i<=$#$ar;$i++)
+	{return(1) if $s =~ $ar->[$i]}
+  return(0);
+  }

@@ -1,0 +1,65 @@
+#!/bin/bash
+# backup laptop
+
+# TODO:
+# better exclusion handling
+# check that dest dir as actually a mount
+
+
+
+jemappelle=$(basename $0)
+
+
+# go root if not called as root
+if [ "$EUID" != 0 ]; then
+    exec sudo "$0" "$@"
+    echo "$0: re-exec as sudo root failed. No backup." 1>&2
+    exit 1
+fi
+
+
+if [ -z "$LOCKFILE" ]; then
+	export LOCKFILE=`/bin/date +"/tmp/$jemappelle-%Y%m%d.lock"`
+	if ! flock -n -x "$LOCKFILE" -c "$0 $@"; then
+		echo "$0: Couldn't obtain lock on $LOCKFILE" 1>&2
+		/bin/rm -f "$LOCKFILE"
+		exit 2
+	fi
+	/bin/rm -f "$LOCKFILE"
+	exit 0
+fi
+
+# !: We're root and we've got a lock
+
+
+PATH=`dirname $0`:/usr/sbin:/usr/bin:/sbin:/bin
+MY_HOSTNAME=$(uname -n)
+BACKUP_DIR="/mnt/eeyore/backup"
+RSYNC_DST="$BACKUP_DIR/$MY_HOSTNAME"
+RSYNC_EXCL= #"--exclude .VirtualBox"
+RSYNC_OPTS="-HRalvx --no-implied-dirs --delete --progress $RSYNC_EXCL"
+EXCLUDES_OPTS=( \
+	"--exclude-from=$HOME/opt/reece-base/share/rsync/exclusions/never" \
+	"--exclude-from=$HOME/opt/reece-base/share/rsync/exclusions/media" \
+	)
+
+TARGETS="/local /etc $@"
+
+cleanup () { 
+	[ -n "$SSH_AGENT_PID" ] && kill $SSH_AGENT_PID;
+}
+trap cleanup EXIT;
+
+dpkg -l >/local/adm/config/dpkg-l
+(set -x; rsync $RSYNC_OPTS $RSYNC_OPTS_BW "${EXCLUDES_OPTS[@]}" $TARGETS "$RSYNC_DST")
+
+exit
+
+
+### Need to figure out how to handle big and/or mostly-static backup cases,
+### like:
+# .VirtualBox
+# Music
+# Videos
+# Movies
+# Dropbox

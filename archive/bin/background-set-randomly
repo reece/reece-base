@@ -1,0 +1,111 @@
+#!/bin/sh
+
+
+PATH="$(dirname '$0')":/usr/bin:/bin
+jemappelle=$(basename $0)
+TMPFN=$(mktemp)
+
+order='random'
+picture_path=$HOME/opt/backgrounds
+sleep_time=30
+
+
+
+############################################################################
+## die
+die () {
+	if [ -t 2 ]; then
+		echo "$jemappelle: $@" 1>&2
+	else
+		zenity --error --text="$jemappelle: $@"
+	fi
+	exit 1
+}
+
+############################################################################
+## generate file list
+generate_file_list () {
+	
+}
+
+
+############################################################################
+## 
+
+############################################################################
+## 
+
+############################################################################
+## announce
+announce () {
+	if type gnome-osd-client 1>/dev/null 2>/dev/null; then
+		gnome-osd-client -f --stdin <<EOF
+<message>$@</message>
+EOF
+	fi
+}
+
+
+
+TEMP=$(getopt					\
+	-n "$jemappelle"			\
+	-o O:P:S:					\
+	--long order:				\
+	--long picture_path:		\
+	--long sleep_time:			\
+	-- "$@"
+	)
+	
+if [ $? != 0 ] ; then
+	echo "Terminating..." 1>&2
+	exit 1
+fi
+
+eval set -- "$TEMP"
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		-o|--order)
+			shift
+			order="$1"
+			shift
+			case "$order" in
+				random|alpha|date) ;; 
+				*) die "order must be random|alpha|date" ;; 
+			esac
+			;;
+
+		-P|--path)
+			shift
+			picture_path="$1"
+			shift
+			;;
+
+		-s|--sleep_time)
+			shift
+			sleep_time="$1"
+			shift
+			;;
+
+		--) 
+			shift
+			break
+			;;
+
+	esac
+done
+
+
+
+
+
+
+gen_list
+
+while true
+ select
+ set_bg
+ announce
+ sleep $sleep_time
+done
+

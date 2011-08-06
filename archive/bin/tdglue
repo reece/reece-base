@@ -1,0 +1,172 @@
+#!/bin/ksh
+##
+## $RCSfile: tdglue.ksh,v $
+## $Revision: 1.0 $
+## $Date: 1998/02/13 04:33:20 $
+##
+## SYNOPSIS
+## tdglue [host]
+##     encapsulate TERM and DISPLAY variables
+## tdunglue [shell]
+##     unencapsulate TERM and DISPLAY variables
+##
+## DESCRIPTION
+## This script facilitates correct propagation of the DISPLAY variable
+## across rlogin sessions.  It encapsulates ("glues") and dissociates
+## ("unglues") the TERM and DISPLAY variables into/from a single
+## variable.  The idea is to set TERM to the glue'd value just before
+## rlogin and unglue them at the destination host.  Note that this one
+## script performs both tasks depending on whether it was invoked as
+## tdglue or tdunglue.
+##
+## Although rlogin propagates the TERM variable through connections, it does
+## not do so for the DISPLAY variable.  Remote machines frequently assume
+## that the user's display is the host from which the rlogin was made, but
+## this is not true in general.  In the case of a multiple remote login from
+## machine A to machine B then to machine C, B will correctly set DISPLAY to
+## A:0, but C is will incorrectly set DISPLAY to B:0.
+##
+## tdglue takes one argument, the name of the destination host.  Because
+## most hosts do not expect glue'd TERM and DISPLAY variables, every host
+## which can handle them must be listed in /etc/hosts.tdglue or
+## ${HOME}/.tdgluerc.  If tdglue is called without a host or with a hostname
+## that is not listed in these files, no action is taken.  If DISPLAY is not
+## set, tdglue returns the (unglue'd) TERM variable.
+##
+## tdunglue writes commands to standard output which set and export the TERM
+## and DISPLAY variables based upon the environement variable TERM.  If TERM
+## does not look like a glue'd variable, tdunglue does not attempt to unglue
+## it.  The commands used depends on the shell specified on the command line
+## if it is given, otherwise on the shell described by the SHELL variable;
+## sh-style commands are used by default.  This output may be used as the
+## argument to eval (i.e., eval `tdunglue`).
+##
+## INSTALLATION
+##   0. This script requires ksh, cat, and egrep.
+##   1. Put tdglue in your path somewhere (i.e., /usr/local/bin/ or
+##      ${HOME}/bin/)
+##   2. ln tdglue tdunglue in that directory
+##   3. Put the names of hosts which can handle glued TERM variables
+##      in /etc/hosts.tdglue
+##   4. Add to your system-wide or personal login scripts the following:
+##      eval `tdunglue`
+##
+## EXAMPLES ($ is prompt)
+## $ tdglue bmb
+## xterm@cupid.wustl.edu:0
+## $ (TERM=xterm@foo:0; tdunglue)
+## TERM=xterm; export TERM;
+## DISPLAY=foo:0; export DISPLAY;
+##
+## Shell function for rlogin (could be done as a script also).  Hostname
+## must be first, but extending this isn't hard.
+##   rlogin ()  {(export TERM=`tdglue $1`; /bin/rlogin $*;)}
+##
+## BUGS & CAVEATS
+##   1. Simpleton egrep to determine host name match.
+##   2. tdglue is a stupid name.
+##
+## FILES
+## /etc/hosts.tdglue
+## ${HOME}/.tdgluerc
+##    Contain the names of hosts which understand glue'd TERM variables
+##    separated by whitespace.  You must explicitly specify each name you
+##    intend to use.
+##
+## @@banner@@
+## 
+
+APPNAME=${0##*/}
+SYSTEMGLUERC=/etc/hosts.tdglue
+USERGLUERC=$HOME/.tdgluerc
+
+case ${APPNAME} in
+tdglue)
+	# TERM is set, DISPLAY is set, isn't already glued, and we've got
+	# an arg (the destination machine)
+	if [ "${TERM:-unset}" != "unset" \
+		-a "${DISPLAY:-unset}" != "unset" \
+		-a `expr "$TERM" : ".*@"` = 0 \
+		-a $# -ge 1 ]
+		then
+		# Simple search for hostname in tdglue'able hosts.  If $1 has unquoted
+		# `.', they'll match anything, so `mac.ine' will match `machine'.
+		cat -s $SYSTEMGLUERC $USERGLUERC \
+		| egrep '(^|[ 	])'$1'(\$|[ 	])' >/dev/null 2>&1
+		if [ $? = 0 ]
+		then
+			[ "${DISPLAY}" = ":0" ] && DISPLAY="`uname -n`:0"
+			TERM="${TERM}@${DISPLAY}"
+		fi
+	fi
+	echo $TERM
+	exit 0
+	;;
+
+tdunglue)
+	# Get the shell specified on the command line; if none, then it's
+	# inherited from the environment.  Validity is checked below.
+	if [ $# -ge 1 ]
+	then
+		SHELL=`expr $1 : "-*\(.*\)"`
+	fi
+	# strip off path, if any
+	SHELL=${SHELL##*/}
+
+	# Set DISPLAY to the stuff following `@'
+	if [ `expr $TERM : ".*@"` = 0 ]
+	then
+		# TERM var is not glue'd
+		DISPLAY=
+	else
+		DISPLAY=${TERM##*@}
+	fi
+
+	# Set TERM to the stuff before `@'
+	TERM=${TERM%%@*}
+
+	# Format the DISPLAY and TERM variables for the SHELL
+	# Assume sh-style unless SHELL is csh or tcsh (yuk)
+	case ${SHELL} in
+	csh|tcsh)
+		echo setenv TERM ${TERM}\;
+		if [ -n "${DISPLAY}" ]
+		then
+			echo setenv DISPLAY ${DISPLAY}\;
+		fi
+		exit 0
+		;;
+
+	*)	echo TERM=${TERM}\; export TERM\;
+		if [ -n "${DISPLAY}" ]
+		then
+				echo DISPLAY=${DISPLAY}\; export DISPLAY\;
+		fi
+		exit 0
+		;;
+
+	esac
+	;;
+
+*)	echo "$APPNAME: tdglue or tdunglue has been renamed.  It must be" 1>&2
+	echo "   called by one of those names." 1>&2
+	;;
+esac
+
+
+##
+## $Log: tdglue.ksh,v $
+## Revision 1.0  1998/02/13 04:33:20  reece
+## Initial revision
+##
+## Revision 1.5  1996/02/16 05:51:52  reece
+## * no longer explicitly unsets DISPLAY if empty
+## * simplifed host name egrep search
+##
+## Revision 1.4  1996/02/16 05:24:59  reece
+## * reworked and expanded docs
+## * commented and beautified code (relatively speaking)
+##
+## Revision 1.0  1995/03/16  17:46:22  reece
+## Initial revision
+##

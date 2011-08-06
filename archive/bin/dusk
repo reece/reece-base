@@ -1,0 +1,24 @@
+#!/usr/local/bin/perl -w
+
+$ducmd='/usr/bin/du -sk '.join(' ',map(sprintf("'%s'",$_),@ARGV));
+open(DUSK,"$ducmd|") or die "$0: command failed: $ducmd\n";
+
+$TIMESTAMPFMT='%Y/%m/%d %H:%M:%S';
+$TIMESTAMPFMT=$ENV{'TIMESTAMPFMT'} if defined $ENV{'TIMESTAMPFMT'}; 
+$datecmd="/bin/date '+$TIMESTAMPFMT'";
+$date=`$datecmd`;
+print "# $date\n";
+
+$sizetotal=0;
+while (<DUSK>)
+  {
+  ($size,$item)=m/^(\d+)\s+(.*)/;
+  $sizetotal+=$size;
+  $size{$item}=$size;
+  }
+
+foreach $item (sort {$size{$b} <=> $size{$a}} keys %size)
+  {
+  printf("%10d (%5.1f%%) %s\n",$size{$item},$size{$item}/$sizetotal*100,$item);
+  }
+printf("%10d (%5.1f%%) %s\n",$sizetotal,100,'total');

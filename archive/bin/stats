@@ -1,0 +1,151 @@
+#!/usr/local/bin/perl -w
+## $Id: stats.pl,v 1.8 1998/02/12 04:58:13 reece Exp $
+
+##############################################################################
+## Customize here
+##############################################################################
+
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+=head1 NAME
+
+stats -- print simple statistics of numbers
+
+S<$Id: stats.pl,v 1.8 1998/02/12 04:58:13 reece Exp $>
+
+=head1 SYNOPSIS
+
+C<stats> files
+
+=head1 DESCRIPTION
+
+B<stats> computes simple statistics for an input file.  The values
+computed are:
+  * number of data points
+  * min, max, range
+  * mean ± standard deviation
+  * rmsd (root mean squared deviation)
+  * average absolute devation from mean
+
+@@banner@@
+
+=cut
+
+#=head1 OPTIONS
+#
+#=item B<--concatenate>, B<-c>
+#
+#concatenate input files.  The default is to compute statistics for each
+#input file indepently.
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+use POSIX qw( :errno_h );
+use Getopt::Mixed 1.006;
+use vars qw( $RCSId $jemappelle $opt_version );
+
+$RCSId = '$Id: stats.pl,v 1.8 1998/02/12 04:58:13 reece Exp $ ';
+($jemappelle=$0) =~ s,^.*/,,;
+
+my(@OPTS)=
+  (
+#   'concatenate c>concatenate',
+   'version     V>version',
+  );
+Getopt::Mixed::getOptions(@OPTS);
+if ($opt_version)
+  {print($RCSId,"\n"); exit(0);}
+
+
+($#ARGV==-1) 
+  && unshift(@ARGV,'-');
+
+while($#ARGV>=0)
+  {
+  my($FILE)=shift;
+  my($N,@n,@deviations);
+  my($mean,$sumsd,$variance,$sd,$sdp,$rmsd,$meandev);
+  undef(@n);
+  undef(@deviations);
+  
+  if (-d $FILE)             {$!=EISDIR; warn($jemappelle, ": $FILE: $!\n"); next;};
+  if (!open(FILE,"<$FILE")) {           warn($jemappelle, ": $FILE: $!\n"); next;};
+  while( <FILE> )
+	{
+	chomp;
+	next if /^\s*$/;
+	push @n,$_;
+	}
+  close(FILE);
+
+  $N=$#n+1;
+  if ($N==0) {warn($jemappelle, ": $FILE: empty input file\n"); next}
+  
+  ($min,$max) = minmax(\@n);				# max and min of sequence
+  $range      = $max-$min;					# range
+  $mean       = mean(\@n);					# mean
+  $sumsd      = sumsd(\@n,$mean);			# sum of sqrs of deviations
+  $variance   = $sumsd/$N;					# variance
+  $sd         = sqrt($variance);			# standard deviation
+  $sdp        = ( $range != 0				# sdp: sd as percentage of range
+				  ? sprintf("%6.2f%%", $sd/$range*100 )
+				  : 'na');
+  $rmsd       = sqrt($sumsd/$N);			# root mean squared deviation
+
+  @deviations = map( {abs($_-$mean)} @n );
+  $meandev    = mean(\@deviations);			# mean (absolute) deviation
+
+  printf("$FILE: N=%4d, [%8.3f,%8.3f] range=%8.3f, m±sd=%8.3f±%8.3f (±%s), rmsd=%.3f, <|dev|>=%.3f\n",
+		 $N,$min,$max,$range,$mean,$sd,$sdp,$rmsd,$meandev);
+  }
+
+exit;
+
+
+sub minmax
+  {
+  my($aref)=$_[0];
+  my($i);
+  my($min,$max)=(@{$aref}[0],@{$aref}[0]);	# undef is okay
+  for($i=1 ; $i<=$#$aref ; $i++)
+	{
+	$min=@{$aref}[$i] if @{$aref}[$i]<$min;
+	$max=@{$aref}[$i] if @{$aref}[$i]>$max;
+	}
+  return($min,$max);
+  }
+
+sub sum
+  {
+  my($aref)=$_[0];
+  my($sum,$i);
+  for($i=$sum=0 ; $i<=$#$aref ; $i++) {$sum+=@{$aref}[$i];}
+  return( $sum );
+  }
+
+sub mean
+  {
+  return( sum($_[0]) / ($#{$_[0]}+1) );
+  }
+
+sub sumsd
+  {
+  my($aref,$mean)=@_[0..1];
+  my($sum,$i);
+  $mean=mean($aref) if (!defined $mean);
+  for($i=$sum=0 ; $i<=$#$aref ; $i++) {$sum+=(@{$aref}[$i]-$mean)**2;}
+  return( $sum );
+  }
+
+sub prod
+  {
+  my($aref)=$_[0];
+  my($prod)=1;
+  for($i=0, $prod=1 ; $i<=$#$aref ; $i++) {$prod*=@{$aref}[$i]};
+  return($prod);
+  }

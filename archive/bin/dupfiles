@@ -1,0 +1,22 @@
+#!/usr/local/bin/perl -w
+# generate list of paths for same-named files in different directories
+# e.g., 
+#   find . -type f -name \*.[ch] | dupfiles.pl 
+#   prints a list of all .c and .h files and the directories in 
+#   which they occur.
+
+while(<>)
+  {
+  chomp;
+  my($p,$f);
+  if (m%(.+)/([^/]+)$%)
+	{($p,$f)=($1,$2)}
+  else
+	{($p,$f)=('.',$_)}
+  push(@{$fp{$f}},$p);
+  }
+
+#@keys = sort keys %fp;						# alpha sort by file
+@keys = sort { ($#{$fp{$a}} <=> $#{$fp{$b}}) || ($a cmp $b) } keys %fp; # num sort by # of dups
+foreach $f (@keys)
+  {printf("%3d %-20s %s\n", $#{$fp{$f}}+1, $f, join(' ',sort @{$fp{$f}}));}

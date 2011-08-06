@@ -1,0 +1,17 @@
+#!/bin/sh
+
+TR=/tmp/psipred-$$-$RANDOM
+
+in=$1
+shift
+
+ROOT=${1%.fa}
+PSIPRED_DIR=/opt/psipred-2.3/
+PATH="$PSIPRED_DIR/bin":/usr/bin:/bin
+DATADIR="$PSIPRED_DIR"/data
+
+seq2mtx $in >$TR.mtx
+psipred $TR.mtx $DATADIR/weights_s.dat $DATADIR/weights_s.dat2 $DATADIR/weights_s.dat3 >$ROOT.ss
+psipass2 $DATADIR/weights_p2.dat 1 0.98 1.09 $ROOT.ss2 $ROOT.ss
+
+\rm -f $TR* $ROOT.ss $ROOT.ss2

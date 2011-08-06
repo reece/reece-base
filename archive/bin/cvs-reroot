@@ -1,0 +1,43 @@
+#!/bin/sh
+# cvs-reroot -- update cvs root for specified directories
+# usage:
+# $ cvs-reroot newroot dir1 dir2
+# eg:
+# $ cvs-reroot :ext:me@mybox:/new/path workdir1
+
+# if no dirs are provided, they're taken from stdin
+
+if [ $# -lt 1 ]; then
+		echo "$0: missing cvs_root argument" 1>&2
+		exit 1
+fi
+
+new_root="$1"
+shift
+
+process_dir() {
+		dir="$1"
+		echo "* $dir:"
+		find "$dir" -path '*/CVS/Root' -type f \
+		| while read root_path; do
+				echo "  $root_path"
+				/bin/mv "$root_path" "$root_path.bak"
+				echo "$new_root" >"$root_path"
+			done
+}
+
+
+if [ "$#" -ge 1 ]; then
+		# dir args on the command line
+		while [ $# -ge 1 ]; do
+				process_dir "$1"
+				shift
+		done
+else
+		# dir args on stdin
+		while read dir; do
+				process_dir "$dir"
+		done
+fi
+
+exit

@@ -1,0 +1,120 @@
+#!/usr/local/bin/perl
+#meld access log and referrer log
+#separate type of stats from source of stats
+
+#i.e. wsselect referrer=regexp file | wsstats -hour -day
+
+#stats:
+#hourly
+#daily
+#referrer
+#file (tree)
+#FQDN (tree)
+
+#integrate gif
+
+# webedit
+# remove nonexistent urls
+# remove errors/non-errors
+# index.html -> /  or vv
+# map %
+
+
+#Server: http://dasher.wustl.edu/~reece/ (NCSA Common)
+#Local date: Mon Jul 08 00:38:33 AM CDT 1996
+#Covers: 05/17/95 to 07/07/96 (418 days).
+#All dates are in local time.
+
+#Requests last 7 days: 688
+#New unique hosts last 7 days: 77
+#Total unique hosts: 5299
+#Number of HTML requests: 6192
+#Number of script requests: 0
+#Number of non-HTML requests: 15177
+#Number of malformed requests (all dates): 0
+#Total number of all requests/errors: 21369
+#Average requests/hour: 2.1, requests/day: 51.2
+#Running time: 18 minutes, 32 seconds.
+
+# 
+
+%month = ('Jan' =>  1, 'Apr' =>  4, 'Jul' =>  7, 'Oct' => 10,
+		  'Feb' =>  2, 'May' =>  5,	'Aug' =>  8, 'Nov' => 11,
+		  'Mar' =>  3, 'Jun' =>  6,	'Sep' =>  9, 'Dec' => 12);
+
+while (<>)
+  {
+  if (
+	  ($host,$day,$monthname,$year,$hour,
+	   $min,$sec,$tz,$method,$doc,$res,$size)=
+	  m,^([\w\d.]+) - - \[(\d{2})/(\w{3})/(\d{4}):(\d{2}):(\d{2}):(\d{2}) ([-+]\d{4})] \"(GET|POST) ([^ ]*) ([^\"]+)\" (\d+) (\d+), )
+	{
+	if ($host !~ /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/)
+	  {$hostmsf=join('.',reverse(split(/\./,$host)));}
+	else
+	  {$hostmsf=$host}
+	
+	# hostmsf is host most significant first
+	# ie. edu.wustl.dasher or 128.252.162.151 (== dasher.wustl.edu)
+	for (; $hostmsf=~/./; $hostmsf=~s/\.?[^.]+$//)
+	  {$hostcount{$hostmsf}++;}
+
+	$month=$month{$monthname};
+	$date=sprintf('%4d/%02d/%02d',$year,$month,$day);
+	for (; $date=~/./; $date=~s/\/?\d+$//)
+	  {$datecount{$date}++;}
+
+	for (; $doc=~m,.,; $doc=~s,[^/]*/?$,,)
+	  {
+	  $doccount{$doc}++;
+	  }
+	}
+  }
+
+$indent=0;
+$domain='';
+foreach $hostmsf (sort keys %hostcount)
+  {
+  while ($indent && $hostmsf !~ m/^$domain\./)
+	{
+	$domain =~ s/\.?[^.]+$//;
+	$indent--;
+	}
+
+  if ($hostmsf !~ /\d{1,3}(?:\.?\d{1,3}(?:\.?\d{1,3}(?:\.?\d{1,3})))/)
+	{$host=join('.',reverse(split(/\./,$hostmsf)));}
+  else
+	{$host=$hostmsf;};
+  
+  printf("%-35s  %7d\n",('  'x$indent).$host,$hostcount{$hostmsf});
+  $domain=$hostmsf;
+  $indent++;
+  }
+exit;
+$indent=0;
+$prefix='';
+foreach $date (sort keys %datecount)
+  {
+  while ($date !~ m/^$prefix/)
+	{
+	$prefix =~ s,[^/]*/?$,,;
+	$indent--;
+	}
+  printf("%-15s %10d\n",('  'x$indent).$date,$datecount{$date});
+  $prefix=$date;
+  $indent++;
+  }
+
+$indent=0;
+$prefix='';
+foreach $doc (sort {"\L$a" cmp "\L$b"} keys %doccount)
+  {
+  while ($doc !~ m/^$prefix/)
+	{
+	$prefix =~ s,[^/]*/?$,,;
+	$indent--;
+	}
+  printf("%-50s %10d\n",('  'x$indent).$doc,$doccount{$doc});
+  $prefix=$doc;
+  $indent++;
+  }

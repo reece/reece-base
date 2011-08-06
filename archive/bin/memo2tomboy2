@@ -1,0 +1,15 @@
+#!/bin/sh
+
+do1 () {
+	fn="$1"
+	cat=$(expr "$fn" : '.*/memos/\([^/]*\)/')
+	ti=$(basename "$fn")
+	
+	(set -x; ~/tomboy-add-note --tags="$cat" --title="$ti" <"$fn")
+}
+
+
+while [ $# -gt 0 ]; do
+	do1 "$1"
+	shift
+done

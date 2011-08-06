@@ -1,0 +1,50 @@
+#!/usr/bin/env perl
+# update certain perl modules with CPAN
+
+# NOTE: only perl modules with names matching the prefixes in @pkg_prefii
+# are updated. I specifically left out DBI, bioperl, and others which
+# often need manual intervention.
+#
+# NOTE 2: some modules (e.g., libwww) require manual intervention to
+# questions. If you want to run this unattended, you'll need to ensure
+# such modules aren't attempted.
+
+
+use strict;
+use warnings;
+use CPAN;
+use Data::Dumper;
+CPAN::Config->load;
+
+
+my @pkg_prefii = qw( Class Compress Convert Data
+	  Date ExtUtils File GD GraphViz HTML I8N IO IPC Image List Locale
+	  MIME Mail Math Net PDL PerlIO Pod Set Storable Text Tie Time
+	  Unicode XML base if );
+my @pkg_re = map { qr%^$_(?:::|$)% } @pkg_prefii;
+
+
+my @i;
+if (@ARGV) {
+  @i = @ARGV;
+} else {
+  my @r = CPAN::Shell->r;
+  @i = grep_match( \@pkg_re, @r );
+}
+
+$CPAN::Config->{'prerequisites_policy'} = 'follow';
+
+
+foreach my $pkg (@i) {
+  CPAN::Shell->install( $pkg )
+  }
+
+sub grep_match {
+  my $res = shift;							# compiled res
+  grep { my $success = 0;
+		 foreach my $re (@$res) {
+		   $success = 1, last if /$re/;
+		 }
+		 $success;
+	   } @_;
+ }

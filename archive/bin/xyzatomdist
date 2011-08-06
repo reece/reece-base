@@ -1,0 +1,43 @@
+#!/usr/local/bin/perl -w
+# $Id: xyzatomdist.pl,v 1.1 1998/11/21 20:11:39 reece Exp $
+
+$RCSId = '$Id: xyzatomdist.pl,v 1.1 1998/11/21 20:11:39 reece Exp $ ';
+$RCSId =~ s/\$//g; $RCSId =~ s/\s+$//;
+($jemappelle=$0) =~ s,^.*/,,;
+
+use Tinker;
+use atom;
+
+(defined ($fn=shift))
+  || die("$jemappelle: missing xyz filename\n");
+$strx = Tinker::readxyz($fn)
+  || die("$jemappelle: $fn: $!\n");
+$aref = Tinker::buildatoms(\$strx);
+
+if ($#ARGV == -1)
+  {
+  # all atoms
+  for ($i1=1; $i1<=$#$aref-1; $i1++)
+	{
+	for ($i2=$i1+1; $i2<=$#$aref; $i2++)
+	  {
+	  next if ($aref->[$i1]->isneighbor($aref->[$i2]));
+	  printf("%-6s %-6s %5.2f\n", 
+			 $aref->[$i1]->name(), $aref->[$i2]->name(),
+			 atom::distance($aref->[$i1], $aref->[$i2]));
+	  }
+	}
+  }
+else
+  {
+  # distance from first atom in ARGV to all others
+  @ARGV = grep {($_>=1) and ($_<=$#$aref)} @ARGV;		 # filter bogus atom numbers wo/warning
+  my($i1) = shift(@ARGV);
+  while($#ARGV>-1)
+	{
+	my($i2) = shift(@ARGV);
+	printf("%-6s %-6s %5.2f\n", 
+		   $aref->[$i1]->name(), $aref->[$i2]->name(),
+		   atom::distance($aref->[$i1], $aref->[$i2]));
+	}
+  }

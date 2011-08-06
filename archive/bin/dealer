@@ -1,0 +1,20 @@
+#!/bin/sh
+
+exec >>$HOME/tmp/dealer 
+
+echo
+echo =============================
+echo `date` $0 "$@"
+
+env|sort|diff - $HOME/tmp/stock.env
+
+if [ -f "$1" ]; then
+	echo $1 exists
+	ln $1 $1-dealer$$
+	ln $1 $1.doc
+	#applix $1.doc
+else
+	echo "$1 doesn't exist"
+fi
+
+

@@ -1,0 +1,64 @@
+#!/usr/bin/env perl
+# login-to-lastfirst
+# * 2003/06/06 (Fri) 14:09 Reece Hart <reece@in-machina.com, rkh@gene.com>
+# $Id$
+
+use strict;
+use warnings;
+use Net::LDAP;
+use Term::ANSIScreen;
+use Getopt::Long;
+
+sub process1($);
+sub lookup1($);
+
+
+my @search_fields = qw(login);
+my $ldap = new Net::LDAP( 'directory.gene.com' )
+  || die("$@\n");
+$ldap->bind();
+
+if (@ARGV) {
+  process1($_) for @ARGV;
+} else {
+  while(my $n = <>) {
+	chomp $n;
+	process1($n);
+  }
+}
+
+$ldap->unbind();
+exit(0);
+
+
+sub process1($) {
+  my $login = shift;
+  if ($login =~ m/\./) {					# already last.first
+	print "$login\n";
+	return;
+  }
+  my (@entries) = lookup1($login);
+  if ($#entries == -1) {
+	warn("$login: no match\n");
+  } elsif ($#entries > 0) {
+	warn("$login: multiple matches ?!\n");
+  } else {
+	print( $entries[0]->get_value('mail'), "\n" );
+  }
+}
+
+sub lookup1($) {
+  my $login = shift;
+  my $filter = "(&(ou=Person)(uid=$login))";
+  my $mesg = $ldap->search (
+							base   => "o=Genentech",
+							scope  => 'sub',
+							filter => $filter
+						   );
+  $mesg->code
+	&& die $mesg->error;
+  return $mesg->all_entries;
+}
+
+
+

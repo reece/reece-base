@@ -1,0 +1,345 @@
+#!/usr/local/bin/perl -w
+#latin1 -- generate latin1 charcode chart with html entity and descriptions
+#invoke with -1, -2, or -html options
+
+$print1c=$print2c=$printhtml=0;
+while (@ARGV && $ARGV[0]=~m/^-/)
+  {
+  if    ($ARGV[0] eq '-1')    {$print1c++}
+  elsif ($ARGV[0] eq '-2')    {$print2c++}
+  elsif ($ARGV[0] eq '-html') {$printhtml++}
+  else {die "unrecognized option"}
+  shift
+  }
+
+while (<DATA>)
+  {
+  ($repr,$html,$desc) = m/^(.{4})\s(.{6})\s(.*)/;
+  $repr=~s/\s//g;
+  $html=~s/\s//g;
+  undef $repr if ($repr=~/^$/);
+  undef $html if ($html=~/^$/);
+  undef $desc if ($desc=~/^$/);
+  push @repr, $repr;
+  push @html, $html;
+  push @desc, $desc;
+  }
+
+if ($print1c)
+  {
+  print("dec 0x oct c repr html   desc\n");
+  for($ascii=0; $ascii<=255; $ascii++)
+	{
+	print line($ascii), "\n";
+	}
+  }
+
+if ($print2c)
+  {
+  printf("%-39.39s %-39.39s\n",
+		 'dec 0x oct c repr html   desc','dec 0x oct c repr html   desc');
+  for($ascii=0; $ascii<=127; $ascii++)
+	{
+	printf("%-39.39s %-39.39s\n",
+		   line($ascii), line($ascii+128));
+	}
+  }
+
+if ($printhtml)
+  {
+  print "<html><body><table border>\n";
+  print("<tr>",
+		"<th width=5%>dec</th><th width=5%>hex</th><th width=5%>octal</th><th width=5%>char</th><th width=10%>repr</th><th width=10%>html entity</th><th>description</th>","<td></td>\n",
+		"<th width=5%>dec</th><th width=5%>hex</th><th width=5%>octal</th><th width=5%>char</th><th width=10%>repr</th><th width=10%>html entity</th><th>description</th>","</tr><tr></tr>\n");
+  for($ascii=0; $ascii<=127; $ascii++)
+	{
+	printf("<tr>%s\n<td></td>\n%s</tr>\n",
+		   htmlline($ascii),htmlline($ascii+128));
+	}
+  print "</table></body></html>\n";
+  }
+
+
+#############################
+sub line
+  {
+  my $ascii=shift;
+  return sprintf("%03d %02x %03o %s %-4s %-6s %s",
+				 $ascii,$ascii,$ascii,
+				 ( (($ascii>=32 && $ascii<=126) || ($ascii>=161 && $ascii<=254))
+				   ? chr($ascii) : ' '), 
+				 (defined $repr[$ascii]?$repr[$ascii]:''),
+				 (defined $html[$ascii]?$html[$ascii]:''),
+				 (defined $desc[$ascii]?$desc[$ascii]:''));
+  }
+
+sub htmlline
+  {
+  my $ascii=shift;
+  return sprintf("<td>%03d</td><td>%02x</td><td>%03o</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td>",
+				 $ascii,$ascii,$ascii,
+				 ( (($ascii>=32 && $ascii<=126) || ($ascii>=161 && $ascii<=254))
+				   ? (defined $html[$ascii] ? "&$html[$ascii];" : chr($ascii))
+				   : ''), 
+				 (defined $repr[$ascii]?$repr[$ascii]:''),
+				 (defined $html[$ascii]?"<code>&amp;$html[$ascii];</code>":''),
+				 (defined $desc[$ascii]?$desc[$ascii]:''));
+  }
+
+__DATA__
+            nul
+^A          soh
+^B          stx
+^C          etx
+^D          eot
+^E          enq
+^F          ack
+^G          bel
+^H          bs
+^I          ht
+^J          nl
+^K          vt
+^L          np
+^M          cr
+^N          so
+^O          si
+^P          dle
+^Q          dc1
+^R          dc2
+^S          dc3
+^T          dc4
+^U          nak
+^V          syn
+^W          etb
+^X          can
+^Y          em
+^Z          sub
+^[          esc
+^\          fs
+^]          gs
+^^          rs
+^_          us
+            sp
+!           
+"           
+#           
+$           
+%           
+&           
+'           
+(           
+)           
+*           
++           
+,           
+-           
+.           
+/           
+0           
+1           
+2           
+3           
+4           
+5           
+6           
+7           
+8           
+9           
+:           
+;           
+            
+=           
+>           
+?           
+@           
+A           
+B           
+C           
+D           
+E           
+F           
+G           
+H           
+I           
+J           
+K           
+L           
+M           
+N           
+O           
+P           
+Q           
+R           
+S           
+T           
+U           
+V           
+W           
+X           
+Y           
+Z           
+            
+\           
+]           
+^           
+_           
+`           
+a           
+b           
+c           
+d           
+e           
+f           
+g           
+h           
+i           
+j           
+k           
+l           
+m           
+n           
+o           
+p           
+q           
+r           
+s           
+t           
+u           
+v           
+w           
+x           
+y           
+z            
+{           
+|           
+}           
+~           
+^?          
+M-^@        
+M-^A        
+M-^B        
+M-^C        
+M-^D        
+M-^E        
+M-^F        
+M-^G        
+M-^H        
+M-^I        
+M-^J        
+M-^K        
+M-^L        
+M-^M        
+M-^N        
+M-^O        
+M-^P        
+M-^Q        
+M-^R        
+M-^S        
+M-^T        
+M-^U        
+M-^V        
+M-^W        
+M-^X        
+M-^Y        
+M-^Z        
+M-^[        
+M-^\        
+M-^]        
+M-^^        
+M-^_        
+M-   nbsp   non-breaking space
+M-!         inverted exclamation
+M-"         cent sign
+M-#         pound sterling
+M-$         general currency sign
+M-%         yen sign
+M-&         broken vertical bar
+M-'         section sign
+M-(         umlaut (dieresis)
+M-)         copyright
+M-*         feminine ordinal
+M-+         guillemotleft
+M-,         not sign
+M--         soft hyphen
+M-.         registered trademark
+M-/         macron accent
+M-0         degree sign
+M-1         plus or minus
+M-2         superscript two
+M-3         superscript three
+M-4         acute accent
+M-5         micro sign
+M-6         paragraph sign
+M-7         middle dot
+M-8         cedilla
+M-9         superscript one
+M-:         masculine ordinal
+M-;         guillemotright
+M-<         one-fourth
+M-=         one-half
+M->         three-fourths
+M-?         inverted question mark
+M-@  Agrave A, grave accent
+M-A  Aacute A, acute accent
+M-B  Acirc  A, circumflex accent
+M-C  Atilde A, tilde
+M-D  Auml   A, dieresis or umlaut mark
+M-E  Aring  A, ring
+M-F  AElig  AE dipthong (ligature)
+M-G  Ccedil C, cedilla
+M-H  Egrave E, grave accent
+M-I  Eacute E, acute accent
+M-J  Ecirc  E, circumflex accent
+M-K  Euml   E, dieresis or umlaut mark
+M-L  Igrave I, grave accent
+M-M  Iacute I, acute accent
+M-N  Icirc  I, circumflex accent
+M-O  Iuml   I, dieresis or umlaut mark
+M-P  ETH    Eth, Icelandic
+M-Q  Ntilde N, tilde
+M-R  Ograve O, grave accent
+M-S  Oacute O, acute accent
+M-T  Ocirc  O, circumflex accent
+M-U  Otilde O, tilde
+M-V  Ouml   O, dieresis or umlaut mark
+M-W         multiply sign
+M-X  Oslash O, slash
+M-Y  Ugrave U, grave accent
+M-Z  Uacute U, acute accent
+M-[  Ucirc  U, circumflex accent
+M-\  Uuml   U, dieresis or umlaut mark
+M-]  Yacute Y, acute accent
+M-^  THORN  THORN, Icelandic
+M-_  szlig  sharp s, German (sz ligature)
+M-`  agrave a, grave accent
+M-a  aacute a, acute accent
+M-b  acirc  a, circumflex accent
+M-c  atilde a, tilde
+M-d  auml   a, dieresis or umlaut mark
+M-e  aring  a, ring
+M-f  aelig  ae dipthong (ligature)
+M-g  ccedil c, cedilla
+M-h  egrave e, grave accent
+M-i  eacute e, acute accent
+M-j  ecirc  e, circumflex accent
+M-k  euml   e, dieresis or umlaut mark
+M-l  igrave i, grave accent
+M-m  iacute i, acute accent
+M-n  icirc  i, circumflex accent
+M-o  iuml   i, dieresis or umlaut mark
+M-p  eth    eth, Icelandic
+M-q  ntilde n, tilde
+M-r  ograve o, grave accent
+M-s  oacute o, acute accent
+M-t  ocirc  o, circumflex accent
+M-u  otilde o, tilde
+M-v  ouml   o, dieresis or umlaut mark
+M-w         division sign
+M-x  oslash o, slash
+M-y  ugrave u, grave accent
+M-z  uacute u, acute accent
+M-{  ucirc  u, circumflex accent
+M-|  uuml   u, dieresis or umlaut mark
+M-}  yacute y, acute accent
+M-~  thorn  thorn, Icelandic
+M-^? yuml   y, dieresis or umlaut mark

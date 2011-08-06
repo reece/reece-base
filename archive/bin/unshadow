@@ -1,0 +1,44 @@
+#!/usr/local/bin/perl -w
+##
+## $RCSfile: unshadow.pl,v $
+## $Revision: 1.0 $
+## $Date: 1996/12/26 23:03:50 $
+##
+## NAME
+## unshadow -- revert passwd and shadow to single-file password file
+##   and send merged passwd file to stdout.
+##
+## SYNOPSIS
+## unshadow passwd shadow
+##
+## REQUIREMENTS
+## perl
+## unshadow assumes that a shadowed password is an 'x' in the password field.
+## If not, change the substitution line below.
+##
+## @@banner@@
+## 
+
+open(*PW,$ARGV[0]) || die "Couldn't open passwd file $ARGV[0]!\n";
+open(*SH,$ARGV[1]) || die "Couldn't open shadow file $ARGV[1]!\n";
+
+while (<SH>)
+	{
+	($login,$password)=m,^([^:]*):([^:]*):.*,;
+	$passwords{$login}=$password;
+	}
+close(*SH);
+
+while (<PW>)
+	{
+	($login)=m/^([^:]*):.*/;
+
+    # x is passwd field for shadows passwords
+	# subsitute only if there was a matching passwd in the shadow file
+	s/:x:/:$passwords{$login}:/ if 	defined($passwords{$login});
+
+	print;
+	}
+close(*PW);
+
+

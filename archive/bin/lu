@@ -1,0 +1,91 @@
+#!/bin/ksh
+##
+## $RCSfile: lu.ksh,v $
+## $Revision: 1.8 $
+## $Date: 1996/03/04 01:26:01 $
+##
+## SYNOPSIS
+##   lu -- lookup files by keywords in specific directories
+##   
+## DESCRIPTION
+##   lu searches one directory for a list of files who names or contents
+## contain the specified keyword.  The directory searched depends on the
+## name used to invoke the program.  For lu, it is ${HOME}/notes.  lu may be
+## symbolically linked to alu (${HOME}/archives), nlu (${HOME}/news), or plu
+## (${HOME}/sci/protocols).  The filenames of files found by this mechanism
+## are displayed, and then the file contents are displayed (both with $PAGER
+## or `more').  Searches are case insensitive.
+## 
+## EXAMPLE
+##   lu c++
+##
+## @@banner@@
+##
+
+TMPDIR=${HOME}/tmp
+
+FILENAMEONLY=0
+if [ $1 = "-f" ]
+then
+	FILENAMEONLY=1
+	shift
+fi
+
+APPLNAME=${0##*/}
+case $APPLNAME in
+	alu)
+		SEARCHDIR=${HOME}/archives;;
+	nlu)
+		SEARCHDIR=${HOME}/news;;
+	plu)
+		SEARCHDIR=${HOME}/sci/protocols;;
+	lu)
+		SEARCHDIR=${HOME}/notes;;
+	*)
+		echo "lu: error in setting appropriate search directory"
+		exit 1;
+esac
+
+case `uname -s` in
+	IRIX)
+		INDEXCMD="more -c -w"
+		VIEWCMD="more -c"
+		;;
+	OSF1)
+		INDEXCMD=more
+		VIEWCMD="more -f -c"
+		;;
+	*)
+		echo "${APPLNAME}: sysid command not found or architecture unsupported"
+		exit
+		;;
+esac
+
+RAWHITS=${TMPDIR}/hits
+SUHITS=${RAWHITS}-su		# su = sorted & unique
+
+rm -f ${RAWHITS} ${SUHITS}
+cd ${SEARCHDIR}
+
+keywords=`echo "$@" | tr " " "|"`
+
+ls | egrep -i $keywords > ${RAWHITS}
+if [ ${FILENAMEONLY} = 0 ]
+then
+	egrep -il $keywords * >> ${RAWHITS}
+fi
+
+echo -------------------------------------------------------------------------------
+if [ -s ${RAWHITS} ]
+then
+	fgrep -v "~" ${RAWHITS} | sort | uniq > ${SUHITS}
+	if [ -s ${SUHITS} ]
+	then
+		echo `wc -l ${SUHITS} | cut -c-10` hits from ${SEARCHDIR} for $keywords:
+		cat ${SUHITS} | nl | ${INDEXCMD}
+		${VIEWCMD} `cat ${SUHITS}`
+	fi
+else
+	echo No matches for $1 found in ${SEARCHDIR}.
+fi
+echo -------------------------------------------------------------------------------

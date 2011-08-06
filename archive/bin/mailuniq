@@ -1,0 +1,60 @@
+#!/usr/local/bin/perl
+# remove duplicate messages in email message file
+# this script is known to have problems
+
+print(STDERR '$Id: mailuniq.pl,v 0.1 1999/03/18 13:22:05 reece Exp $ ', "\n");
+
+undef $mid;
+undef $msg;
+$nmsgs = $nuniq = $ndups = $nincs = $nerrs = 0;
+
+print(STDERR '$Id: mailuniq.pl,v 0.1 1999/03/18 13:22:05 reece Exp $ ', "\n");
+
+$/ = "\n\n";
+while(<>)
+  {
+  if (m/^From .+\n^(?:Received|Date|X-UIDL): /m)
+	{
+	closemsg() if (defined $msg);
+	($mid) = m/^Message-Id: (.+)/im;
+	$msg = '';
+	$nmsgs++;
+	}
+  else
+	{
+	m/^Message-Id: (.+)/im && $nincs++;
+	}
+  $msg .= $_;
+  }
+closemsg() if (defined $msg);
+printf(STDERR "%d messages, %d unique, %d duplicates, %d included, %d errors\n"
+	  , $nmsgs, $nuniq, $ndups, $nincs, $nerrs);
+
+sub closemsg
+  {
+  if (defined $mid)
+	{
+	if (defined $msg{$mid})
+	  {
+	  warn("$ARGV: $.: duplicated Message-Id: $mid\n");
+	  $ndups++;
+	  }
+	else
+	  {
+	  print($msg);
+	  #$msg{$mid}=$msg
+	  $msg{$mid}++;
+	  $nuniq++;
+	  }
+	}
+  else
+	{
+	warn("$ARGV: $.: mid undefined\n");
+	$nerrs++;
+	print(STDERR $msg);
+	}
+
+  undef $mid;
+  undef $msg;
+  }
+

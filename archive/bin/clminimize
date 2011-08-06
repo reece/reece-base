@@ -1,0 +1,34 @@
+#!/usr/local/bin/perl -w
+# $Id: clminimize.pl,v 1.0 1997/06/09 21:20:49 reece Exp $
+
+$RCSId = '$Id: clminimize.pl,v 1.0 1997/06/09 21:20:49 reece Exp $ ';
+$RCSId =~ s/\$//g; $RCSId =~ s/\s+$//;
+($jemappelle=$0) =~ s,^.*/,,;
+
+use Tinker;
+use File::Basename;
+use File::Temp;
+
+$SIG{'INT'}=sub {warn "\n$jemappelle: caught ^C interrupt... cleaning up\n";
+				 deletetmpfiles(); die "\n"};
+
+Tinker::parseoptions(\%Tinker::options);
+$Tinker::options{'convergence'}='1e-6' if ! defined $Tinker::options{'convergence'};
+
+($#ARGV+1==1) || die "usage: $0 args file\n";
+$file=$ARGV[0];
+($strx=Tinker::readxyz($file)) || die "$jemappelle: couldn't read $file";
+$resref=Tinker::minimize(\$strx, \%Tinker::options);
+
+if (! defined $resref->{'strx'})
+  {
+  # error occurred
+  $E=$resref->{'errors'};
+  $E="an unknown Tinker error occurred" if (! defined $E);
+  die "$jemappelle: $file: $E\n";
+  }
+$strx=$resref->{'strx'};
+Tinker::comment(\$strx,sprintf('E(%s)=%.4f',$Tinker::options{'paramsdesc'},$resref->{E}));
+Tinker::printxyz(\$strx);
+print STDERR "$file: ", Tinker::title(\$strx), "\n" if $Tinker::options{'verbose'};
+exit(0);

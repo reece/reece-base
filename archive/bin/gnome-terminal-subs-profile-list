@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+# < ~/.gconf/apps/gnome-terminal/global/%gconf.xml
+
+
+use strict;
+use warnings;
+
+my $print = 1;
+
+my @profiles = map {s/^.+\///;$_} grep {-d $_} @ARGV;
+undef @ARGV;
+
+while(my $line = <>) {
+  if ($line =~ m/<\/entry/) {
+	$print = 1;
+  }
+
+  print $line if $print;
+
+  if ($line =~ m/<entry name="profile_list"/) {
+	printf( "\t\t<li type=\"string\"> <stringvalue>$_</stringvalue> </li>\n") for @profiles;
+	$print = 0;
+  }
+}

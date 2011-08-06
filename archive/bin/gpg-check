@@ -1,0 +1,14 @@
+#!/bin/sh
+# file MUST come from stdin
+
+T1=`mktemp $TMPDIR/gpg-check.XXXXXX`
+T2=`mktemp $TMPDIR/gpg-check.XXXXXX`
+
+if gpg >$T1 2>$T2; then	bg=42; else bg=41; fi
+
+printf -- '\033[1;'$bg';33m\n----------------------------------------------------------------------\n'
+cat $T2
+printf -- '----------------------------------------------------------------------\033[0m\n\n'
+cat $T1
+
+/bin/rm $T1 $T2

@@ -1,0 +1,35 @@
+#!/usr/bin/perl
+# exif-adj-date -- fix Ruth's mis-set camera clock (off by -1 year)
+
+use strict;
+use warnings;
+
+use Date::Parse;
+use Image::ExifTool qw(:Public);
+use Data::Dumper;
+
+while( my $fn = shift ) {
+  my $e = new Image::ExifTool;
+  my $i = $e->ExtractInfo($fn);
+  my $t = $e->GetValue('DateTimeOriginal','PrintConv');
+
+  if (not defined $t) {
+	warn("$0: $fn: no timestamp information in file\n");
+	next;
+  }
+
+  $t =~ s/2006/2007/;
+
+  $e->SetNewValue('DateTimeOriginal', $t);
+  $e->SetNewValue('CreateDate', $t);
+  $e->SetNewValue('ModifyDate', $t);
+
+  my ($suc,$err) = $e->WriteInfo($fn);
+  die("$fn: error $err\n")  if $suc == 0;
+
+  my $tm = str2time( $t );
+  utime($tm,$tm,$fn);
+
+  print(STDERR "$fn: updated ($t)x\n");
+}
+

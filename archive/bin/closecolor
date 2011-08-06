@@ -1,0 +1,89 @@
+#!/usr/local/bin/perl -w
+##
+## $RCSfile: closecolor.pl,v $
+## $Revision: 1.2 $
+## $Date: 1996/12/09 23:01:50 $
+##
+## NAME
+## closecolor -- find system-defined color names close to specified color
+##
+## SYNOPSIS
+## closecolor [color] {colorfile}
+##
+## DESCRIPTION
+## closecolor displays a table of colornames, rgb specification, and rgb
+## distance from the color specified on the command line.  The default
+## color table source is /usr/lib/X11/rgb.txt; an alternate file may be
+## specified on the command line.
+##
+## EXAMPLE
+## # 1. five colornames closest to ffffff:
+## $ closecolor ffffff | head -5
+## gray100              (255,255,255 = #ffffff)   0.0
+## grey100              (255,255,255 = #ffffff)   0.0
+## white                (255,255,255 = #ffffff)   0.0
+## gray99               (252,252,252 = #fcfcfc)   5.2
+## grey99               (252,252,252 = #fcfcfc)   5.2
+##
+## # 2. five colornames farthest from ffffff in my own rgb file.  Note that -
+## can be used in lieu of a filename to specify stdin.  `#' must be escaped
+## because my shell treats it as a comment leader.
+## $ closecolor \#ffffff - <myrgb.txt | tail -5
+## gray1                (003,003,003 = #030303) 436.5
+## grey1                (003,003,003 = #030303) 436.5
+## grey0                (000,000,000 = #000000) 441.7
+## black                (000,000,000 = #000000) 441.7
+## gray0                (000,000,000 = #000000) 441.7
+##
+## @@banner@@
+## 
+
+$RCSId = '$Id: closecolor.pl,v 1.2 1996/12/09 23:01:50 reece Exp $ ';
+$RCSId =~ s/\$//g; $RCSId =~ s/\s+$//;
+print STDERR "# $RCSId\n";
+($jemappelle=$0) =~ s,^.*/,,;
+
+$rgb=shift || die "usage: $jemappelle rgbspec\n";
+$rgbfile=shift || ($rgbfile='/usr/lib/X11/rgb.txt');
+
+# read colors
+open(RGB, $rgbfile) || die "$jemappelle: couldn't open $rgbfile\n";
+while (<RGB>)
+  {
+  if (/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.+)/)
+	{
+	$cname=$4;
+	($r{$cname},$g{$cname},$b{$cname})=($1,$2,$3);
+	}
+  }
+close(RGB);
+
+if ( defined($r{$rgb}) )
+  {
+  ($r,$g,$b) = ($r{$rgb},$g{$rgb},$b{$rgb});
+  }
+else
+  {
+  ( ($rgb=~m/^\#?([0-9a-f]{2})[0-9a-f]{2}([0-9a-f]{2})[0-9a-f]{2}([0-9a-f]{2})[0-9a-f]{2}$/i)
+	&& do {warn "$jemappelle: 48-bit colors not supported; using \#$1$2$3\n";} )
+	|| ( $rgb=~m/^\#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i )
+	|| die "$jemappelle: $rgb doesn't look like a color specification\n";
+  $r=hex($1); $g=hex($2); $b=hex($3);
+  }
+
+# compute distances from $r,$g,$b
+foreach $cname (keys %r)
+  {
+  $dist{$cname}=sqrt(   ($r{$cname}-$r)**2
+					  + ($g{$cname}-$g)**2
+					  + ($b{$cname}-$b)**2 );
+  }
+
+foreach $cname (sort {$dist{$a} <=> $dist{$b} || $a cmp $b} keys %dist)
+  {
+  printf("%-20.20s (%03d,%03d,%03d = \#%02x%02x%02x) %5.1f\n",
+		 $cname,
+		 $r{$cname}, $g{$cname}, $b{$cname},
+		 $r{$cname}, $g{$cname}, $b{$cname},
+		 $dist{$cname});
+  }

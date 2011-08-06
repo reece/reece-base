@@ -1,0 +1,152 @@
+## $Id: .procmailrc,v 1.4 2004/01/02 20:02:13 rkh Exp $
+
+PATH=/usr/bin:/bin
+TMP=/var/tmp
+
+MAILDIR=/home/rkhl/mail
+PMDIR=$MAILDIR/procmail
+INDIR=$MAILDIR/in
+LOGFILE=$PMDIR/log
+NULL=/dev/null
+#VERBOSE=yes
+
+## sub-mailboxes
+ACCEPT=$DEFAULT
+QTINE=$INDIR/quarantine
+SPAM=$INDIR/spam
+BULK=$INDIR/bulk
+ULTIMATE=$INDIR/ultimate
+BIOPERL=$INDIR/bioperl
+POSTGRESQL=$INDIR/PostgreSQL
+ZAURUS=$INDIR/Zaurus
+PYMOL=$INDIR/PyMOL
+GPSHUTTLE=$INDIR/gpshuttle
+DEFAULT=$QTINE
+
+## uncomment these for vacation
+#PYMOL=$NULL
+#POSTGRESQL=$NULL
+#BIOPERL=$NULL
+#ULTIMATE=$NULL
+#GPSHUTTLE=$NULL
+
+## dump spam and quarantine overboard
+#SPAM=$NULL
+#QUARANTINE=$NULL
+
+
+## header text extraction
+FROM=`formail -x From:`
+SUBJECT=`formail -x "Subject: "`
+TO=`formail -x "To: "`
+CC=`formail -x "Cc: "`
+#REC=`formail -x Received:`
+
+
+## CAUTION:
+## The order of these rules is important.  Although I've attempted to use
+## very specific regexps to minimize false filing, some overlap is
+## difficult to avoid.  Messages will be filed per the first matching rule.
+
+## ORDER:
+## - special cases
+## - bulk (specific and general)
+## - accept
+## - spam
+## It is VERY important that spam come last.  Otherwise, mistakes in
+## regular expressions might dump mail into spam that shouldn't be.
+## Similarly, friends might send email about (picture) enlargments...
+
+
+
+## first, special cases:
+:0:
+* ^To:.*infrarelall-d
+	$NULL
+:0:
+* ^CC:.*infrarelall-d
+	$NULL
+:0:
+* ^Subject: \*\*\*\*\*VIRUS\*\*\*\*\*
+	$NULL
+:0:
+* ^From:.*\.aol\.gene
+	$SPAM
+:0:
+* ^From:.*\.attbi\.gene
+	$SPAM
+:0:
+* ^From:.*\.hotmail\.gene
+	$SPAM
+
+
+## BULK mail: specific groups
+:0:
+* ^Subject:.*Bioperl-l
+	$BIOPERL
+:0:
+* ^Subject:.*(pgsql|sfpug)|^From:.*(xgbe@yahoo.com|pgsql.com|postgresql.org)|^To:.*pgsql-|^CC:.*pgsql-
+	$POSTGRESQL
+:0:
+*  ^Subject:.*\[Zaurus-general\]|^To: zaurus-general
+	$ZAURUS
+:0:
+* ^Subject:.*(PyMOL)
+	$PYMOL
+:0:
+* ^Subject:.*(gpshuttle)
+	$GPSHUTTLE
+:0:
+* ^Subject:.*(\[SFUL\]|cannedyams|glenparkultimate|sf_lunch_ultimate)
+	$ULTIMATE
+
+
+## BULK mail
+:0:
+* ? (echo "$FROM"   | grep -Ei -f $PMDIR/bulk-from.re	>>$PMDIR/bulk-from.rem)
+	$BULK
+:0:
+* ? (echo "$TO"   	| grep -Ei -f $PMDIR/bulk-to.re		>>$PMDIR/bulk-to.rem)
+	$BULK
+:0:
+* ? (echo "$CC"		| grep -Ei -f $PMDIR/bulk-to.re		>>$PMDIR/bulk-cc.rem)
+	$BULK
+:0:
+* ? (echo "$SUBJECT"| grep -Ei -f $PMDIR/bulk-subject.re	>>$PMDIR/bulk-subject.rem)
+	$BULK
+
+
+## ACCEPT blessed senders, recipients, or subjects
+:0:
+* ? (echo "$FROM"   | grep -Ei -f $PMDIR/accept-from.re	>>$PMDIR/accept-from.rem)
+	$ACCEPT
+:0:
+* ? (echo "$TO"     | grep -Ei -f $PMDIR/accept-to.re 	>>$PMDIR/accept-to.rem)
+	$ACCEPT
+:0:
+* ? (echo "$SUBJECT"| grep -Ei -f $PMDIR/accept-subject.re	>>$PMDIR/accept-subject.rem)
+	$ACCEPT
+
+
+## SPAM based on senders, recipients, or subjects
+:0:
+* ? (echo "$FROM"	| grep -Ei -f $PMDIR/spam-from.re	>>$PMDIR/spam-from.rem)
+	$SPAM
+:0:
+* ? (echo "$TO"		| grep -Ei -f $PMDIR/spam-to.re		>>$PMDIR/spam-to.rem)
+	$SPAM
+:0:
+* ? (echo "$SUBJECT"| grep -Ei -f $PMDIR/spam-subject.re	>>$PMDIR/spam-subject.rem)
+	$SPAM
+
+
+## QUARANTINE everything else
+:0:
+	$DEFAULT
+
+
+
+# ## Too many recipients
+# :0
+# * ^(To|Cc):.*@.*@.*@.*@.*@.*@.*@.*@.*@.*@.*@.*@
+# 	  /dev/null

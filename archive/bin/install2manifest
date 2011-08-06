@@ -1,0 +1,20 @@
+#!/usr/local/bin/perl -w
+
+# This script takes the output of typical `make install' runs and returns
+# a list of files which have been created.  A primary use of this is to
+# feed to autorpm to build an RPM file.
+
+while(<>)
+  {
+  if (m%install\s+(?:-\w|-\w\s+\w+)+(\S+)\s+(\S+)$%)
+	{
+	my ($src,$dst) = ($1,$2);
+	#print("# $_#src=$src, dst=$dst\n");
+	if (-d $dst)
+	  {
+	  $src =~ s%.*/%%;
+	  $dst .= "/$src";
+	  }
+	print $dst, "\n";
+	}
+  }

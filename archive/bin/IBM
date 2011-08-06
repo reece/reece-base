@@ -1,0 +1,7 @@
+#!/usr/bin/perl -w
+srand(time ^ $$);
+@I = qw( inane infantile implausible inconsequential innocuous innacurate inertial infantile imbicilic );
+@B = qw( bureaucratic bumbling );
+@M = qw( machine monolith monstrosity mediocrity );
+printf("%s %s %s\n", 
+	   $I[rand(1+$#I)],	$B[rand(1+$#B)], $M[rand(1+$#M)] );

@@ -1,0 +1,14 @@
+#!/bin/sh
+# commn - N-wise 'comm -12'
+# eg$ commn <(grep george -il *.txt|sort) <(grep bush -il *.txt|sort) <(grep chimp -il *.txt|sort)
+# (there are better ways to do the above... this is illustrative only)
+
+if [ $# -lt 2 ]; then
+	echo "usage: commn file1 file2 [file ...]" 1>&2
+elif [ $# = 2 ]; then
+	comm -12 "$1" "$2";
+else
+	f="$1"
+	shift
+	$0 "$@" | comm -12 "$f" -
+fi

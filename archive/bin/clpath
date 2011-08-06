@@ -1,0 +1,39 @@
+#!/usr/local/bin/perl -w
+$RCSId = '$Id: clpath.pl,v 1.4 1997/06/09 21:03:40 reece Exp $ ';
+$RCSId =~ s/\$//g; $RCSId =~ s/\s+$//;
+($jemappelle=$0) =~ s,^.*/,,;
+
+print(STDERR "# $RCSId\n");
+
+use Tinker;
+Tinker::parseoptions(\%Tinker::options);
+
+($#ARGV+1 == 2) 
+  || die "$jemappelle: usage:\n  $jemappelle [options] reactant.xyz product.xyz\n";
+
+($fn1,$fn2)=(shift,shift);
+$strx1=Tinker::readxyz($fn1)
+  || die "$jemappelle: can't read reactant structure ($fn1)\n";
+$strx2=Tinker::readxyz($fn2)
+  || die "$jemappelle: can't read product structure ($fn2)\n";
+
+($strxref,$Eref)=Tinker::path(\$strx1,\$strx2,\%Tinker::options);
+(@$strxref)
+  || die "path returned no intermediates -- an error probably occurred.\n";
+
+($p1=$fn1) =~ s,^.*/,,; $p1=~s/\.xyz//;
+($p2=$fn2) =~ s,^.*/,,; $p2=~s/\.xyz//;
+if (defined $Tinker::options{'destdir'})
+  {$fnp=$Tinker::options{'destdir'}.'/'}
+else
+  {$fnp="$p1-$p2."}
+
+for ($i=0; $i<=$#{@{$strxref}}; $i++)
+  {
+  $fn=sprintf("$fnp%02d.xyz",$i);
+  $fmtspec='E('.$Tinker::options{'paramsdesc'}.')=%.4f';
+  $comment=sprintf("$fmtspec",@{$Eref}[$i]);
+  print STDERR "$fn $comment\n";
+  Tinker::comment(\@{$strxref}[$i],$comment);
+  Tinker::writexyz($fn, \@{$strxref}[$i] ) ;
+  }

@@ -1,0 +1,59 @@
+#!/usr/bin/perl -w
+# given a directory and a cddb formatted file, rename the
+# tracks and directory
+# e.g., 
+# $ cd my-mp3/
+# $ mp3relabel unknown-artist/unknown-album/cddb-file
+# renames unknown-artist to the artist specified in the cddb file,
+# ditto with the album name, and renames the tracks.  Tracks are
+# assumed to be named Track_n.mp3
+
+while( defined ($cddbp = shift) )
+  {
+  my($xartist,$xalbum,$artist,$album,$cddbfn);
+  if ( not $cddbp =~ m% (.+) / ([^/]+) / [^/]+ $ %x )
+	{
+	warn("! $cddbp: not formed as artist/album/cddb\n");
+	next;
+	}
+  ($xartist,$xalbum) = ($1,$2);
+  #print(STDERR "# $xartist / $xalbum\n");
+
+  if (not open(F,"<$cddbp"))
+	{
+	warn("! $cddbp: $!\n");
+	next;
+	}
+  while(<F>)
+	{
+	if ( m% DTITLE = (.+) \s* / \s* (.+) %x )
+	  {
+	  ($artist,$album) = ($1,$2);
+	  $artist =~ s/^\s+//;  $artist =~ s/\s+$//;
+	  $album  =~ s/^\s+//;  $album  =~ s/\s+$//;
+	  -d $artist || mkdir($artist,0755);
+	  ren( remap($xartist,$xalbum) , remap($artist,$album) );
+	  #print(STDERR "# $artist / $album\n");
+	  }
+	elsif ( m% TTITLE(\d+) \s* = \s* (.+) %x )
+	  {
+	  my($old) = remap( $artist , $album , "Track_" . ($1+1) . ".mp3" );
+	  my($new) = remap( $artist , $album , "$2.mp3"                   );
+	  ren($old,$new);
+	  }
+	}
+  close(F);
+  #ren( remap($xartist)         , remap($artist)         );
+  }
+
+sub ren
+  {
+  my($from,$to) = @_;
+  return if ($from eq $to);
+  rename($from,$to);
+  print("$from -> $to\n");
+  $renamedto{$from} = $to;
+  }
+
+sub remap
+  { join( '/', map {exists $renamedto{$_} ? $renamedto{$_} : $_} @_ ); }

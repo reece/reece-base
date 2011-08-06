@@ -1,0 +1,36 @@
+#!/usr/local/bin/perl -w
+# $Id: clnewton.pl,v 1.30 2000/07/22 22:59:43 reece Exp $
+
+$RCSId = '$Id: clnewton.pl,v 1.30 2000/07/22 22:59:43 reece Exp $ ';
+$RCSId =~ s/\$//g; $RCSId =~ s/\s+$//;
+($jemappelle=$0) =~ s,^.*/,,;
+
+use Tinker qw( newton parseoptions readxyz printxyz comment $options );
+use File::Temp;
+
+$SIG{'INT'}=sub {warn "\n$jemappelle: caught ^C interrupt... cleaning up\n";
+				 deletetmpfiles(); die "\n"};
+
+%options = %Tinker::options;
+parseoptions(\%options);
+$options{'method'} ='auto'     if ! defined $options{'method'};
+$options{'precond'}='auto'     if ! defined $options{'precond'};
+$options{'convergence'}='1e-6' if ! defined $options{'convergence'};
+
+($#ARGV+1==1) || die "usage: $0 args file\n";
+$file=$ARGV[0];
+($strx=readxyz($file)) || die "$jemappelle: couldn't read $file";
+$resref=newton(\$strx, \%options);
+
+if (! defined $resref->{'strx'})
+  {
+  # error occurred
+  $E=$resref->{'errors'};
+  $E="an unknown Tinker error occurred" if (! defined $E);
+  die "$jemappelle: $file: $E\n";
+  }
+$strx=$resref->{'strx'};
+comment(\$strx,sprintf('E(%s)=%.6f',$options{'paramsdesc'},$resref->{E}));
+printxyz(\$strx);
+print STDERR "$file: ", Tinker::title(\$strx), "\n" if $options{'verbose'};
+exit(0);

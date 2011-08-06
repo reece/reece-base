@@ -1,0 +1,85 @@
+#!/usr/local/bin/perl -w
+# xyzcat.pl -- append Tinker XYZ files with atom renumbering
+$RCSId = '$Id: xyzcat.pl,v 0.6 2000/07/22 22:59:43 reece Exp $ ';
+#print(STDERR "# $RCSId\n");
+
+use FileHandle;
+$fh = new FileHandle;
+
+$numatoms = 0;
+for($n=0;$n<=$#ARGV;$n++)
+  {
+  my($fn)=$ARGV[$n];
+  $fh->open("$fn")
+	|| die("$fn: $!\n");
+  %{$map[$n]} = MapAtomNumbers($fh,$numatoms+1);
+  $numatoms += scalar(keys(%{$map[$n]}));
+  $fh->close();
+  }
+
+printf("%6d  ",$numatoms);
+$files = join(', ', @ARGV);
+if (length($files) > 60)
+  {
+  $files = substr($files,1,56);
+  $files =~ s/,[^,]+$/,/;
+  $files .= ' ...';
+  }
+print("$files\n");
+
+$c = '';									# atom connect footer
+$t = '';									# all other trailing text
+$t .= "# $RCSId\n";
+
+for($n=0;$n<=$#ARGV;$n++)
+  {
+  my($fn)=$ARGV[$n];
+  $t .= "# trailer text from $fn\n";
+  $fh->open("$fn")
+	|| die("$fn: $!\n");
+  $_ = <$fh>;
+  PrintRemap($fh,\$c,\$t,%{$map[$n]});
+  $fh->close();
+  }
+print($c,$t);
+
+sub MapAtomNumbers
+  {
+  my($fh,$serial) = @_;
+  my(%map);
+  while(<$fh>)
+	{
+	next if ($.==1);						# line # of $fh
+	my($oldserial)=m/^\s*(\d+)/;
+	next unless (defined $oldserial);
+	(exists $map{$oldserial})
+	  && die("line $.: atom $oldserial multiply defined\n");
+	$map{$oldserial}=$serial++;
+	}
+  return(%map);
+  }
+
+sub PrintRemap
+  {
+  my($fh,$c,$t,%map) = @_;
+  while(<$fh>)
+	{
+	if (m/^\s*(\d+)(\s+\S+\s+\S+\s+\S+\s+\S+)\s+(\S+)\s+(.*)/)
+	  # atom coord lines
+	  {
+	  printf("%6d$2 %3d %s\n",
+			 $map{$1}, $3,
+			 join(' ',map(sprintf("%4d",$map{$_}),split(/\s+/,$4))));
+	  }
+	elsif (m/^(\s*\d+\s+\d+)/)
+	  # atom pair lines
+	  {
+	  ($list=$2)=~s/(\d+)/$map{$1}/eg;
+	  $$c .= "$list\n";
+	  }
+	else
+	  {
+	  $$t .= $_;
+	  }
+	}
+  }

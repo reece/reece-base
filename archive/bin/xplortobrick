@@ -1,0 +1,82 @@
+#! /bin/ksh
+
+PGMNAME=${0##*/}
+INSFX=xpl
+OUTSFX=brick
+
+ShowUsage ()
+	{
+	echo "$PGMNAME - convert file (x-plor) to .brick file (O)"
+	echo "usage: % $PGMNAME file[.suffix] [...]"
+	echo "if suffix is provided, it is used; otherwise '$INSFX' is assumed"
+	echo "-f flag forces overwrite of file.brick if it exists"
+	}
+
+
+FORCE=0
+while [[ $# -ge 1 ]]
+do
+	case $1 in
+	?)	ShowUsage
+		exit;;
+	-f)	FORCE=1
+		shift;;
+	*)	break;;
+	esac
+done
+
+if [[ $# = 0 ]]
+then
+	ShowUsage
+	exit 1
+fi
+
+for i in $*
+do
+	FNROOT=${i%.*}		# filename "root" ("suffix-less") strip suffix, if any
+	SFX=${i##*.}
+	if [ $SFX = $i ]
+	then
+		# no suffix on this file... assume INSFX
+		SFX=$INSFX
+	fi
+	SOURCE=${FNROOT}.${SFX}
+	DEST=${FNROOT}.${OUTSFX}
+
+	# ensure that source file exists
+	if [[ ! -f ${SOURCE} || ! -r ${SOURCE} ]]
+	then
+		echo "$PGMNAME: ${SOURCE} does not exist... skipping."
+		continue
+	fi
+
+	# ensure that if destination exists, it's writeable and not a directory
+	if [[ -a ${DEST} ]]
+	then
+		echo -n "$PGMNAME: ${DEST} exists and "
+		if [[ $FORCE = 0 ]]
+		then
+			echo overwrite option off... skipping.
+			continue
+		elif [[ ! -w ${DEST} ]]
+		then
+			echo file not writable... skipping.
+			continue
+		elif [[ -d ${DEST} ]]
+		then
+			echo is a directory... skipping.
+			continue
+		else
+			echo will be overwritten.
+		fi
+	fi
+
+	# perform the conversion
+
+	sed -e "s/_SOURCE_/$SOURCE/" -e "s/_DEST_/$DEST/" << END_OF_SCRIPT | mapman
+re tempname /user/reece/xplor/_SOURCE_ x-plor
+mappage tempname /user/reece/xplor/_DEST_
+quit
+END_OF_SCRIPT
+
+done

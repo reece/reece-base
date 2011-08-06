@@ -1,0 +1,165 @@
+#!/usr/local/bin/perl -w
+## $Id: hackftplog.pl,v 2.4 1998/02/12 04:58:13 reece Exp $
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+=head1 NAME
+
+hackftplog -- group entries if ftp log by session
+
+S<$Id: hackftplog.pl,v 2.4 1998/02/12 04:58:13 reece Exp $>
+
+=head1 SYNOPSIS
+
+C<hackftplog> logfile
+
+=head1 DESCRIPTION
+
+ftp logs are typically written in chronological order.  B<hackftplog>
+reorganizes an ftp to display entries by session.  Each entry includes the
+time, ftp process id, hostname or address, user, and each action performed
+in that session.  The output is in an emacs outline style.
+
+=head1 RETURN VALUES
+
+always 0
+
+@@banner@@
+
+=cut
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+$RCSId = '$Id: hackftplog.pl,v 2.4 1998/02/12 04:58:13 reece Exp $ ';
+($jemappelle=$0) =~ s,^.*/,,;
+
+$DATE_re = '\w\w\w .\d \d\d:\d\d:\d\d';
+$PID_re  = '\d+';
+$HOST_re = '[-\.\w]+';
+
+$re = shift if ($#ARGV>=1);
+
+package ftpsession;
+sub new {my($self)=bless {};$self->{id}=$self->{pid}=$self->{date}=$self->{host}=''; $self}
+sub action {my($self)=shift; push(@{$self->{'action'}},@_)}
+sub sprint
+  {
+  my($self)=shift;
+  sprintf("* %s [%s] %s %s %s\n%s"
+		 ,$self->date()
+		 ,$self->pid()
+		 ,$self->host()
+		 ,$self->anonymous() ? "ANONYMOUS" : "USER"
+		 ,$self->id()
+		 ,( defined $self->{'action'} ? "  ".join("\n  ",@{$self->{'action'}})."\n" : '')
+		  );
+  }
+sub AUTOLOAD
+  {my($iv) = $AUTOLOAD=~m/::(\w+)$/;
+  if (defined $_[1]) {$_[0]->{$iv} = $_[1]}; $_[0]->{$iv}}
+
+
+
+package main;
+print('# ', $RCSId, "\n");
+while (<>)
+  {
+  # Initial Connection
+  # Oct  8 10:40:23 dasher ftpd[1858]: connection from sp2...eca.it at Wed Oct  8 10:40:23 1997
+  # Oct  8 10:50:20 dasher ftpd[1716]: connection from 128.252.84.163 at Wed Oct  8 10:50:20 1997
+  if (m/($DATE_re) $HOST_re ftpd\[($PID_re)\]: connection from ($HOST_re)/)
+    {
+    my($date,$pid,$host)=($1,$2,$3);
+	if (defined $ftp{$pid})
+	  {warn("$jemappelle: ftp session for pid $pid already defined");
+	   delete $ftp{$pid}}
+    $ftp{$pid} = new ftpsession;
+    $ftp{$pid}->date(stardate($date));
+    $ftp{$pid}->pid($pid);
+    $ftp{$pid}->host($host);
+    }
+
+  # Anonymous Logins
+  #Oct  1 10:11:04 dasher ftpd[10609]: ANONYMOUS FTP LOGIN FROM 146.227.16.158, id=mozilla@
+  #Oct  1 10:48:24 dasher ftpd[12232]: ANONYMOUS FTP LOGIN FROM host...h.net, id=mozilla@
+  elsif (m/($DATE_re) $HOST_re ftpd\[($PID_re)\]: ANONYMOUS FTP LOGIN FROM ($HOST_re), id=(.+)/)
+    {
+    my($pid,$id)=($2,$4);
+	if (not defined $ftp{$pid})
+	  {warn("$jemappelle: ftp session for pid $pid not defined"); next}
+    $id=~s/\@$//;
+    $ftp{$pid}->id($id);
+    $ftp{$pid}->anonymous(1);
+    }
+
+  # User Logins
+  #Oct  1 11:05:31 dasher ftpd[12238]: FTP LOGIN FROM prancer.wustl.edu, reece
+  #Oct  1 13:39:33 dasher ftpd[15268]: FTP LOGIN FROM gamma.chem.ucla.edu, parag
+  elsif (m/($DATE_re) $HOST_re ftpd\[($PID_re)\]: FTP LOGIN FROM ($HOST_re), (.+)/)
+    {
+    my($pid,$id)=($2,$4);
+	if (not defined $ftp{$pid})
+	  {warn("$jemappelle: ftp session for pid $pid not defined"); next}
+    $id=~s/\@$//;
+    $ftp{$pid}->id($id);
+    $ftp{$pid}->anonymous(0);
+    }
+
+  # Refused Logins
+  # Oct  2 12:43:39 dasher ftpd[1422]: FTP LOGIN REFUSED FROM liv8-15.idirect.com, ppp
+  # Oct  7 19:40:45 dasher ftpd[11620]: FTP LOGIN REFUSED FROM 162.105.153.99, root
+  elsif (m/($DATE_re) $HOST_re ftpd\[($PID_re)\]: FTP LOGIN REFUSED FROM ($HOST_re), (.+)/)
+    {
+    my($date,$pid,$id)=($1,$2,$4);
+	if (not defined $ftp{$pid})
+	  {warn("$jemappelle: ftp session for pid $pid not defined"); next}
+    $id=~s/\@$//;
+    $ftp{$pid}->id($id);
+    $ftp{$pid}->action(sprintf("%s REFUSED",stardate($date)));
+    }
+
+  # Logout
+  # Oct  1 11:05:43 dasher ftpd[12238]: FTP LOGOUT, reece
+  elsif (m/($DATE_re) $HOST_re ftpd\[($PID_re)\]: FTP LOGOUT/)
+    {
+    my($date,$pid,$id)=($1,$2,$4);
+	if (not defined $ftp{$pid})
+	  {warn("$jemappelle: ftp session for pid $pid not defined"); next}
+    $ftp{$pid}->action(sprintf("%s LOGOUT",stardate($date)));
+	local($_) = $ftp{$pid}->sprint();
+	print if (not defined $re or /$re/);
+    delete $ftp{$pid};
+    }
+
+  # Actions (must be last)
+  # Oct  1 11:05:43 dasher ftpd[12238]: FTP LOGOUT, reece
+  elsif (m/($DATE_re) $HOST_re ftpd\[($PID_re)\]: (.+)/)
+    {
+    my($date,$pid,$action)=($1,$2,$3);
+	if (not defined $ftp{$pid})
+	  {warn("$jemappelle: ftp session for pid $pid not defined"); next}
+    $ftp{$pid}->action(sprintf("%s $action",stardate($date)));
+    }
+  }
+
+if (keys %ftp >= 0)
+  {
+  print("The following ftp sessions are in progress or were aborted:\n");
+  foreach $pid (keys %ftp) {print $ftp{$pid}->sprint()}
+  }
+exit(0);
+
+
+sub stardate
+  {
+  my($date) = @_;
+  my(%months) = ( 'jan'=> 1, 'feb'=> 2, 'mar'=> 3, 'apr'=> 4, 'may'=> 5, 'jun'=> 6,
+                  'jul'=> 7, 'aug'=> 8, 'sep'=> 9, 'oct'=>10, 'nov'=>11, 'dec'=>12);
+  my($M,$D,$h,$m,$s) = $date=~m/(\w+) ([\d\s]\d+) (\d{2}):(\d{2}):(\d{2})/;
+  $M = $months{lc($M)};
+  return(sprintf("%4d/%02d/%02d %02d:%02d:%02d", 1997, $M, $D, $h, $m, $s));
+  }

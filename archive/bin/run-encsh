@@ -1,0 +1,16 @@
+#!/bin/sh
+
+ENCSH_DIR=$HOME/opt/lib/encsh
+
+bn=$(basename "$0")
+
+if [ -f "$ENCSH_DIR/$bn.sh" ]; then
+		sh "$ENCSH_DIR/$bn.sh"
+elif [ -f "$ENCSH_DIR/$bn.sh.gpg" ]; then
+		set -x
+		gpg -o- "$ENCSH_DIR/$bn.sh.gpg" | sh
+else
+		echo "no script found for $bn"
+		exit 1
+fi
+

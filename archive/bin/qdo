@@ -1,0 +1,70 @@
+#!/usr/bin/perl
+# qdo -- submit a command line for execution by PBS as though run locally
+# 2007-10-19 Reece Hart <rkh@gene.com>
+#
+# Usage:
+# $ qdo [qsub options] -- cmd_line [<in] [>out] [>err]
+#
+
+use strict;
+use warnings;
+use File::Temp;
+use File::Path;
+use IO::Pipe;
+use IO::File;
+use POSIX qw(strftime);
+
+
+my $here_doc_break = "qdo_EOHD_qdo_break_qdo";
+my $qdo_dir = "$ENV{HOME}/.qdo";
+
+
+# setup user's scratch directory and filenames
+( -d $qdo_dir )
+	|| mkdir($qdo_dir,0700)
+	|| die("$qdo_dir: $!\n");
+
+$qdo_dir .= strftime('/%F',gmtime);
+( -d $qdo_dir )
+	|| mkdir($qdo_dir,0777)
+	|| die("$qdo_dir: $!\n");
+
+my $tmp_dir = File::Temp::tempdir( DIR => $qdo_dir ); # , CLEANUP => 1 );
+my $o_fn = "$tmp_dir/out";
+my $e_fn = "$tmp_dir/err";
+my $script_fn = "$tmp_dir/script";
+
+
+
+# find first '--' in ARGV; qsub options are before that and 
+# the cmd_line is after
+my $break_i = (grep {$ARGV[$_] eq '--'} 0..$#ARGV)[0];
+(defined $break_i)
+	|| die("usage: break string ('--') is mandatory\n");
+
+my @qsub_cmd = splice(@ARGV,0,$break_i);
+if (grep {m/-[eo]/} @qsub_cmd) {
+	die("$0: you may not specify -e or -o\n");
+}
+unshift(@qsub_cmd, 'qsub', '-Wblock=true', '-o', $o_fn, '-e', $e_fn);
+
+shift;							# this is the '--' above; drop it
+my @cmd_line = @ARGV;
+
+
+# build PBS script
+# I favored this over a direct pipe into qsub for debugging
+my $fh = new IO::File;
+$fh->open(">$script_fn")
+	|| die("$script_fn: $!\n");
+$fh->print("@cmd_line");
+# <<$here_doc_break\n");
+#$fh->print() while(<>);
+#$fh->print("$here_doc_break\n");
+$fh->close();
+
+
+system(@qsub_cmd, $script_fn);
+sleep(1);
+system('/bin/cat', $o_fn);
+system("/bin/cat $e_fn 1>&2");

@@ -1,0 +1,21 @@
+#!/usr/local/bin/perl -w
+##
+## $RCSfile: open-url.pl,v $
+## $Revision: 0.3 $
+## $Date: 1999/03/18 13:18:26 $
+##
+## NAME
+## open-url -- open a URL to be shown in an existing netscape browser
+##             if one is running, or starts up a new browser if not.
+##
+## REQUIREMENTS
+## netscape version >= 2.0 (try netscape -version)
+##
+## @@banner@@
+## 
+use Cwd;
+$browser = defined $ENV{'BROWSWER'} ? $ENV{'BROWSWER'} : 'netscape';
+$url = pop(@ARGV);
+if (not $url=~m/^\w{3,6}:/) {$url = 'file:' . ($url=~m|^/| ? $url : cwd."/$url")}
+(system($browser,@ARGV,'-remote',"openUrl($url)")>>8)
+ and exec($browser,@ARGV,$url);

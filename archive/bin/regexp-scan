@@ -1,0 +1,13 @@
+#!/usr/bin/env perl
+# regexp-check -- read regexps from stdin, output those which match first argument
+# eg$ regexp-check <spam-from.re 'Mom <mom@mom.com>'
+
+use strict;
+use warnings;
+
+my $target = shift;
+
+while(<>) {
+  chomp;
+  print "$_\n" if $target =~ m/$_/;
+}

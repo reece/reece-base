@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+# tempwatch -- watch TZ0 and TZ1 temps, and adjust cpufreq as needed
+
+use strict;
+use warnings;
+use IO::File;
+
+my $tz_dir = '/proc/acpi/thermal_zone';
+my %opts = 
+  (
+   'sleep-time' => 15,
+   'upscale-temp' => 65,
+   'downscale-temp' => 80,
+   'notify' => 1							# use notify-send to indicate state
+  );
+
+
+my @tzs = map { s%$tz_dir/%%; $_ } glob( "$tz_dir/*" );
+my $fh = new IO::File;
+
+while (1) {
+  my $tz0_temp = get_temp('TZ0');
+  my $tz1_temp = get_temp('TZ1');
+
+  if ( $tz0_temp > $opts{downscale-temp} ) {
+	
+  }
+
+  sleep $opts{'sleep-time'};
+}
+
+exit;
+
+
+sub get_temp {
+  my ($zone) = @_;
+  my $fn = "$tz_dir/$zone/temperature";
+  $fh->open("<$fn")
+	|| die("$fn: $!\n");
+  my $c = <$fh>;
+  $fh->close();
+  my ($t) = $c =~ m/temperature:\s+(\d+)/;
+  return $t;
+}
+
+sub get_trip_points {
+  my ($zone) = @_;
+  my $fn = "$tz_dir/$zone/trip_points";
+  $fh->open("<$fn")
+	|| die("$fn: $!\n");
+  my $c = <$fh>;
+  $fh->close();
+  my ($t) = $c =~ m/critical.+\s(\d+)/;
+  return $t;
+}

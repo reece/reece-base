@@ -1,0 +1,207 @@
+#!/usr/bin/perl -w
+## $Id: otr.pl,v 0.4 2000/07/22 23:01:22 reece Exp $
+## Documentation appears below in pod format.  It is best viewed by typing
+## $ perldoc <thisfile>
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+=head1 NAME
+
+otr -- automate laptop localization for system and user configuration files
+
+S<$Id: otr.pl,v 0.4 2000/07/22 23:01:22 reece Exp $>
+
+=head1 SYNOPSIS
+
+C<otr [options]>
+
+=head1 OPTIONS
+
+=item B<--dst> dstdir, B<-d> dstdir
+
+the destination directory for configuration files, defaults to / for uid 0
+(root) and $HOME for peons.
+
+=item B<--force>, B<-f>
+
+otr normally refuses to replace a non-symlink with a symlink; this option
+forces it to do so.
+
+=item B<--src> srcdir, B<-s> srcdir
+
+the source directory for configuration files, defaults to <B dstdir>/otr
+
+=item B<--scheme> scheme, B<-S> scheme
+
+the scheme to use for configuration; B<srcdir/scheme/> must exist
+
+=item B<--verbose>, B<-v>
+
+print commentary to stderr
+
+=item B<--version>, B<-V>
+
+print version information and exit
+
+=head1 DESCRIPTION
+
+B<otr> automates the process of managing sets of files which change
+depending on environment when you are On The Run (with a laptop, say).
+
+=head1 RETURN VALUES
+
+=head1 EXAMPLES ($ is your prompt)
+
+=item 1. manual localization
+
+=item 2. pcmcia invocation
+
+=item 3. non-root usage
+$ cd ~
+$ mkdir otr/home otr/work
+$ /bin/cp -avP .pinerc .netscape/preferences.js .wgetrc otr/home
+$ /bin/cp -avP .pinerc .netscape/preferences.js .wgetrc otr/work
+(edit files)
+$ rm .pinerc netscape/preferences.js .wgetrc
+
+=item typical system files
+
+/etc/printcap, /etc/sendmail.cf, /etc/fstab
+
+=item typical user files
+
+.netscape/preferences, .wgetrc
+
+=head1 FILES and ENVIRONMENT
+
+=item B</etc/otrscheme>
+
+the default scheme to use for localization
+
+=item B<OTR>
+
+flags to be prepended to options
+
+=head1 BUGS, CAVEATS, MISFEATURES
+
+file removal
+links
+
+@@banner@@
+
+=cut
+
+##############################################################################
+## Nothing to modify beyond this line
+##############################################################################
+
+BEGIN
+  { unshift(@INC, '/home/reece/opt/lib/perl5') }
+
+use Carp;
+use IO::File;
+use File::Basename;
+use POSIX;
+use Getopt::Mixed 1.006;
+use vars qw( $prune );
+require "find.pl";
+
+$RCSId = '$Id: otr.pl,v 0.4 2000/07/22 23:01:22 reece Exp $ ';
+($jemappelle=$0) =~ s,^.*/,,;
+unshift(@ARGV,$ENV{$jemappelle}) if (defined($ENV{$jemappelle}));
+
+# defaults
+$schemefn = '/etc/otr-scheme';
+$opt_dst = ( $<==0 ? '' : $ENV{'HOME'} );
+$opt_force = 0;
+$opt_version = 0;
+$opt_verbose = 0;
+$opt_scheme = undef;
+
+
+# get options
+my(@OPTS) = 
+  (
+   'src=s s>src',
+   'dst=s d>dst',
+   'scheme=s S>scheme',
+   'force f>force',
+   'verbose v>verbose',
+   'version'
+  );
+Getopt::Mixed::getOptions(@OPTS);
+
+
+# version, if requested
+if ($opt_version) 
+  { print($RCSId,"\n"); exit(0); }
+
+
+# set opt_src based on opt_dst, unless specified explicitly
+$opt_src = $opt_dst . '/.otr' unless defined $opt_src;
+
+
+# get scheme, unless specified
+if (not defined $opt_scheme)
+  {
+  if ( open(F,$schemefn) )
+	{$opt_scheme = <F>; close(F);}
+  else
+	{die($jemappelle,": scheme not specified and $schemefn: $!\n");}
+  }
+$opt_scheme =~ s/\/+/\//g;
+$opt_scheme =~ s/\/$//g;
+
+
+# if root, write scheme to $schemefn so that users can look there for wha'sup
+if ($< == 0)
+  {
+  if ( open(F,">$schemefn") )
+	{ print(F $opt_scheme); close(F); }
+  else
+	{ warn($jemappelle,": couldn't write to $schemefn: $!\n"); }
+  }
+
+
+# show was'up
+print STDERR <<EOT if $opt_verbose;
+# $RCSId
+# dst = $opt_dst
+# src = $opt_src, scheme = $opt_scheme ($opt_src/$opt_scheme)
+# force = $opt_force, verbose = $opt_verbose
+EOT
+
+
+# enter scheme directory
+chdir("$opt_src/$opt_scheme")
+  || die("$opt_src/$opt_scheme: $!\n");
+
+
+# search and link
+&find('.');
+sub wanted
+  {
+  $_ =~ s/^.\///;
+  $name =~ s/^.\///;
+  return if $name=~m%^\.$%;
+  my($src) = "$opt_src/$opt_scheme/$name";
+  my($dst) = "$opt_dst/$name";
+
+  if ( (-l $dst) or (not -e $dst) )
+	{
+	if (-l $dst)
+	  { unlink($dst) || warn("$dst: $!\n"); }
+	if (symlink($src,$dst))
+	  {print( STDERR "symlink($src,$dst)\n" ) if $opt_verbose; }
+	else
+	  {warn( "symlink($src,$dst): $!\n" ); }
+	$prune = (-d $dst);
+	}
+  elsif (-e $dst and not -d $dst)
+	{
+	warn("$dst exists but is not a symlink or directory; skipping $src\n");
+	}
+  }
+

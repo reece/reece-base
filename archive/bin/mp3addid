@@ -1,0 +1,74 @@
+#!/usr/local/bin/perl
+# Add mp3 artist, album, and title info to mp3 files
+# artist, album, and title are inferred from the file path, which
+# is expected to look like
+#    /this/is/ignored/artist/album/title.mp3
+# This format is the default for the Grip ripper+encoder.
+# 
+# For a more general utility to edit id3 tags, use mp3id3.
+
+use MP3::Info;
+use Getopt::Mixed;
+Getopt::Mixed::getOptions
+  (
+   'force f>force',
+   'dryrun n>dryrun'
+  );
+
+while( @ARGV )
+  {
+  my $e = shift;
+  if (-d $e)
+	{
+	if (not opendir(D,"$e"))
+	  { warn("$e: $!\n"); next; }
+	unshift( @ARGV, map {"$e/$_"} (grep {$_ ne '.' and $_ ne '..'} readdir(D)) );
+	closedir(D);
+	}
+  elsif (-f $e)
+	{ settags($e); }
+  }
+exit(0);
+
+
+
+sub settags
+  {
+  my $fn = shift;
+  my $update = 0;
+
+  $fn =~ s%/{2,}%/%g;
+
+  if ($fn !~ m/\.mp3$/i)
+	{
+	warn("$fn: won't set file without .mp3 or .MP3 suffix\n");
+	return;
+	}
+
+  my ($artist,$album,$title);
+  if ($fn =~ m%([^/]+)/([^/]+)/([^/]+)\.mp3$%)
+	{ ($artist,$album,$title) = ($1,$2,$3) }
+  elsif ($fn =~ m%([^/]+)/([^/]+)\.mp3$%)
+	{ ($artist,$title) = ($1,$2) }
+  else
+	{ warn("couldn't infer tag info from filename\n"); return; }
+
+  my $tags = get_mp3tag($fn);
+
+  if (defined $artist
+	  and ($opt_force or $tags->{ARTIST} !~ m/\w/) )
+	{ $tags->{ARTIST} = $artist; $update++; }
+  if (defined $album
+	  and ($opt_force or $tags->{ALBUM} !~ m/\w/ and $album =~ /\w/) )
+	{ $tags->{ALBUM} = $album; $update++; }
+  if (defined $title
+	  and ($opt_force or $tags->{TITLE} !~ m/\w/) )
+	{ $tags->{TITLE} = $title; $update++; }
+
+  return unless $update;
+
+  set_mp3tag ($fn, $tags) unless defined $opt_dryrun;
+
+  printf(STDERR "$fn\n  artist: %s\n  album: %s\n  title: %s\n", 
+		 $tags->{ARTIST}, $tags->{ALBUM}, $tags->{TITLE});
+  }

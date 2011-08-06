@@ -1,0 +1,161 @@
+#!/usr/local/bin/perl
+##
+## $RCSfile: archie.pl,v $
+## $Revision: 0.8 $
+## $Date: 1998/09/29 04:27:13 $
+##
+## NAME
+##
+## SYNOPSIS
+##
+## DESCRIPTION
+##
+## EXAMPLE
+##
+## REQUIREMENTS
+##
+## INSTALLATION
+##
+## @@banner@@
+## 
+
+$match_default="exact";
+
+$output_default="detail";
+$order_default="host";
+
+$max_hits_default=20;
+$timeout_default=300;
+$niceness_default=0;
+
+$server_default="archie.rutgers.edu";
+
+##############################################################################
+$RCSId = '$Id: archie.pl,v 0.8 1998/09/29 04:27:13 reece Exp $ ';
+$RCSId =~ s/\$//g; $RCSId =~ s/\s+$//;
+
+$info=<<EOS;
+archie client
+perl command line version
+Reece Hart (reece\@in-machina.com)
+$RCSId
+See perldoc archie for more information.
+EOS
+
+$servers=<<EOS;
+	archie.ans.net (USA [NY])
+	archie.rutgers.edu (USA [NJ])
+	archie.sura.net (USA [MD])
+	archie.unl.edu (USA [NE])
+	archie.mcgill.ca (Canada)
+	archie.funet.fi (Finland/Mainland Europe)
+	archie.au (Australia)
+	archie.doc.ic.ac.uk (Great Britain/Ireland)
+	archie.wide.ad.jp (Japan)
+	archie.ncu.edu.tw (Taiwan)
+* For the most up-to-date list, write to an Archie server and give it
+  the command `servers'.
+EOS
+
+$usage=<<EOS;
+Search match method [$match_default]:
+  -c       Case sensitive substring match
+  -i       Case insensitive substring match
+  -e       Exact string match.  (This is the default.)
+  -r       Search using a regular expression.
+		  
+Output format:
+  -u       Output results as Uniform Resource Locators (URLs).
+  -l       Long (detailed) output.
+  -h       Sort the results by host.
+  -d       Sort the results inverted by date.
+  -Hhits   Maximum matches to return [$max_hits_default].
+
+Query options:
+  -Ssserver Use server host for Archie query [$server_default].
+  -Tsecs   Timeout in seconds [$timeout_default].
+  -Nlevel  Sets the niceness of a query [$niceness_default].
+
+  -L	   list some archie servers.
+  -v       version
+
+The environment variable ARCHIE overrides the above defaults.  Its value
+is `$ENV{'ARCHIE'}'.
+EOS
+
+$usageopts="cierulhdT:H:N:S:Lv";
+
+
+# Process options
+require "getopts.pl";
+
+# push options in $ARCHIE args on front of ARGV
+unshift(ARGV, split(/\s+/,$ENV{'ARCHIE'}));
+&Getopts($usageopts) || die "$usage";
+
+if ($opt_v) { print $info; exit 0; }
+if ($opt_L) { print $servers; exit 0; }
+
+# match must be 'exact' | 'substring' | 'subcase' | 'regexp'
+$match=   ( defined($opt_c) ? "subcase"
+		   : defined($opt_i) ? "substring"
+		   : defined($opt_e) ? "exact"
+		   : defined($opt_r) ? "regexp"
+		   : $match_default );
+$order=   ( defined($opt_d) ? "date" 
+		   : defined($opt_h) ? "host" 
+		   : $order_default  );
+$output=  ( defined($opt_l) ? "detail"
+		   : defined($opt_u) ? "url"
+		   : $output_default);
+$server=  ( defined($opt_S) ? $opt_S
+		   : $server_default );
+$max_hits=( defined($opt_H) ? $opt_H
+		   : $max_hits_default  );
+$niceness=( defined($opt_N) ? $opt_N
+		   : $niceness_default  );
+$timeout= ( defined($opt_T) ? $opt_T
+		   : $timeout_default  );
+
+@searchterms=@ARGV;
+
+# Begin Archie Session
+use Archie;
+$SIG{'INT'} = 'sig_handler';
+sub sig_handler
+  {
+  my($sig) = @_;
+  &Archie::archie_cancel();
+  exit;
+  }
+@responses = Archie::archie_request($server,$match,$order, 
+                                    $max_hits,$niceness,$ENV{'USER'},
+                                    $timeout,@searchterms);
+
+
+# Process results
+if ($Archie::ArchieErr)
+  {
+  print "Error: $Archie::ArchieErr\n";
+  }
+else
+  {
+  foreach $response (@responses)
+    {
+    if ($output eq "url")
+      {
+      printf "ftp://$response->{'host'}$response->{'dir'}".
+        ($response->{'type'} eq "Directory" ? "/\n" : "\n");
+      }
+    else
+      {
+      print "name: $response->{'name'}\n";
+      print "   host: $response->{'host'}\n";
+      print "   type: $response->{'type'}\n";
+      print "   dir: $response->{'dir'}\n";
+      print "   size: $response->{'size'}\n";
+      print "   mode: $response->{'mode'}\n";
+      print "   lastmod: $response->{'lastmod'}\n";
+      }
+    }
+  }

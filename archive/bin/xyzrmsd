@@ -1,0 +1,82 @@
+#!/usr/local/bin/perl -w
+# xyzrmsd -- compute rmsd of 2 or more xyz files
+# $Id: xyzrmsd.pl,v 1.0 1998/12/02 21:57:57 reece Exp $
+# usage:
+#   xyzrmsd [-r atomlist] file [-r atomlist] file [[-r atomlist] file]...
+# e.g.,
+# xyzrmsd -r 1-10 a.xyz -r 11-20 b.xyz c.xyz d.xyz -r 21-30 e.xyz
+# computes the rmsd of atoms 11-20 of b and c with a, and atoms 21-30 of e with a.
+# atomlist is a comma-separated list of ranges, like `1-3,4,8,11-2200'
+
+use Range;
+
+while( $#ARGV+1 )
+  {
+  # if -r flag, then get next arg for ranges
+  if ($ARGV[0] eq '-r')
+	{
+	shift;
+	if ($#ARGV+1) 
+	  { @av = rangevector(shift); }
+	else
+	  {die("-r: missing range\n");}
+	next;
+	}
+
+  # push file's coords into R3, an array of array refs
+  local($FILE) = shift;
+  open(FILE)
+	|| die("$FILE: $!\n");
+  undef @R3;
+  while(<FILE>)
+	{
+	if ( ($. >= 2)
+		 and ((not defined @av) or (defined $av[$.-1])) )
+	  {
+	  if (m/^\s*\d+\s+\S+\s+(\S+)\s+(\S+)\s+(\S+)/)
+		{ push(@R3,[$1,$2,$3]);	}
+	  else
+		{ die("$FILE: $.: couldn't parse\n"); }
+	  }
+	}
+  close(FILE);
+  
+  # if this is the first time 'round, store R3 as reference coords
+  # else go to town.
+  if (defined @R3ref)
+	{
+	if ($#$R3ref != $#$R3)
+	  { die("$FILE: mismatched number of atoms\n"); }
+	printf("$FILE %10.3f\n", rmsd(\@R3ref,\@R3));
+	}
+  else
+	{ @R3ref = @R3; }
+  }
+
+sub rangevector
+  {
+  my(@range) = map(split(/,/,$_), @_);
+  my(@atoms) = Range::RangeList_To_Enum(\@range);
+  my($ano,@vector);
+  foreach $ano (@atoms)
+	{$vector[$ano]=1;}
+  return(@vector);
+  }
+
+sub rmsd
+  {
+  my($r1,$r2) = @_;
+  my($ano);
+  my($sumsqr) = 0;
+  for($ano=0; $ano<=$#$r1; $ano++)
+	{
+	my($x1,$x2) = ($r1->[$ano][0],$r2->[$ano][0]);
+	my($y1,$y2) = ($r1->[$ano][1],$r2->[$ano][1]);
+	my($z1,$z2) = ($r1->[$ano][2],$r2->[$ano][2]);
+	my($xr,$yr,$zr) = ($x1-$x2,$y1-$y2,$z1-$z2);
+	#printf("<%5.1f,%5.1f,%5.1f> - <%5.1f,%5.1f,%5.1f>\n",
+	#	   $x1,$y1,$z1,$x2,$y2,$z2);
+	$sumsqr += $xr*$xr + $yr*$yr + $zr*$zr;
+	}
+  return( sqrt($sumsqr / (1+$#$r1)) );
+  }

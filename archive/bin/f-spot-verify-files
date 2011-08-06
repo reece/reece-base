@@ -1,0 +1,106 @@
+#!/usr/bin/perl
+# f-spot-verify-files -- complain if files in fspot db are missing on disk
+
+use strict;
+use warnings;
+
+use DBI;
+use Data::Dumper;
+use File::Basename;
+use Getopt::Long qw(:config gnu_getopt);
+
+my $PHOTO_DB = "$ENV{HOME}/.gnome2/f-spot/photos.db";
+my $EXPECTED_VERSION = '16.3';
+
+$Data::Dumper::Indent = 0;
+
+
+sub find_alternates($);
+
+my %opts =
+  (
+   photos_db_fn => $PHOTO_DB,
+   verbose => 0,
+   fix => 0,
+   table => 'photos',
+  );
+
+my $id_column = ($opts{table} eq 'photo_versions' ? 'photo_id' : 'id');
+
+
+GetOptions(\%opts,
+		   'verbose|v+',
+		   'fix|F+',
+		   'photos_db_fn|f=s'
+		   )
+  || die("usage: $0 [ options ]\n");
+
+
+
+# CONNECT TO DATABASE
+( -f $opts{photos_db_fn} )
+  || die("$opts{photos_db_fn}: No f-spot database?\n");
+
+my $dbh = DBI->connect("dbi:SQLite:dbname=$opts{photos_db_fn}",'','');
+
+my $fspot_db_version = $dbh->selectrow_array(
+	qq/select data from meta where name='F-Spot Database Version'/
+	);
+
+if ($fspot_db_version ne $EXPECTED_VERSION) {
+  die("$PHOTO_DB is version $fspot_db_version, $EXPECTED_VERSION required\n");
+}
+
+
+# BUILD PREPARED STATEMENTS
+# s=select, u=update, d=duplicate check
+my $s_sth = $dbh->prepare("SELECT * FROM $opts{table} ORDER BY uri");
+my $u_sth = $dbh->prepare("UPDATE $opts{table} SET uri=? WHERE $id_column=?");
+#my $d_sth = $dbh->prepare("SELECT * FROM $opts{table} WHERE uri=?");
+
+
+$s_sth->execute();
+while( my $row = $s_sth->fetchrow_hashref() ) {
+  my $uri = $row->{uri};
+
+  if (not $uri =~ s%^file://%%) {
+	warn("invalid uri? '$uri'\n");
+	next;
+  }
+
+  next if -f $uri;
+
+  print("!-f: $uri\n");
+
+  next unless ($opts{fix} or $opts{verbose}>=1);
+
+  my @alts = find_alternates($uri);
+  if (@alts) {
+	print map {"  + $_\n"} @alts if $opts{verbose} >= 2;
+	if ($opts{fix} and $#alts == 0) {
+	  my $proposed = $alts[0];
+	  #my @same_fn = @{ $dbh->selectall_arrayref($d_sth, undef, $proposed) };
+	  $u_sth->execute($alts[0],$row->{$id_column});
+	  printf("  UPDATED %d with uri=%s\n", $row->{$id_column}, $alts[0]);
+	}
+  } else {
+	print "  <no alternatives>\n" if $opts{verbose}>=2;
+  }
+}
+
+
+sub find_alternates($) {
+  my $uri = shift;
+  my @alts;
+
+  my $root;
+  ($root = $uri) =~ s/\.(jpg|gif|tiff?|png|xpm)$//i;
+  $root =~ s/-\d+$//;
+
+  push @alts, <$root*>;
+  if ($root =~ s%/IMG_(\d+)%/img_$1%) {
+	push @alts, <$root*>;
+  }
+
+  return map {"file://$_"} @alts;
+}

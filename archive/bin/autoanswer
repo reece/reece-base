@@ -1,0 +1,64 @@
+#!/bin/ksh -e
+
+PATH=/bin:/usr/bin:/sbin
+DEVICE=${2:-/dev/modem2}
+RINGS=1
+INITTAB=/etc/inittab
+
+export PATH
+
+killgetty ()
+	{
+	tty="$1"
+	PID=`ps -e -opid,cmd \
+	| perl -ane 'print($F[0],"\n") if (not m|perl| and m|getty.+\Q'"$tty"'\E|)'`
+
+	if [ -n "$PID" ]; then
+		# getty is running on that device; kill it
+		kill $PID
+		echo "killed getty on $tty [$PID]"
+	fi
+	}
+
+echo '$Id: autoanswer.ksh,v 1.2 1997/05/13 00:18:27 reece Exp $'
+
+if [ `id -u` != "0" ]; then
+	echo "$0: You must run this as root" 1>&2
+	exit 1;
+fi
+
+# temporarily remove from inittab; backup saved with .bak suffix
+perl -i.bak -pe 's/^modem/\#$&/' ${INITTAB}
+init q
+sleep 1
+
+case "$1" in
+	off)
+		killgetty "${DEVICE}"
+		echo "ats0=0" >$DEVICE
+		;;
+	on)
+		killgetty "${DEVICE}"
+		echo "ats0=$RINGS" >$DEVICE
+		;;
+	[0-9]|[0-9][0-9]|[0-9][0-9][0-9]) 
+		killgetty "${DEVICE}"
+		echo "ats0=$1" >$DEVICE
+		;;
+	*)
+		echo "$0: argument must be number of rings, \`off', or \`on'"
+		exit 1;
+		;;
+esac
+
+# tell perl to wait for at&v response from modem; if the input never
+# arrices, this script will hang.
+perl -ne 'if (/^(S00:\d+)/) {print "'"${DEVICE}"': $1\n"; exit}' <${DEVICE} &
+echo "at&v" >${DEVICE}
+wait;
+
+# restore inittab and restart
+mv ${INITTAB}.bak ${INITTAB}
+init q
+
+exit 0

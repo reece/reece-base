@@ -1,0 +1,31 @@
+#!/usr/local/bin/perl -w
+
+$width=30;
+$freescale=10;
+$faultscale=20;
+$interval=2;
+
+$RCSId = '$Id: freefault.pl,v 1.7 1996/10/15 13:45:56 reece Exp $ ';
+$RCSId =~ s/\$//g; $RCSId =~ s/\s+$//;
+
+printf("#$RCSId\n#interval=${interval}s\n".
+	   "      %-${width}.${width}s  ||       %-${width}.${width}s\n",
+	   "freescale=${freescale}", "faultscale=${faultscale}");
+
+open (*vm,"vmstat $interval|");
+while (<vm>)
+	{
+	(($.<6) || (!/^\s+\d/)) && next;						# $.<=5 are unusable/unreliable
+
+	# line sometimes missing space delimiters because of overflow -- can't
+	# use split /\s+/.
+	($nfree,$nfault) = m/^...............\s+(\d+K?)\s+\d+K?\s+(\d+K?)\s+/;
+
+	($nfree  =~ /(\d+)K/) && ($nfree=$1*1000);
+	($nfault =~ /(\d+)K/) && ($nfault=$1*1000);
+
+	printf
+	  "%5d %-${width}.${width}s%c || %5d %-${width}.${width}s%c\n",
+	  $nfree , "*" x ($nfree/$freescale)  , ($nfree/$freescale>$width)  ?ord('>'):ord(' '),
+	  $nfault, "*" x ($nfault/$faultscale), ($nfault/$faultscale>$width)?ord('>'):ord(' ');
+	}

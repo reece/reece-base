@@ -1,0 +1,90 @@
+#!/usr/bin/env perl
+# qxargs -- run cmd with args from stdin
+# $Id: qup,v 1.2 2003/10/22 19:32:27 rkh Exp $
+# usage: qxargs [--job-prefix=pfx] [qsub options] command <args
+# eg$ <targets qxargs -%10 -qsomequeue dothis
+
+use strict;
+use warnings;
+use Getopt::Long qw(:config gnu_getopt);
+use IO::File;
+
+
+my %opts =
+  (
+   'job-prefix' => $ENV{USER} || 'qx',
+   'modulo' => undef,
+   'qsub-args' => [],
+   'jobs' => undef,
+   'shared-directory' => "$ENV{HOME}/tmp",
+  );
+
+GetOptions(\%opts,
+		   'job-prefix|N=s',
+		   'modulo=s@',
+		   'jobs=i',
+		   'qsub-args=s@',
+		   #'qsub-args|a|A|c|C|e|h|I|j|k|l|m|M|o|p|q|r|S|u|v|V|W|z' 
+		   #   => sub { push(@{$opts{'qsub-args'}},@_) },
+		  )
+  || die("usage\n");
+
+(defined $opts{'jobs'})
+  || die("$0: didn't define --jobs\n");
+
+if (not $opts{'job-prefix'} =~ m/\%\d*d/) {
+  $opts{'job-prefix'} .= '-%d';
+}
+
+if (not defined $opts{'modulo'}) {
+  @{$opts{'modulo'}} = ( '0..' . ($opts{'jobs'}-1) );
+}
+
+if (not (-d $opts{'shared-directory'}
+		 and -w $opts{'shared-directory'})) {
+  die("$0: $opts{'shared-directory'} is not a writable directory\n");
+}
+
+
+my @command = @ARGV;
+undef @ARGV;
+my @qsub = ('qsub',@{$opts{'qsub-args'}});
+my @modulos = map { eval "$_" } @{$opts{'modulo'}};
+my %modulos = map { $_ => 1 } @modulos;
+my @args;
+
+foreach my $m (@modulos) {
+  @{$args[$m]} = ();
+}
+
+my $m = -1;
+while( my $line = <> ) {
+  chomp( $line );
+  $m++;
+  $m=0 if ($m == $opts{jobs});
+  push(@{$args[$m]}, $line) if exists $modulos{$m};
+}
+
+
+my $fh = new IO::File;
+
+foreach my $m (@modulos) {
+  my $N = sprintf($opts{'job-prefix'},$m);
+  my $fn = "$opts{'shared-directory'}/qxargs-$$-$N";
+  print(STDERR "# $N: $fn\n");
+
+  $fh->open(">$fn")
+	|| die("$0: $fn: $!\n");
+  $fh->print(join("\n",@{$args[$m]}));
+  $fh->close();
+
+
+  open(QSUB,"|@qsub")
+   || die("couldn't @qsub\n");
+  print(QSUB "#PBS -N $N\n");
+  print(QSUB "cd $ENV{PWD}\n");
+  print(QSUB "xargs <$fn @command\n");
+  print(QSUB "/bin/rm '$fn'\n");
+  close(QSUB);
+}
+

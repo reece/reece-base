@@ -1,0 +1,54 @@
+#!/usr/local/bin/perl -w
+##
+## $RCSfile: pdbsummary.pl,v $
+## $Revision: 0.5 $
+## $Date: 1998/07/06 20:59:34 $
+##
+## NAME
+## pdbsummary -- summarize data in a pdb file
+##
+## SYNOPSIS
+## pdbsummary [files...]
+## If no files are listed on the command line, filenames are assumed to be
+## given on stdin.
+##
+## REQUIREMENTS
+## PDB::Summarize
+##
+## @@banner@@
+## 
+
+$RCSId = '$Id: pdbsummary.pl,v 0.5 1998/07/06 20:59:34 reece Exp $ ';
+$RCSId =~ s/\$//g; $RCSId =~ s/\s+$//;
+
+use PDB::Summarize;
+
+if (@ARGV)
+  {processfile($file) while ($file = shift);}
+else
+  {processfile($_) while (<>);}
+
+exit 0;
+
+sub processfile
+  {
+  my ($file)=shift;
+  my ($id,
+	  $class,
+	  $date,
+	  $compound,
+	  $source,
+	  $authors,
+	  $resolution,
+	  $rvalue,
+	  $rmsdangles,
+	  $rmsdbonds) = Summarize($file);
+  
+  printf("* %4.4s | %s | %s | %s | %s | %s\n",
+		 $id,
+		 (defined $resolution ? sprintf("%5.2f",$resolution) : ' N/A '),
+		 $date,
+		 $compound,
+		 $class,
+		 $authors);
+  }

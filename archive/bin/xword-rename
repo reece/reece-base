@@ -1,0 +1,27 @@
+#!/usr/local/bin/perl
+# rename xword crosswords from http://ns1.fidalgo.net/~ram/XWORD.HTM
+# to sane names which aren't bound by the baroque naming requirements of a 
+# 2-bit operating system
+
+while( $#ARGV > -1 )
+  {
+  my($fn) = shift;
+  my($fnr,$nfn);
+  if (not open(F,$fn))
+	{
+	warn("$fn: $!\n");
+	next;
+	}
+  $_ = <F>;
+  ($nfn) = m/^([^\0]+)/;
+  $nfn = lc($nfn);
+  $nfn =~ s/\//-/g;
+  $nfn =~ s/ /-/g;
+
+  $fnr = $fn =~ /^\// ? $fn : "./$fn";
+  $fnr =~ s/\/[^\/]+$//;
+  $nfn = "$fnr/$nfn.pdb";
+  print("$fn -> $nfn\n");
+  rename($fn,$nfn);
+  close(F);
+  }

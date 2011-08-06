@@ -1,0 +1,135 @@
+#!/usr/local/bin/perl -w
+##
+## $RCSfile: frelabel.pl,v $
+## $Revision: 0.8 $
+## $Date: 1998/02/13 04:12:02 $
+##
+## NAME
+## relabel -- relabel fortran statements
+##
+## SYNOPSIS
+## relabel file [...]
+##
+## DESCRIPTION
+## This script sequentially renumbers labels in fortran programs.  It
+## recognizes labels (by definition, a numeric tag in columns 1-5
+## inclusive) and automatically adjusts references to the labels for
+## read (format and err), write, and goto.  Warnings are printed for
+## lines which contain text which matches an orignal label (as a
+## safeguard against unmatches lines and references inside comments
+##
+## EXAMPLE
+## relabel file.f > newfile.f
+##
+## INSTALLATION
+##
+## @@banner@@
+## 
+
+$maybemissedalert=0;
+
+foreach $filename (@ARGV)
+  {
+  print STDERR "$filename...\n";
+  relabel($filename);
+  }
+
+sub relabel
+  {
+  my($filename)=$_[0];
+  my(%label);
+  my($serial)=0;
+  
+  open(FILE,$filename) || do {warn "couldn't open $filename: $!"; return;};
+  
+  while (<FILE>)
+	{
+	(eof() || (/^\s{6}(function|program|subroutine)\s+(\w+)/))
+	  && (defined $routine)
+	  && (defined $labels{$routine})
+	  && print(STDERR '    ',
+			   join( ',', map( {sprintf("%s->%s",$_,$labels{$routine}{$_})}
+							   (sort {$labels{$routine}{$a} <=> $labels{$routine}{$b}}
+								keys %{$labels{$routine}}))), "\n");
+	if (/^\s{6}(function|program|subroutine)\s+(\w+)/)
+	  {
+	  $routine=$1.' '.$2;
+	  $serial=0;
+	  print STDERR "  $routine\n";
+	  }
+	elsif (m/^\s*(\d{1,5})\s/)				# labelled line
+	  {
+	  $labels{$routine}{$1}=++$serial*10;
+	  }
+	}
+
+
+  seek(FILE,0,0); $.=0;						# reset to beginning
+  
+  # Generate regular expression for labels
+  # and print labels
+  foreach $routine (keys %labels)
+	{
+	$labelre{$routine} = '\D'.join ('\D|\D',keys %{$labels{$routine}}).'\D';
+	}
+  
+  while (<FILE>)
+	{
+	$modified=0;
+	
+	if (/^\s{6}(function|program|subroutine)\s+(\w+)/)
+	  {
+	  $routine=$1.' '.$2;
+	  print;
+	  next;
+	  }
+	if (/^\S/)
+	  {
+	  print;
+	  next;
+	  }
+
+	if (m/^\s*(\d{1,5})\s/)					# labelled line
+	  {
+	  $newlabel = sprintf("%5d",$labels{$routine}{$1});
+	  s/^...../$newlabel/;
+	  $modified++;
+	  }
+	
+	if (/goto/)
+	  {
+	  s/goto\s+(\d+)/goto $labels{$routine}{$1}/x;
+	  $modified++;
+	  }
+	
+	if (/write/)
+	  {
+	  s/write\s*\(([^,]+),\s*(\d+)\s*\)/write($1,$labels{$routine}{$2})/x;
+	  $modified++;
+	  }
+	
+	if (/read/)
+	  {
+	  s/(read\s*\([^,]+),\s*(\d+)\s*\)/$1,$labels{$routine}{$2})/x;
+	  $modified++;
+	  }
+  
+    if (/read|open/)
+	  {
+	  s/(end|err)=(\d+)/$1=$labels{$routine}{$2}/gx;
+	  $modified++;
+	  }
+  
+    if (($maybemissedalert)
+		&& defined($labelre{$routine})
+		&& (/$labelre{$routine}/)
+		&& (!$modified))
+	  {
+	  warn "$filename:$.:$routine: line contains a number which may be a missed label\n>$_";
+	  }
+  
+    print;
+  }
+
+  close(FILE);
+}

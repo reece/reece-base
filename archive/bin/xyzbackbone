@@ -1,0 +1,62 @@
+#!/usr/local/bin/perl -w
+# xyzbackbone.pl -- print backbone atoms only
+
+BEGIN  {$RCSId = '$Id: xyzbackbone.pl,v 0.3 2000/07/22 22:59:43 reece Exp $ ';
+		$main::verbose = 1;
+		print(STDERR "# $RCSId\n") if ($main::verbose);}
+
+use Tinker;
+use atom;
+
+($jemappelle=$0) =~ s,^.*/,,;
+
+%options = %Tinker::options;
+Tinker::parseoptions(\%options, 'min_chain_length=i mcl>min_chain_length');
+
+
+$fn = shift
+  || die("usage: $jemappelle xyzfile\n");
+$strx = Tinker::readxyz($fn)
+  || die("$fn: $!\n");
+$aref = Tinker::buildatoms(\$strx);
+
+printf(STDERR "# read %d atoms\n", $#$aref);
+
+for($i=1; $i<=$#$aref; $i++)
+  {$aref->[$i]->Map_Connections($aref);}
+
+
+@backbone = ();
+$nchains = 0;
+for($i=1; $i<=$#$aref; $i++)
+  {
+  next unless defined $aref->[$i];
+  if ($aref->[$i]->{'name'} =~ m/^N/)
+	{
+	my(@chain) = $aref->[$i]->Find_Backbone();
+	next if ($#chain == -1);
+	next if ( defined $options{min_chain_length}
+			  and ( $#chain < $options{min_chain_length}) );
+	$nchains++;
+	push(@backbone, @chain);
+	printf(STDERR "chain %d. %d atoms / %d residues\n", 
+		   $nchains, (1+$#chain), (1+$#chain) / 3);
+	$i = $chain[$#chain]->{'number'};  # continue search from tail of chain
+	}
+  }
+
+
+@isbackbone = ();
+for($i=0; $i<=$#backbone; $i++)
+  {$isbackbone[$backbone[$i]->{'number'}]++}
+
+
+$title = Tinker::title(\$strx);
+$title =~ s/\s{2,}/ /g;
+printf("%6d  %s backbone\n", 1+$#backbone, $title);
+for($i=0; $i<=$#backbone; $i++)
+  {
+  my(@connr) = grep {defined $isbackbone[$_->{'number'}]} @{$backbone[$i]->{'connr'}};
+  print( $backbone[$i]->stringxyz(@connr) ,"\n" );
+  }
+

@@ -1,0 +1,124 @@
+#!/bin/sh
+# setcontext -- output environment variables for cbc execution
+# $Id: setcontext,v 0.5 2000/06/29 19:55:40 reece Exp $
+# 2000/02/14 17:02 Reece Hart <reece@watson.ibm.com>
+
+# usage: setcontext [path1 [path2 [path3...]]]
+# The search order will be path1, path2, etc
+# typically, try
+#   setcontext ~/cbc /farm/protein/cbc
+
+# IMPORTANT: this script isn't worth much unless the result
+# is eval'd by your shell, as in:
+#   eval `setcontext ~/cbc /farm/protein/cbc`
+# You may wish to use an alias for this.  In a Bourne-derived shell, try
+#   sc () { eval `/farm/protein/cbc/opt/bin/setcontext "$@"`; }
+# In a C-shell derivative, try:
+#   (example needed)
+# this script will barf if paths elements contain a colon (:)
+# To revert paths to the original settings, call setcontext without args:
+#   eval `setcontext`
+
+
+# migrate to this:
+# $ (no)use [path|pkg]...
+# if arg is /path/to/directory/, use as is
+# otherwise, look for unambiguous @{PATH}/pkgs/`arg' and use as if path
+# then, if -f path/.userc -- eval/source it
+# else prepend path/{bin,lib,man,perl5} to PATH, LD_LOAD_LIBRARY, etc.
+
+
+# print a variable as either a Bourne or csh style environment variable
+CSH=`expr "$SHELL" : '.*csh' 2>/dev/null`
+print_variable () 
+  { 
+  if eval "[ -z \"\$$1\" ]"; then return; fi
+  if [ "$CSH" = 0 ]; then eval echo "export $1=\$$1";
+  else                    eval echo "setenv $1 \$$1\;"; fi;
+  }
+
+
+# preserve original value of variables if first call to cbccontext
+# we'll use these if the context changes
+# Note that if someone changes the PATH or PERL5LIB variables manually
+# after calling cbccontext for the first time, those changes will be lost.
+if [ -z "$CONTEXT" ]
+then
+  # add new variables here
+  ORIG_PATH="$PATH"
+  ORIG_PERL5LIB="$PERL5LIB"
+  ORIG_LD_LIBRARY_PATH="$LD_LIBRARY_PATH"
+  ORIG_C_INCLUDE_PATH="$C_INCLUDE_PATH"
+  ORIG_prefix="$prefix"
+  ORIG_exec_prefix="$exec_prefix"
+
+  # add new variables here
+  print_variable ORIG_PATH  
+  print_variable ORIG_PERL5LIB  
+  print_variable ORIG_LD_LIBRARY_PATH
+  print_variable ORIG_C_INCLUDE_PATH
+  print_variable ORIG_prefix
+  print_variable ORIG_exec_prefix
+fi
+
+
+platform ()
+	{
+	tolower () { sed -e 's/  */-/g;y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/'; }
+	OS=`uname -s`
+	OSVERSION=`uname -r`; OSVERSION=`expr "$OSVERSION" : '[^0-9]*\([0-9]*\.*[0-9]*\)'`
+	MACHINE=`uname -m`
+	if [ "$OS" = "AIX" ]; then
+		echo "$OS-$OSVERSION" | tolower
+	else
+		echo "$MACHINE-$OS-$OSVERSION" | tolower
+	fi
+	}
+
+# set PLATFORM variable if not already set
+PLATFORM=`platform`
+print_variable PLATFORM
+
+
+# prefix and exec_prefix (first elem of args)
+if [ -n "$1" ]; then
+  prefix="$1/opt"
+  exec_prefix="$1/opt/$PLATFORM"
+else
+  prefix="$ORIG_prefix"
+  exec_prefix="$ORIG_exec_prefix"
+fi
+
+# initialize variables
+# add new variables here
+CONTEXT=
+PATH=
+PERL5LIB=
+LD_LIBRARY_PATH=
+C_INCLUDE_PATH=
+
+
+# concat new path elements from args in order given
+SEP=''
+while [ $# -gt 0 ]; do
+  # add new variables here
+  if [ -n "$CONTEXT" ]; then SEP=':'; fi
+  PATH="$PATH$SEP$1/opt/$PLATFORM/bin:$1/opt/bin";
+  LD_LIBRARY_PATH="$LD_LIBRARY_PATH$SEP$1/opt/$PLATFORM/lib:$1/opt/lib";
+  PERL5LIB="$PERL5LIB$SEP$1/opt/lib/perl5";
+  C_INCLUDE_PATH="$C_INCLUDE_PATH$SEP$1/include"
+  CONTEXT="$CONTEXT$SEP$1";
+  shift
+done
+if [ -n "$CONTEXT" ]; then SEP=':'; fi
+
+# append the default paths
+PATH="$PATH$SEP$ORIG_PATH"
+PERL5LIB="$PERL5LIB$SEP$ORIG_PERL5LIB"
+LD_LIBRARY_PATH="$LD_LIBRARY_PATH$SEP$ORIG_LD_LIBRARY_PATH"
+C_INCLUDE_PATH="$C_INCLUDE_PATH$SEP$ORIG_C_INCLUDE_PATH"
+
+# dump variables
+for v in CONTEXT PATH PERL5LIB LD_LIBRARY_PATH C_INCLUDE_PATH prefix exec_prefix; do
+  print_variable $v
+done

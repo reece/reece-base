@@ -1,0 +1,7 @@
+#!/usr/local/bin/perl -w
+# example: findex.pl */*.f | pr -2t | enscript -2Gr
+$d="\n  ";
+while(<>)
+  {(m/^\s+(subroutine|function|program)\s+(\w+)/) && push(@{$def{"$2 ($1)"}}, "$ARGV: $.")}
+foreach $t (sort {lc($a) cmp lc($b)} keys %def)
+  {print($t,$d,join($d, @{$def{$t}}),"\n")}

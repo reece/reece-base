@@ -1,0 +1,87 @@
+#!/usr/bin/perl
+# mail-refile-by-age -- move mail based on age
+# eg$ mail-refile-by-age ~/mail/harts.net/reece/.quarantine
+
+
+use strict;
+use warnings;
+
+use File::Basename;
+use File::Find;
+use File::Glob;
+use File::Path;
+use POSIX qw(strftime);
+
+
+my %age_bin =
+  (
+   0 => '0-today',
+   1 => '1-yesterday',
+   7 => '2-last-7d',
+   28 => '3-last-28d',
+  );
+my @ages = sort { $a <=> $b } keys %age_bin;
+my $default_bin = '9-ancient';
+my $sec_per_day = 24*60*60;
+
+my $MAILDIRMAKE = '/usr/lib/courier-imap/bin/maildirmake';
+
+our $top_dir;
+
+foreach $top_dir (@ARGV) {
+  find(
+	   { wanted => \&process },
+	   <$top_dir.*/{cur,new}>
+	  );
+}
+
+exit(0);
+
+
+############################################################################
+
+
+# $File::Find::dir is the current directory name,
+# $_ is the current filename within that directory
+# $File::Find::name is the complete pathname to the file.
+
+sub process {
+  my ($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_)
+	|| return;
+
+  my $bin = $default_bin;
+
+  return unless -f $File::Find::name;
+
+  for my $age (@ages) {
+	if ( int(-M _) <= $age) {
+	  $bin = $age_bin{$age};
+	  last;
+	}
+  }
+
+  my $new_name = $File::Find::name;
+  $new_name =~ s%^$top_dir[^/]+/%$top_dir.$bin/%;
+
+  mv($File::Find::name,$new_name);
+}
+
+
+sub mv {
+  my ($src, $dst) = @_;
+
+  return if ( $src eq $dst );
+
+  my $dst_mail_dir = dirname( dirname( $dst ) );
+
+  if (not -d $dst_mail_dir) {
+	system($MAILDIRMAKE,$dst_mail_dir) == 0
+	  or die("maildirmake($dst_mail_dir): $!\n");
+  }
+
+  rename($src,$dst)
+	|| die("rename($src,$dst): $!\n");
+
+  print("$src -> $dst\n");
+}
+

@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+# date-morph -- reset sys clock by a given delta
+# eg$ date-morph $((-60*60*24*2))
+# resets the clock back exactly two days
+
+
+if ($#ARGV != 0) {
+  die("usage: $0 <seconds>\n");
+}
+
+my $delta = shift;
+my @lt = localtime(time() + $delta);
+my @cmd = ('/bin/date',
+		   #  MMDDhhmm[[CC]YY][.ss]]
+		   sprintf("%02d%02d%02d%02d%04d.%02d",
+				  $lt[4]+1,$lt[3],$lt[2],$lt[1],$lt[5]+1900,$lt[0] ) );
+print "@cmd\n";
+exec(@cmd);

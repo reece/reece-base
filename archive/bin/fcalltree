@@ -1,0 +1,54 @@
+#!/usr/local/bin/perl -w
+##
+## $RCSfile: fcalltree.pl,v $
+## $Revision: 1.1 $
+## $Date: 1996/12/09 23:01:55 $
+##
+## NAME
+## fcalltree -- list subroutines and functions called from Fortran source
+##
+## SYNOPSIS
+## fcaltree [files...]
+##
+## EXAMPLE
+## $ fcalltree analyze.f
+## analyze.f: analysis,getxyz,gyrate,initial,mechanic,nextarg,upcase
+##
+## @@banner@@
+## 
+
+$RCSId = '$Id: fcalltree.pl,v 1.1 1996/12/09 23:01:55 reece Exp $ ';
+$RCSId =~ s/\$//g; $RCSId =~ s/\s+$//;
+($jemappelle=$0) =~ s,^.*/,,;
+
+foreach $FILE (@ARGV)
+  {
+  open(FILE)
+	|| do {warn "$jemappelle: couldn't open $FILE\n"; next};
+
+  while (<FILE>)
+	{
+	next if /^\S/;							# skip comments marked by any non-
+	# whitespace in first column
+	
+	if ( (m/program\s+(\w+)/)
+		 || (m/subroutine\s+(\w+)/) )
+	  {
+	  $parent=$1;
+	  next;
+	  }
+	
+	if ( (m/\scall\s+(\w+)/)
+		 || (m/\w\s+=\s+([a-zA-Z_]\w+)\s+\(/) )
+	  {
+	  if (undef $parent)
+		{
+		warn "$jemappelle: $FILE: line $.: call to $1 found before `program' or `subroutine'\n";
+		}
+	  $calls{$1}++;
+	  }
+	}
+
+  close(FILE);
+  print "$FILE: ", join(',', sort keys %calls), "\n";
+  }

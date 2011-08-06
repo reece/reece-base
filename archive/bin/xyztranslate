@@ -1,0 +1,36 @@
+#!/usr/local/bin/perl -w
+# $Id: xyztranslate.pl,v 0.1 2000/07/22 22:59:43 reece Exp $
+# translate coordinates of a Tinker xyz file
+# usage: xyztranslate dx dy dz [start [stop]] <in.xyz >out.xyz
+
+(defined ($dx = shift))
+  || die("missing x translation\n");
+(defined ($dy = shift))
+  || die("missing y translation\n");
+(defined ($dz = shift))
+  || die("missing z translation\n");
+
+($start,$stop) = (shift,shift);
+$start = 1 if not defined $start;
+# undefined stop => to end
+
+$_=<>; print;								# title line
+
+while(<>)
+  {
+  if (m/^\s+\d+/)
+	{
+	my($n,$t,$x,$y,$z,$rest) = split(' ',$_,6);
+	if ($n>=$start and (not defined $stop or $n<=$stop))
+	  {
+	  $x += $dx;
+	  $y += $dy;
+	  $z += $dz;
+	  }
+	printf("%6d %3.3s %12.6f%12.6f%12.6f   $rest",$n,$t,$x,$y,$z);
+	}
+  else
+	{
+	print;
+	}
+  }

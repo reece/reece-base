@@ -1,0 +1,42 @@
+#!/bin/sh
+
+BROWSER=firefox
+LOG=/tmp/open-url.log
+
+# errors to terminal if available, otherwise try xmessage
+if [ -t 0 ]; then
+		EMIT_ERROR='echo 1>&2'
+else
+		EMIT_ERROR='xmessage -center'
+fi
+
+
+# log if $LOG exists
+if [ -f $LOG ]; then
+		exec >>/tmp/open-url.log 2>&1
+		echo `date '+%Y%m%d %H:%M:%S'` : "$0 $@"
+		set -x
+fi
+
+if [ "$#" -eq "0" -o -z "$1" ]; then
+		$EMIT_ERROR "$0: I require one URL as an argument"
+		exit 1
+fi
+
+if ! type -p "$BROWSER" >/dev/null; then
+		xmessage -center "`type "$BROWSER" 2>&1`"
+		exit 2
+fi
+
+
+URL=$1
+
+if ! expr "$URL" : '\(http\|https\|ftp\|file\)' >/dev/null; then
+		if [ ${URL:0:1} != '/' ]; then
+				URL="$PWD/$URL"
+		fi
+		URL="file://$URL"
+		echo "$0: URL modified to $URL" 1>&2
+fi
+
+"$BROWSER" -remote "openURL($URL)" || exec "$BROWSER" "$1"

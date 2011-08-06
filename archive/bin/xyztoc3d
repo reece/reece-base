@@ -1,0 +1,26 @@
+#!/usr/local/bin/perl -w
+# $Id: xyztoc3d.pl,v 0.0 1998/09/30 15:57:58 reece Exp $
+# Tinker xyz to chem3d cartesian format 2
+# This punts on atoms types -- set to 6Z+valence
+
+@atoms = qw( ?
+			 H                                                  He 
+			 Li Be                               B  C  N  O  F  Ne
+			 Na Mg                               Al Si P  S  Cl Ar
+			 K  Ca Sc Ti V  Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr
+			 Rb Sr Y  Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I  Xe);
+for($i=0;$i<=$#atoms;$i++)
+  { $N{$atoms[$i]} = $i }
+
+$_ = <>;
+@F = split;
+printf("%d\n",$F[0]);
+while(<>)
+  {
+  s/^\s+//; chomp;
+  my($i,$l,$x,$y,$z,$t,$c) = split(/\s+/,$_,7);
+  my(@c) = split(/\s+/,$c);
+  my($cdt) = $N{substr($l,0,1)}*10 + $#c + 1;
+  print( sprintf("%-3.3s %5d %10.4f %10.4f %10.4f %4d",$l,$i,$x,$y,$z,$cdt),
+		  map(sprintf(" %4d",$_),@c), "\n");
+  }

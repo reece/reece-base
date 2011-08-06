@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+# md5dups.pl -- print duplicate files based on md5sums
+# usage: md5sum [files] | md5dups
+# output: lines like
+#   md5one file1
+#   md5two file2 file4 file5
+#   md5thr file3 file6
+# which means that 1 is unique, 2,4,5 are identical,
+# and 3,6 are identical.
+
+use strict;
+use warnings;
+
+my %md5;
+
+while( my $line = <> ) {
+  chomp $line;
+  my ($md5,$fn) = split(' ',$line,2);
+  push(@{$md5{$md5}},$fn);
+  }
+my @D = grep { $#{$md5{$_}} > 0 } (keys %md5);
+print(join( "\n", map( join("\t", @{$md5{$_}} ), @D ) ), "\n");

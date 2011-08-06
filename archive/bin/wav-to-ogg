@@ -1,0 +1,28 @@
+#!/bin/sh
+
+disc="$1"
+shift
+
+artist='Tamim Ansary'
+album='Destiny Disrupted'
+
+dst_dir="$HOME/Music/$artist/$album (disc $disc)"
+mkdir -p "$dst_dir"
+
+while [ $# -gt 0 ]; do
+	fn="$1"; shift;
+	basename="$(basename "$fn")"
+	basename=${basename%%.*}
+	N=$(expr "$basename" : 'Track \([0-9]*\)')
+	title=$(printf "$album, disc %02d, track %02d" $disc $N )
+	dst=$(printf "$dst_dir/%02d. $basename.ogg" $N)
+
+	echo "# $dst..."
+	oggenc \
+		--downmix --resample 11025 --quality 1 \
+		--genre 'audio book' \
+		--artist "$artist" --album "$album" --title "$title" \
+		--date 2009 --tracknum $N \
+		"$fn" -o "$dst"
+	
+done

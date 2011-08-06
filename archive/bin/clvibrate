@@ -1,0 +1,40 @@
+#!/usr/local/bin/perl -w
+# $Id: clvibrate.pl,v 0.3 1998/02/13 04:12:02 reece Exp $
+
+$RCSId = '$Id: clvibrate.pl,v 0.3 1998/02/13 04:12:02 reece Exp $ ';
+$RCSId =~ s/\$//g; $RCSId =~ s/\s+$//;
+($jemappelle=$0) =~ s,^.*/,,;
+
+use Tinker;
+use File::Temp;
+
+$SIG{'INT'}=sub {warn "\n$jemappelle: caught ^C interrupt... cleaning up\n";
+				 deletetmpfiles(); die "\n"};
+
+Tinker::parseoptions(\%Tinker::options);
+
+($#ARGV+1==1) 
+  || die "usage: $jemappelle args file\n";
+
+$nerrors=0;
+while ($#ARGV >= 0)
+  {
+  my ($file) = $ARGV[0];
+  my ($strx, $ev, $vib);
+  $strx = Tinker::readxyz($file);
+  if ( defined $strx )
+	{
+	($ev,$vib)=Tinker::vibrate(\$strx,\%Tinker::options); 
+	printf("%-15s ev : %s\n%-15s vib: %s\n"
+		   , $file, join(",",@{$ev})
+		   , $file, join(",",@{$vib})
+		  );
+	}
+  else
+	{
+	warn "$jemappelle: couldn't read $file\n";
+	$nerrors++;
+	}
+  shift;
+  }
+exit($nerrors);

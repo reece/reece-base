@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+# etc-hosts-update -- add ips for current subnet to /etc/hosts
+# This is needed because ReadyNAS NFS exports requires that clients
+# appears in /etc/hosts.
+
+use strict;
+use warnings;
+
+my $BREAK_TAG = "# $0";
+my $subnet;
+
+while (my $line = <>) {
+  last if $line =~ m/^$BREAK_TAG/;
+  print $line;
+  if ($. == 2) {
+    ($subnet) = $line =~ m/^(\d+\.\d+\.\d+)\./;
+  }
+}
+
+print ($BREAK_TAG, "\n");
+if (defined $subnet) {
+  print "$subnet.$_\n" for 1..254;
+}

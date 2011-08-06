@@ -1,0 +1,34 @@
+#!/bin/sh
+# sf-cvs-ssh-tunnel -- create a ssh tunnel for cvs access to sourceforge
+# usage:
+# sf-cvs-ssh-tunnel [project]
+
+
+
+
+RELAY_HOST=hn
+LIFETIME=3600
+LOGIN=anonymous
+
+project="$1"
+shift
+
+host=$project.cvs.sourceforge.net
+host_path=/cvsroot/$project
+host_port=2401
+
+local_port=$(($RANDOM * 1000 / 32767  + 2000))
+
+
+set -x
+
+ssh -f -L $local_port:$host:$host_port $RELAY_HOST sleep $LIFETIME \
+|| exit 1;
+
+echo | cvs -d:pserver:$LOGIN@localhost:$host_path login
+
+
+# cvs -d :pserver:cvs@code.open-bio.org:/home/repository/bioperl login
+# cvs -d :pserver:cvs@code.open-bio.org:/home/repository/bioperl checkout bioperl-live 
+# cvs -d :pserver:cvs@code.open-bio.org:/home/repository/bioperl checkout bioperl-ext
+# cvs -d :pserver:cvs@code.open-bio.org:/home/repository/bioperl checkout bioperl-run 

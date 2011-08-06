@@ -1,0 +1,173 @@
+#!/usr/bin/env perl
+# empfind -- do a quick ldap lookup on the command line
+
+use strict;
+use warnings;
+use Net::LDAP;
+#use Term::ANSIScreen;
+use Getopt::Long qw(:config gnu_getopt);
+use Data::Dumper;
+
+
+# LDAP column selections
+# hmm... perhaps better to have 3 different widths for $opts{extended} ==
+# 1,2, or 3
+# 0 width => hidden
+my @ALL_COLS = (
+			#w , key, 		         col heading              ext srch
+			[25 ,'cn' 				, 'name'				, 0	, 1],
+			[20 ,'mail' 			, 'email'				, 0	, 1],
+			[15 ,'telephoneNumber'	, 'telephone'			, 0	, 0],
+			[20 ,'postalAddress',   , 'address',			, 0 , 0],
+			[10, 'berkeleyEduPrimaryDeptUnit' , 'unit'		, 0 , 0],
+			[25, 'berkeleyEduUnitCalNetDeptName', 'dept'	, 0 , 0],
+			[20,,'berkeleyEduAffiliations', 'affiliation'	, 0 , 0],
+		   );
+
+
+my %opts =
+  (
+   # defaults for command line options
+   exact => 0,
+   extended => 0,
+   raw => 0,
+   'truncate-columns' => 0,
+   highlight => 0,							# requires Term::ANSIScreen
+   verbose => 0,
+   login => 0,
+
+   # unchangable options (er, non-options)
+   'lookup-admin' => 0,
+   'highlight-style' => 'REVERSE'
+  );
+
+GetOptions( \%opts, 
+			'exact|e+',
+			'extended|x+',
+			'raw+',
+			'truncate-columns|t',
+			'login|l+',
+			'verbose|v+',
+		  )
+  || die("usage: $0 [-ext] query [query...]\n");
+
+
+$opts{'lookup-admin'}++ if ($opts{'extended'} >= 3);
+
+my @cols = grep { $opts{extended} >= $_->[3] } @ALL_COLS;
+my $fmtfmt = $opts{'truncate-columns'} ? '%%-%d.%ds' : '%%-%ds';
+my $fmt = join( '|', map { sprintf($fmtfmt,$_->[0],$_->[0]) } @cols ) . "\n";
+
+my @srch_cols;
+if ($opts{login}) {
+  @srch_cols = qw(uid);
+  $opts{exact}++;
+} else {
+  @srch_cols = map { $_->[1] } grep { $_->[4] != 0 } @cols;
+}
+
+my %configs = 
+  ( 'genentech' => { host => 'ldap.gene.com',
+					 base_dn => 'o=Genentech' },
+	'berkeley' => { host => 'ldap.berkeley.edu',
+					base_dn => 'ou=people,dc=berkeley,dc=edu' }
+  );
+my $config = $configs{berkeley};
+
+
+# open a connection and initiate the search
+my $ldap = new Net::LDAP( $config->{host} )
+  || die("$@\n");
+$ldap->bind($config->{base_dn})
+  || die("bind failed\n");
+
+
+# table header
+printf($fmt, map {    $_->[2]} @cols);
+printf($fmt, map {'-'x$_->[0]} @cols);
+
+
+while( my $qterm = shift ) {
+  my $table = '';
+  my $qterm_re;
+  ($qterm_re = $qterm) =~ s/\Q*\E/.+?/g;		# LDAP glob -> re
+
+  my $query = ( $opts{'exact'} or $qterm =~ m/\*/ ) ? $qterm : "*$qterm*";
+  my $filter = sprintf('(&(!(berkeleyEduAffiliations=*-expired))(|%s))',
+					   join( '', map {"($_=$query)"} @srch_cols ) );
+
+  printf(STDERR "D%d: filter=%s\n",$opts{verbose},$filter) if $opts{verbose}>0;
+  my $mesg = $ldap->search (
+							base   => $config->{base_dn},
+							scope  => 'sub',
+							filter => $filter
+						   );
+  $mesg->code
+	&& die $mesg->error;
+
+  my @entries = sort( {    ( ($a->get_value('sn')||'')        cmp ($b->get_value('sn')||'')        )
+					    or ( ($a->get_value('givenname')||'') cmp ($b->get_value('givenname')||'') ) }
+					  $mesg->all_entries );
+
+  if (not @entries) {
+	print(STDERR "! no matches for $query\n");
+	next;
+  }
+
+  # construct a table for subsequently text highlighting
+  foreach my $entry (@entries) {
+	if ($opts{raw}) {
+	  print('-'x80, "\n", Dumper($entry), "\n");
+	  next;
+	}
+
+	my (%data) = map {$_->[1] => $entry->get_value($_->[1])||''} @cols;
+	$data{postalAddress} =~ s/\$.+//;
+	$table .= sprintf($fmt, map {$data{$_->[1]}} @cols);
+  }
+
+  # Print the table with syntactic highlighting
+  # Two misfeatures:
+  # 1) nonspecific patterns are, well, non-specific and clutter the table
+  # 2) the search is only on srchcols, but we highlight everywhere.
+  $table =~ s/$qterm_re/colored($&,$opts{'highlight-style'})/egi if ($opts{highlight});
+
+  print $table;
+}
+
+$ldap->unbind();
+
+exit(0);
+
+
+
+sub admin_lookup {
+  my ($ldap,$dn) = @_;
+  my $mesg = $ldap->search (
+							base   => $dn,
+							scope  => 'base',
+							sizelimit => 1,
+							filter => '(objectClass=person)'
+						   );
+  $mesg->code
+	&& die $mesg->error;
+
+  my $e = $mesg->entry(0);
+
+  return (defined $e ? $e->get_value('cn') : $dn);
+}
+
+
+sub __dump_entry {
+  my $e = shift;
+
+  print(STDERR "object:\n");
+  print(STDERR Dumper($e));
+
+  print(STDERR "\n\n\n");
+
+  print(STDERR "attributes:\n");
+  foreach my $a (sort keys %{$e->{attrs}}) {
+	printf(STDERR "%-20.20s: %s\n", $a, $e->get_value($a));
+  }
+}

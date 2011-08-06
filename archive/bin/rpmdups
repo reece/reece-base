@@ -1,0 +1,16 @@
+#!/usr/local/bin/perl -w
+# print duplicate modules in a list of files
+while (<>)
+  {
+  chomp;
+  if ( m/([^\/]+?)-(\d\.\d.*)(?:\.(i\d86|noarch)\.rpm)?/ )
+	{
+	$f{$1}{$_}++;
+	}
+  }
+foreach $r (sort keys %f)
+  {
+  my @h = sort {$b cmp $a} keys %{$f{$r}};
+  printf("%2d %-15s: %s\n",
+		 1+$#h, $r, join("\n".' 'x20,@h)) if ($#h>0);
+  }

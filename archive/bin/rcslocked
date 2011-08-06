@@ -1,0 +1,27 @@
+#!/usr/local/bin/perl
+#
+# rcs[un]locked
+#   return list of files which are locked or unlocked by RCS
+#
+# $Id: rcslocked.pl,v 1.4 1998/09/29 04:27:13 reece Exp $
+# Reece Hart (reece@in-machina.com)
+#
+# usage:
+#   rcs[un]locked [-lu] files...
+#   l: print locked files (default for rcslocked)
+#   u: print unlocked files (default for rcsunlocked)
+#
+
+use RCS;
+require "getopts.pl";
+
+&Getopts('lu');
+
+die "Can't specify both -u and -l" if ($opt_l && $opt_u);
+$opt_l = !$opt_u;
+$wantlocked = $opt_l;
+
+for $file (@ARGV)
+	{
+	($wantlocked == RCS::locked($file)) && print "$file\n";
+	}

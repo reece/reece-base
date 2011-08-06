@@ -1,0 +1,75 @@
+#!/usr/bin/perl
+# irv -- instant runoff voting machine
+# $Id: irv.pl,v 1.2 2007/06/15 23:56:28 rkh Exp rkh $
+#
+# usage:
+# eg$ irv <votes
+#
+# The input is a set of ranked votes, one per line.
+# Each ranked vote line is a list of candidates in order of decreasing
+# preference.
+#
+# Lines are pre-filtered so that subsequent votes for the same candidate
+# are annulled.
+
+use strict;
+use warnings;
+
+my %opts =
+  (
+   'elim-zero-votes' => 1,
+  );
+
+
+my @votes = ();
+my %eliminated;
+my %candidates;
+
+while (my $v = <>) {
+  chomp($v);
+  push(@votes, $v);
+}
+
+%candidates = map { $_=>1 } map { split(//,$_) } @votes;
+
+my $round = 0;
+my %elim;
+my $n_voters = $#votes+1;
+print("# n_voters = $n_voters\n");
+while (@votes) {
+  # Invariant: the first char of each voter string is their current vote
+  # (ie, after elimination of candidates in previous rounds)
+
+  my %counts;
+  my @standings;
+
+  $round++;
+
+  print("* round $round\n");
+  printf("  %d voters remain\n", $#votes+1);
+  print( " ", (map { sprintf(" %-5.5s", $_ ) } @votes), "\n");
+
+  if ($round == 1 and $opts{'elim-zero-votes'}) {
+	%counts = map {$_=>0} keys %candidates;
+  }
+  $counts{$_}++ for (map {substr($_,0,1)} @votes);
+  @standings = sort { $counts{$b} <=> $counts{$a} or $a cmp $b } keys %counts;
+  print( (map { sprintf("  $_:%2d",$counts{$_}) } @standings), "\n" );
+
+  my ($winner) = grep { $counts{$_} > $n_voters/2 } @standings;
+  if (defined $winner) {
+	print("The winner is $winner with $counts{$winner} counts in round $round\n");
+	exit;
+  }
+
+  # no winner in this round
+  # Eliminate all bottom-ranked candidates with same score from voting
+  # selections.
+  my $last = (grep {not $elim{$_}} reverse @standings)[0];
+  print("  last: $last\n");
+  $elim{$_}++ for grep { $counts{$_} == $counts{$last} } @standings;
+  my $elim_set = join('',sort keys %elim);
+  print("  elim: $elim_set\n");
+  @votes = grep {$_} map { s/[$elim_set]+//; $_ } @votes;
+}
+

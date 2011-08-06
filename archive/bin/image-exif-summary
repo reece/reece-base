@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Image::ExifTool qw(:Public);
+use Data::Dumper;
+use Date::Parse;
+use POSIX qw(strftime);
+use File::Path qw(mkpath);
+use File::Basename qw(fileparse dirname);
+
+my @keys = qw(FileNumber DateTimeOriginal ImageWidth ImageHeight);
+
+my $exifTool = new Image::ExifTool;
+
+while( my $fn = shift ) {
+  if (not -f $fn) {
+	warn("$fn: No such file\n");
+	next;
+  }
+  my $info = $exifTool->ImageInfo( $fn );
+#  die(join("\n",sort keys %$info));
+  print( join("\t", (map { $_||'' } @$info{@keys}), $fn), "\n");
+}

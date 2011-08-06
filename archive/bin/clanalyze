@@ -1,0 +1,43 @@
+#!/usr/local/bin/perl -w
+
+BEGIN  {$RCSId = '$Id: clanalyze.pl,v 1.14 2000/07/22 22:59:43 reece Exp $ ';
+		print(STDERR "# $RCSId\n");}
+
+use Tinker;
+
+($jemappelle=$0) =~ s,^.*/,,;
+unshift(@ARGV,$ENV{$jemappelle}) if (defined($ENV{$jemappelle}));
+
+%options = %Tinker::options;
+Tinker::parseoptions(\%options, 'overwrite');
+die("$jemappelle: no parameter file specified\n") if (not defined $options{'paramsfile'});
+
+
+printf("  %-20s E(%s)\n", 'file', $options{'paramsdesc'});
+foreach $FILE (@ARGV)
+  {
+  ($strx=Tinker::readxyz($FILE))
+	|| do {warn "$jemappelle: couldn't read $FILE\n"; next};
+  %analyze=Tinker::analyze(\$strx,\%options);
+  if (! defined $analyze{'total'})
+	{
+	warn "$jemappelle: analyze failed for $FILE\n";
+	next;
+	}
+  Tinker::comment(\$strx,sprintf('E(%s)=%.6f',$options{'paramsdesc'},$analyze{'total'}));
+  printf "* %-20s % 10.6f\n", $FILE, $analyze{'total'};
+
+  $mag=0;
+  foreach $term (grep (!/^total$/,keys %analyze))
+	{$mag += abs($analyze{$term})};
+
+  foreach $term
+	(sort {abs($analyze{$b}) <=> abs($analyze{$a})}	# by contribution to total E
+	 grep (!/^total$/,keys %analyze))
+	{
+	printf("  %-20s % 10.6f (%5.2f%%)\n",
+		   $term, $analyze{$term}, abs($analyze{$term})/$mag*100);
+	}
+
+  Tinker::writexyz($FILE,\$strx) if defined $options{'overwrite'};
+  }

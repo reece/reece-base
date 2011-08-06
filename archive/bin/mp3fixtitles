@@ -1,0 +1,57 @@
+#!/usr/bin/perl -w
+
+$doit = shift;
+
+undef $/;
+while( defined (my $cddbp = shift) )
+  {
+  # get titles
+  if (not open(F,"<$cddbp"))
+	{ warn("! $cddbp: $!\n"); next; }
+  $_ = <F>;
+  close(F);
+  my(@titles) = sort( m% TTITLE\d+ \s* = \s* (.+) %xg );
+  my(%fw);
+  foreach $_ (@titles)
+	{
+	my($fw) = m/^(\S+)/;
+	push(@{$fw{$fw}},$_);
+	}
+
+  # get direct
+  $cddbp = "./$cddbp" unless $cddbp =~ m%/%;
+  my($dir) = $cddbp =~ m% (.+) / [^/]+ $%x ;
+  opendir(D,$dir)
+	|| die("$dir: $!\n");
+  my(@mp3files) = grep { m/\.mp3$/} readdir(D);
+  closedir(D);
+
+  printf(STDERR "# %d titles, %d mp3files in $dir\n", $#titles+1,$#mp3files+1);
+  warn("!!!! #titles != #mp3files\n") unless ($#titles == $#mp3files);
+
+  # rename
+  for $_ (@mp3files)
+	{
+	my($fwf) = m%^(\S+)\.mp3$%;
+	next if (not defined $fwf);
+	#print(STDERR "fwf = $fwf\n");
+	if (not exists $fw{$fwf})
+	  { warn("no match for $_\n"); next; }
+	#print(STDERR "fw{fwf} = ", join(',',@{$fw{$fwf}}),"\n");
+	if ($#{$fw{$fwf}} > 0)
+	  { warn("more than one match for $_\n"); next; }
+
+	ren("$dir/$_","$dir/".$fw{$fwf}[0].'.mp3');
+	}
+
+  #ren($mp3files[$_],"$dir/".$titles[$_].'.mp3') 
+#	for 0..($#titles<$#mp3files ? $#titles : $#mp3files);
+  }
+
+sub ren
+  {
+  my($from,$to) = @_;
+  return if ($from eq $to);
+  print("$from -> $to", ($doit?"  (done)\n":"\n"));
+  rename($from,$to) if $doit;
+  }
