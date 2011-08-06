@@ -17,7 +17,9 @@ if [ -n "$PS1" ]; then	# interactive
    source_dot_bash functions
     
    source_dot_bash status-line
-fi				# interactive
+
+   source_dot_bash scala
+fi
 
 source_dot_bash FINALIZE
 source_dot_bash CLEANUP

@@ -10,7 +10,3 @@ if [ "$COLORIZE" = 1 ]; then
 		eval "`TERM=xterm dircolors $HOME/.dir_colors`"
 	fi
 fi
-
-
-source ~/.svm/svm.sh
-svm use 2.8.1.final

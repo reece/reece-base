@@ -2,6 +2,12 @@
 
 #LN_FLAGS=${LN_FLAGS:--f}
 
+if ! type realpath 2>/dev/null; then
+	echo "realpath not found: try sudo apt-get install realpath" 1>&2;
+	exit 1
+fi
+
+
 ROOT=$(dirname $(dirname $(realpath "$0")))
 REL_ROOT=${ROOT#$HOME/}
 cd $HOME
