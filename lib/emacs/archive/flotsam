@@ -1,0 +1,229 @@
+(defun a2ps-buffer ()
+  "print the entire buffer using a2ps-region.  See that for more info."
+  (interactive)
+  (a2ps-region (point-min) (point-max) (buffer-name)))
+
+(defun a2ps-region (start end &optional header)
+  "print the current region using a2ps; no errors are caught"
+  (interactive "r")
+  (let*
+	  ((command (concat "a2ps -8 -B -v"
+						" -t" tab-width
+						" '-H" (if header
+								   header
+								 (concat "excerpt of " (buffer-name))) "'"
+								 " >/dev/null 2>&1"))
+	   (shell-file-name "/bin/sh")
+	   )
+    (shell-command-on-region start end command nil)
+    (message command)
+	))
+
+(defvar citation-labels nil
+  "Available citation labels.  Set it by visiting a bibtex buffer and eval'ing
+ (setq citation-labels (citation-collect-labels))")
+
+(defun bibtex-collect-labels ()
+  "(bibtex-collect-labels)
+Returns an alist of the bibtex labels in the current buffer.  This list is
+suitable for passing to completing-read, for instance."
+  (let* (label
+		 labels
+		 (case-fold-search t))
+	(save-excursion
+	  (goto-char (point-min))
+	  (while
+		  (re-search-forward
+		   "\\(^@[a-z]+[ \t\n]*[{(][ \t\n]*\\([^ ,\t\n]+\\)[ \t\n]*,\\)\\|\\(^[ \t\n]*crossref[ \t\n]*=[ \t\n]*[{\"]\\([^ ,\t\n]*\\)[}\"],$\\)"
+		   nil t)
+		(if (match-beginning 2)
+			(setq label (buffer-substring (match-beginning 2) (match-end 2)))
+		  (setq label (buffer-substring (match-beginning 4) (match-end 4))))
+		(if (not (assoc label labels))
+			(setq labels (cons (list label) labels)))))
+	labels))
+
+(defun citation-insert (&optional LABEL)
+  (interactive)
+  (let* ((citation-backward-search-limit 50)
+		 (citation-forward-search-limit 50)
+		 (completion-ignore-case t)
+		 ;; determine the bounds of the current citation list if we're in one
+		 ;; o is where we started; b is the [ to our left or nil if none (within
+		 ;; citation-backward-search-limit); e is ] to our right or nil.
+		 (o (point))
+		 (e (+ o (skip-chars-forward "^[]" (+ o citation-forward-search-limit))))
+		 (e (if (= (following-char) (string-to-char "]")) e nil))
+		 (b (+ o (skip-chars-backward "^[]" (- o citation-backward-search-limit))))
+		 (b (if (= (preceding-char) (string-to-char "[")) b nil))
+		 ;; get label to be inserted if not supplied as argument
+		 (labels (or citation-labels (bibtex-collect-labels)))
+		 (label (if LABEL
+					(if (not (assoc LABEL labels))
+						(error "Can't insert %s: No such citation!" LABEL)
+					  LABEL)
+				  (completing-read "Citation label: " labels nil t)))
+		 ) ;; variables of let*
+	(cond
+	 ((and b e (<= b e))
+	  ;; inside a citation list delimited by [].  The point is at the first
+	  ;; character inside the [ (left there by re-backward-search).
+	  ;; skip across the citations to find the appropriate place to insert
+	  (while (and (not (looking-at "]"))
+				  (citation-label<
+				   (progn (looking-at "\\([^],]*\\)") (match-string 1))
+				   label)
+				  )
+		(skip-chars-forward "^],")
+;		(if (not (looking-at "]")) (skip-chars-forward ", "))
+		(if (not (= (following-char) (string-to-char "]")))
+			(skip-chars-forward ", "))
+		)
+	  ;; 4 cases inserting into an existing list: insert in a 1) null list
+	  ;; or at the 2) start, 3) middle, or 4) end of a non-null list.
+	  (if (string= 
+		   label
+		   (progn (looking-at "\\([^],]*\\)") (match-string 1)))
+		  (error "%sCitation `%s' already in list!"
+				 (if prefix-function-name "citation-insert: " "")
+				 label
+				 )
+		(insert
+		 (if (not (save-excursion (re-search-backward "[[, ]" (- (point) 2) t)))
+			 ", " "")
+		 label
+		 (if (not (= (following-char) (string-to-char "]")))
+			 ", " "")
+		 )
+		)
+	  )
+
+	 (t
+	  ;; outside a [] pair
+	  (goto-char o)
+	  (insert "[" label "]")
+	  )
+
+	 )
+	)
+  )
+
+(defun citation-label< (L1 L2)
+  "(citation-label< L1 L2)
+returns t if label L1 should appear before label L2 in a citation list.  The
+comparison orders more recent articles first, then alphabetically for articles
+in the same year.  Labels usually have the form NameYear; labels without Year
+are sorted to the end of the list."
+  (let* ((labelre "\\([^0-9]*\\)\\([0-9]*\\)")
+		 (A1 (progn (string-match labelre L1) (match-string 1 L1)))
+		 (Y1 (string-to-int (match-string 2 L1)))
+		 (A2 (progn (string-match labelre L2) (match-string 1 L2)))
+		 (Y2 (string-to-int (match-string 2 L2)))
+		 )
+	(or (> Y1 Y2)
+		(and (= Y1 Y2) (string< A1 A2)))
+	)
+  )
+
+(defun duat ()
+  "start a telnet session to duat"
+  (interactive)
+  (telnet "duat.gtefsd.com")
+)
+
+; This function is deprecated in favor of dired-x-find-file
+(defun filename-near-point ()
+  "Return the filename of an existing file near the point, nil if unable."
+  (interactive)
+  (let
+	  ((filename (save-excursion
+				  (if (string-match (char-to-string (char-after (point))) "[	 ]")
+					  (progn 
+						(skip-chars-backward "	 " (current-column)) ; spc,tab
+						(if (= (current-column) 0)
+							(skip-chars-forward "	 ")	; spc,tab
+						  (backward-char))))
+				   (thing-at-point 'filename))))
+	(if (file-exists-p filename)
+		filename)))
+
+; This function is deprecated in favor of dired-x-find-file
+(defun find-file-in-context (other-window)
+  "Try to find the file near the current point.  First try literal filname
+ (as with filename-near-point) or with heuristics (ff-find-other-file)"
+  (interactive "P")
+  (if (filename-near-point)
+	  (find-file-near-point other-window)
+	(ff-find-other-file)))
+
+; This function is deprecated in favor of dired-x-find-file
+(defun find-file-near-point (other-window)
+  "find-file on the filename near the point, if able.  With prefix arg,
+use other window."
+  (interactive "P")
+  (let ((filename (filename-near-point)))
+	(if filename
+		(if other-window
+			(find-file-other-window filename)
+		  (find-file filename))
+	  (error "No file at point"))))
+
+; This function is deprecated in favor of dired-x-find-file
+(defun generate-new-buffer-name-from-file-name (FILE)
+  "generate-new-buffer-name-from-file-name (FILE)
+Return a reasonable name for a buffer given the visiting file name
+using generate-new-buffer-name which see."
+  (generate-new-buffer-name
+   (let ((basename (file-name-nondirectory FILE)))
+	 (if (string= basename "")
+		 (abbreviate-file-name FILE)
+	   basename))))
+(defvar fortune-cmd "cookie"
+  "Command used to generate a fortune")
+
+(defun insert-fortune ()
+  "Insert a fortune using the command specified by fortune-cmd."
+  (interactive)
+  (shell-command fortune-cmd t)
+  )
+
+(defvar ph-flags "-fall")
+(defun ph-lookup (QUERY)
+  (interactive "sph query string: ")
+  (shell-command
+   (concat "ph " ph-flags " " QUERY)
+   (or (get-buffer "*ph*")
+	   (or (generate-new-buffer "*ph*")))))
+  
+(defun sign-document ()
+  "Sign document at end of buffer."
+  (interactive)
+  (save-excursion
+    (end-of-buffer)
+    (insert "--\n")
+    (insert-file-contents "~/.signature")))
+
+(defun wrap-region (start end)
+  "Wrap a region with lines which delineate included text."
+  (interactive "r")
+  (goto-char end)
+  (beginning-of-line)
+  (insert-file-contents "~reece/notes/wrap" nil 81 162) ; 162-81=80 chars + return
+  (goto-char start)
+  (beginning-of-line)
+  (insert-file-contents "~reece/notes/wrap" nil 0 81) ; 80 chars + return
+  (goto-char end)
+  (next-line 2))
+
+
+
+
+;(custom-set-variables
+; '(browse-url-browser-function (quote browse-url-generic))
+; '(browse-url-generic-program "opera")
+; '(browse-url-new-window-p t)
+; '(url-temporary-directory "~/tmp")
+; '(url-privacy-level (quote (paranoid)))
+; '(browse-url-of-file-hook (quote (browse-url-generic-reload)))
+; )
+
