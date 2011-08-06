@@ -2,7 +2,7 @@
 
 #LN_FLAGS=${LN_FLAGS:--f}
 
-if ! type realpath 2>/dev/null; then
+if ! type realpath 1>/dev/null 2>/dev/null; then
 	echo "realpath not found: try sudo apt-get install realpath" 1>&2;
 	exit 1
 fi
@@ -21,5 +21,8 @@ find ${REL_ROOT}/etc -mindepth 1 -maxdepth 1 \! -name *~ \
 | sort \
 | while read f; do
 	t=".$(basename "$f")"
+	if [ -h "$t" -a "$(readlink "$t")" = "$f" ]; then
+		continue
+	fi
 	ln -bfnsv "$f" "$t"
 done
