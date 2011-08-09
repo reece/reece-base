@@ -3,31 +3,40 @@
 PATH=$PATH:/usr/bin/X11:/usr/local/sbin:/usr/local/bin
 PATH=$PATH:/usr/sbin:/usr/bin:/sbin:/bin
 
+export REECE_BASE_DIR=${HOME}/opt/reece-base
+export REECE_EXTERNAL_DIR=${HOME}/opt/reece-external
+
 export CVSEDITOR=vi
 export CVS_RSH=ssh
 export DATEFMT="%Y/%m/%d"
 export EMAIL_ADDRESS=reece@harts.net
 export ENSCRIPT="-E -Gj -T4 --color"
+export FULLNAME="Reece Hart"
 export GZIP="-9v"
 export INFOPATH=$prefix/info:/usr/local/info:/usr/share/info:/usr/info
 export LATITUDE=37.62 LONGITUDE=-122.38  # 1 Sussex St, 94131
 export LESS='-FiMRSXx4'
 export LOCATE_PATH=$HOME/share/locatedb${LOCATE_PATH:+:$LOCATE_PATH}
+export NAME="$FULLNAME"
 export ORGANIZATION="Locus Development, Inc."
-export PYTHONPATH=$HOME/opt/python-modules${PYTHONPATH:+:$PYTHONPATH}
-#export PYTHONSTARTUP=$HOME/.pythonrc.py
-export R_LIBS_USER="${HOME}/opt/reece-packages/R"
+export PSQL_EDITOR='emacs -nw'
 export VERSION_CONTROL=simple
 
-export FULLNAME="Reece Hart"
-export NAME="$FULLNAME"
-export PSQL_EDITOR='emacs -nw'
 
-PERL_PREFIX=$HOME/opt/reece-perl
-PERL5LIB=$PERL_PREFIX/lib/perl5:$PERL_PREFIX${PERL5LIB:+:$PERL5LIB}
+# Python setup
+export PYTHONPATH=${REECE_EXTERNAL_DIR}/lib/python${PYTHONPATH:+:$PYTHONPATH}
+#export PYTHONSTARTUP=$HOME/.pythonrc.py
+
+# Perl setup
+PERL_PREFIX="${REECE_EXTERNAL_DIR}/perl"
+PERL5LIB=$PERL_PREFIX/lib/perl5:${PERL5LIB:+:$PERL5LIB}
 PATH=$PERL_PREFIX/bin:$PATH
 export PERL5LIB
 unset PERL_PREFIX
+
+# R setup
+export R_LIBS_USER="${REECE_EXTERNAL_DIR}/lib/R"
+
 
 if type emacs >/dev/null 2>/dev/null; then
     export EDITOR='emacs'; 
@@ -51,9 +60,11 @@ if type -p lesspipe >/dev/null 2>/dev/null; then
     eval $(lesspipe);
 fi
 
-# Are the following being used?
-if [ -z "$USER" ]; then
-    warn setting USER... deprecated
-    export USER=`whoami`
-fi
-export LOGNAME="$USER"
+
+## Are the following being used?
+## Commented out 2011-08-06 11:50 Reece Hart <reecehart@gmail.com>
+# if [ -z "$USER" ]; then
+#     warn setting USER... deprecated
+#     export USER=`whoami`
+# fi
+# export LOGNAME="$USER"

@@ -8,9 +8,6 @@
 #   obsolete <fxname>
 #   bashlog <log items...>
 
-export REECE_BASE_DIR=$HOME/opt/reece-base
-
-
 # define BASHDIR, the location for bash sub-configs
 if [ -z "$BASHDIR" ]; then
     for d in "$HOME/.bash.d"; do

@@ -7,7 +7,7 @@ username = Reece Hart <reecehart@gmail.com>
 [extensions]
 hgext.convert=
 hgext.graphlog=
-#hgsubversion = ~/opt/hgsubversion/hgsubversion
+hgext.bookmarks =
+hggit = 
+hgsubversion = ~/opt/reece-external/hgsubversion/hgsubversion
 #color=
-
-
