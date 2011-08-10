@@ -1,14 +1,19 @@
 #!/usr/bin/python
+# tal-download -- download and rename This American Life episodes
+# eg$ tal-download $(seq 400 410)
+# downloads episodes 400 to 410 (inclusive) to ~/Audio/mp3/This American Life/
+
 
 # TODO:
-# * trap 404 errors
 # * reconsider name format
-# * INFO
 # * progress bar
+# * consider mp3 tag updates (stock mp3s sort as #1 #10 #11...)
 
 
 from __future__ import with_statement, print_function
 import argparse, logging, HTMLParser, os, re, sys, tempfile, urllib2
+from urllib2 import HTTPError
+
 
 class TALDownloader:
 	ep_url_fmt = u'http://www.thisamericanlife.org/radio-archives/episode/{epno}/'
@@ -21,7 +26,7 @@ class TALDownloader:
 		t = [ line for line in urllib2.urlopen(url).readlines() if '<title>' in line ][0]
 		m = self.title_re.search(t)
 		ti = self.html_parser.unescape( m.group(1).decode('utf-8') )
-		#logging.warn('epno=%s, url=%s, title=%s', epno, url, ti)
+		logging.debug('epno=%s, url=%s, title=%s', epno, url, ti)
 		return ti
 
 	def download_episode(self,epno,fn):
@@ -35,6 +40,9 @@ class TALDownloader:
 		os.rename(tmp_fn,fn)
 
 
+
+logging.basicConfig(level=logging.INFO)
+
 parser = argparse.ArgumentParser(
 	description = u'Download This American Life episodes',
 	formatter_class = argparse.ArgumentDefaultsHelpFormatter,
@@ -42,7 +50,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
 	'-d', '--directory', 
 	help = u'destination directory',
-	default = u'/tmp'
+	default = os.path.expanduser(u'~/Audio/mp3/This American Life')
 	)
 parser.add_argument(u'episodes', metavar='N', type=int, nargs='+',
                    help=u'episode numbers')
@@ -52,12 +60,19 @@ opts = parser.parse_args()
 d = TALDownloader()
 for a in opts.episodes:
 	epno = int(a)
-	ti = re.sub(r'/',r'-', d.get_episode_title(epno) )
-	fn = os.path.join(opts.directory,
-					  u'{epno:03d}. {ti}.mp3'.format(epno=epno,ti=ti))
-	if os.path.exists(fn):
-		logging.warn(u'episode %d: file exists: %s', epno, fn)
-	else:
+	
+	try:
+		ti = re.sub(r'/',r'-', d.get_episode_title(epno) )
+		fn = os.path.join(opts.directory,
+						u'{epno:03d}. {ti}.mp3'.format(epno=epno,ti=ti))
+		if os.path.exists(fn):
+			logging.info(u'episode %d: file exists: %s; skipping', epno, fn)
+			continue
 		d.download_episode(epno,fn)
-		logging.warn(u'episode %d -> %s... done', epno, fn)
+		logging.info(u'episode %d -> %s... done', epno, fn)
+	except urllib2.HTTPError as e:
+		if e.code == 404:
+			logging.info(u"episode %d doesn't exist; stopping.", epno)
+			break
+		#raise e
 	

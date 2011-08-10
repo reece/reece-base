@@ -8,6 +8,6 @@ username = Reece Hart <reecehart@gmail.com>
 hgext.convert=
 hgext.graphlog=
 hgext.bookmarks =
-hggit = 
+hggit = ~/opt/reece-external/lib/python/hg_git-0.2.6-py2.7.egg/hggit
 hgsubversion = ~/opt/reece-external/hgsubversion/hgsubversion
 #color=
