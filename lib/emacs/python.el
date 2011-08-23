@@ -33,9 +33,9 @@
 
 (add-hook 'python-mode-hook
           (lambda ()
-			(local-set-key (kbd "C-h f") 'hohe2-lookup-pydoc))
+			; (local-set-key (kbd "C-h f") 'hohe2-lookup-pydoc))
             ; (local-set-key (kbd "C-h f") 'nikokrock_pydoc))
 		  (setq
 		   indent-tabs-mode		nil
 		   )
-		  )
+		  ))

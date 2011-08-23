@@ -5,7 +5,7 @@
 
 ;(autoload 'c-outline "c-outline" "Outline mode for C and Perl" t)
 (load-library "shebang")
-(load-library "popchar")
+;(load-library "popchar")
 
 ; ==== CUSTOMIZATIONS
 ;(load-library "init/browse-url")
@@ -16,7 +16,7 @@
 ;     (load-library "init/font-lock"))
 (load-library "init/modeline")
 (load-library "init/perl-mode")
-;(load-library "init/python-mode")
+(load-library "init/python-mode")
 ;(load-library "init/sh-mode")
 ;(load-library "init/shell")
 ;(load-library "init/sql")

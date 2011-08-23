@@ -42,9 +42,9 @@ if type emacs >/dev/null 2>/dev/null; then
     export EDITOR='emacs'; 
 fi
 
-if type -p /usr/bin/java >/dev/null 2>/dev/null; then
-	export JAVA_HOME=$(dirname $(dirname $(dirname $(readlink -f `type -p /usr/bin/java`))))
-fi
+# if type -p /usr/bin/java >/dev/null 2>/dev/null; then
+# 	export JAVA_HOME=$(dirname $(dirname $(dirname $(readlink -f `type -p /usr/bin/java`))))
+# fi
 
 if [ "$TERM" != "emacs" ]; then
     for PAGER in less more cat; do

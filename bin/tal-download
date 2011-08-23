@@ -1,78 +1,83 @@
 #!/usr/bin/python
 # tal-download -- download and rename This American Life episodes
+#
 # eg$ tal-download $(seq 400 410)
 # downloads episodes 400 to 410 (inclusive) to ~/Audio/mp3/This American Life/
 
 
-# TODO:
-# * reconsider name format
-# * progress bar
-# * consider mp3 tag updates (stock mp3s sort as #1 #10 #11...)
+# TODO: reconsider name format
+# TODO: progress bar
+# TODO: consider mp3 tag updates (stock mp3s sort as #1 #10 #11...)
 
 
 from __future__ import with_statement, print_function
-import argparse, logging, HTMLParser, os, re, sys, tempfile, urllib2
-from urllib2 import HTTPError
+import argparse, logging, HTMLParser, os, re, sys, urllib2
 
 
-class TALDownloader:
-	ep_url_fmt = u'http://www.thisamericanlife.org/radio-archives/episode/{epno}/'
-	mp3_url_fmt = u'http://audio.thisamericanlife.org/jomamashouse/ismymamashouse/{epno}.mp3'
-	title_re = re.compile(u'<title>(.+) \| This American Life</title>')
-	html_parser = HTMLParser.HTMLParser()
+class TALDownloader(object):
+    """TALDownloader -- class to download and rename episodes of This American Life"""
 
-	def get_episode_title(self,epno):
-		url = self.ep_url_fmt.format(epno=epno)
-		t = [ line for line in urllib2.urlopen(url).readlines() if '<title>' in line ][0]
-		m = self.title_re.search(t)
-		ti = self.html_parser.unescape( m.group(1).decode('utf-8') )
-		logging.debug('epno=%s, url=%s, title=%s', epno, url, ti)
-		return ti
+    ep_url_fmt = u'http://www.thisamericanlife.org/radio-archives/episode/{epno}/'
+    mp3_url_fmt = u'http://audio.thisamericanlife.org/jomamashouse/ismymamashouse/{epno}.mp3'
+    title_re = re.compile(u'<title>(.+) \| This American Life</title>')
+    html_parser = HTMLParser.HTMLParser()
 
-	def download_episode(self,epno,fn):
-		# TODO: check header date v. file timestamp first
-		url = self.mp3_url_fmt.format(epno=epno)
-		req = urllib2.urlopen(url)
-		tmp_fn = fn + u'.tmp'
-		f = open(tmp_fn,'w')
-		f.write(req.read())
-		f.close()
-		os.rename(tmp_fn,fn)
+    def get_episode_title(self, epno):
+        url = self.ep_url_fmt.format(epno=epno)
+        t = [ line for line in urllib2.urlopen(url).readlines() if '<title>' in line ][0]
+        m = self.title_re.search(t)
+        ti = self.html_parser.unescape( m.group(1).decode('utf-8') )
+        logging.debug('epno=%s, url=%s, title=%s', epno, url, ti)
+        return ti
 
-
-
-logging.basicConfig(level=logging.INFO)
-
-parser = argparse.ArgumentParser(
-	description = u'Download This American Life episodes',
-	formatter_class = argparse.ArgumentDefaultsHelpFormatter,
-	)
-parser.add_argument(
-	'-d', '--directory', 
-	help = u'destination directory',
-	default = os.path.expanduser(u'~/Audio/mp3/This American Life')
-	)
-parser.add_argument(u'episodes', metavar='N', type=int, nargs='+',
-                   help=u'episode numbers')
-opts = parser.parse_args()
+    def download_episode(self, epno, fn):
+        # TODO: check header date v. file timestamp first
+        url = self.mp3_url_fmt.format(epno=epno)
+        req = urllib2.urlopen(url)
+        tmp_fn = fn + u'.tmp'
+        f = open(tmp_fn,'w')
+        f.write(req.read())
+        f.close()
+        os.rename(tmp_fn, fn)
 
 
-d = TALDownloader()
-for a in opts.episodes:
-	epno = int(a)
-	
-	try:
-		ti = re.sub(r'/',r'-', d.get_episode_title(epno) )
-		fn = os.path.join(opts.directory,
-						u'{epno:03d}. {ti}.mp3'.format(epno=epno,ti=ti))
-		if os.path.exists(fn):
-			logging.info(u'episode %d: file exists: %s; skipping', epno, fn)
-			continue
-		d.download_episode(epno,fn)
-		logging.info(u'episode %d -> %s... done', epno, fn)
-	except urllib2.HTTPError as e:
-		if e.code == 404:
-			logging.info(u"episode %d doesn't exist; stopping.", epno)
-			break
-		#raise e
-	
+def main(argv=None):
+    logging.basicConfig(level=logging.INFO)
+
+    parser = argparse.ArgumentParser(
+        description = u'Download This American Life episodes',
+    formatter_class = argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        '-d', '--directory', 
+        help = u'destination directory',
+        default = os.path.expanduser(u'~/Audio/mp3/This American Life')
+        )
+    parser.add_argument(u'episodes', metavar='N', type=int, nargs='+',
+                        help=u'episode numbers')
+    opts = parser.parse_args(args=argv)
+
+    d = TALDownloader()
+    for a in opts.episodes:
+        epno = int(a)
+        
+        try:
+            ti = re.sub(r'/',r'-', d.get_episode_title(epno) )
+            fn = os.path.join(opts.directory,
+                              u'{epno:03d}. {ti}.mp3'.format(epno=epno,ti=ti))
+            if os.path.exists(fn):
+                logging.info(u'episode %d: file exists: %s; skipping', epno, fn)
+                continue
+            d.download_episode(epno,fn)
+            logging.info(u'episode %d -> %s... done', epno, fn)
+        except urllib2.HTTPError as e:
+            if e.code == 404:
+                logging.info(u"episode %d doesn't exist; stopping.", epno)
+                break
+                #raise e
+
+        return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

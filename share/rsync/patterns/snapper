@@ -2,3 +2,5 @@
 *.toc.bin
 /dev/
 /media/
+/var/lib/mysql
+/var/spool

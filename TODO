@@ -1,3 +1,5 @@
 * replace realpath with readlink
 * add docs, license to bin & sbin files
 * add docs re: dotfile setup
+* document nautilus scripts
+* select highlights: snapper, mkbak, nautilus scripts, cl-wrapper, ...
