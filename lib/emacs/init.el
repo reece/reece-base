@@ -28,6 +28,10 @@
 ;(load-library "init/tex-mode")
 
 
+(add-to-list 'load-path (concat emacs-home-dir "/pydoc-info"))
+(require 'pydoc-info)
+
+
 ; ==== MUST BE LAST TO LOAD
 (load-library "init/keys,vars,misc")
 

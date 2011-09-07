@@ -3,6 +3,12 @@
 ;;; WARNING: byte-compile'ing with xemacs causes some keys to be mis-mapped
 ;;; in GNU emacs.  b-c with emacs for compatibility.
 ;===============================================================================
+
+; http://www.emacswiki.org/emacs/CopyAndPaste
+(global-set-key "\C-w" 'clipboard-kill-region)
+(global-set-key "\M-w" 'clipboard-kill-ring-save)
+(global-set-key "\C-y" 'clipboard-yank)
+
 (global-set-key "\C-c\C-b"	'bury-buffer)
 (global-set-key "\C-c\C-f"	'ffap)
 (global-set-key "\C-c\C-l"	'goto-line)

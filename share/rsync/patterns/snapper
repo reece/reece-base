@@ -4,3 +4,9 @@
 /media/
 /var/lib/mysql
 /var/spool
+Dropbox/.dropbox.cache
+/var/run
+/var/cache
+/var/crash
+/var/lock
+/var/tmp

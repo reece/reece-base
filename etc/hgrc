@@ -5,14 +5,14 @@ cacerts = /etc/ssl/certs/ca-certificates.crt
 username = Reece Hart <reecehart@gmail.com>
 
 [extensions]
-### bundled extensions (see /usr/share/pyshared/hgext/):
+# ### bundled extensions (see /usr/share/pyshared/hgext/):
 bookmarks=
 churn=
 color=
 convert=
 fetch=
 graphlog=
-inotify=
+# inotify=  ## WARNING: hg st lies if inserve not running!
 mq=
 pager=
 progress=

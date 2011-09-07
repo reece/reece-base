@@ -13,12 +13,15 @@
 
 use strict;
 use warnings;
+use Digest::MD5;
 use Digest::SHA;
 use File::Find;
-use Number::Format qw(format_bytes);
 use File::Spec;
+use IO::File;
+use Number::Format qw(format_bytes);
 
 sub compute_sha($$);
+sub compute_md5($);
 sub hash_stat_data(\@);
 sub do_find($@);
 sub random_string;
@@ -26,6 +29,12 @@ sub fn_excerpt($$);
 
 my $sha_digest = 1; # or 224, 256, 384, 512
 my $feedback_period = ( -t 2 ? 7 : 200 ); # progress if STDERR is tty
+my $log = 1;
+my %opts = (
+  'min_size' => undef,  'max_size' => undef,
+  #'min_size' => 10**$log,  'max_size' => 10**($log+1),
+  #'min_size' => 1e5,  'max_size' => 1e6,
+ );
 
 
 my %size_inodes;						    # filesize -> @inodes
@@ -35,11 +44,7 @@ my %digest_inodes;							# digest -> @inodes
 my %inode_digest;							# inode -> digest
 my %filename_find_iter;						# filename -> pass found
 my $n_filenames = 0;
-
-my %opts = (
-  'min_size' => undef, #1e3,
-  'max_size' => undef, #1e9,
- );
+my $n_inodes = 0;
 
 
 #### BUILD INTERNAL FILE STAT AND INODE DATA
@@ -78,14 +83,16 @@ printf(STDERR "# computing %d digests...", $N) if not defined $feedback_period;
 for(my $i=0; $i<=$#inodes; $i++) {
   my $inode = $inodes[$i];
   my $first_fn = $inode_filenames{$inode}[0];
-  my $digest = compute_sha($first_fn,$sha_digest);
+  #my $digest = compute_sha($first_fn,$sha_digest);
+  my $digest = compute_md5($first_fn);
   $inode_digest{$inode}{$digest}++;
   $digest_inodes{$digest}{$inode}++;
   if ( defined $feedback_period
 		 and ($i % $feedback_period == 0 or $i == $#inodes) ) {
-	printf(STDERR "\r# %d/%d (%.1f%%; %-10s) %-60.60s",
+	printf(STDERR "\r# %d/%d (%.1f%%; %-10s) %s %-60.60s",
 		   $i+1, $N, ($i+1)/$N*100, 
 		   format_bytes($inode_stats{$inode}[7]),
+		   $digest,
 		   fn_excerpt($first_fn,60)
 		  );
   }
@@ -110,11 +117,15 @@ printf(STDERR "# %d distinct digests, %d w>=2 inodes, %d inodes duplicated\n",
 #    files
 
 
-foreach my $digest (sort @dup_digests) {
+#foreach my $digest (sort @dup_digests) {
+@dup_digests = sort @dup_digests;
+my $n_dup_digests = $#dup_digests+1;
+for(my $di=0; $di<=$#dup_digests; $di++) {
   # Goal: link the oldest inode, referenced by the first associated
   # filename, to *all* of the filenames of *all* inodes that have an
   # identical digest.
 
+  my $digest = $dup_digests[$di];
   my @inodes = keys %{$digest_inodes{$digest}};
 
   # sort by mtime
@@ -126,9 +137,10 @@ foreach my $digest (sort @dup_digests) {
 
   my $size = $inode_stats{$inodes[0]}[7];
 
-  printf("size=%d; digest=%s; #i=%d #fn=%d %s\n",
+  printf(STDERR "* %d/%d (%5.1f): size=%d; digest=%s; #i=%d #fn=%d\n",
+		 $di, $n_dup_digests, $di/$n_dup_digests*100,
 		 $size,$digest,$#inodes+1,$#filenames+1,
-		 join(',',@filenames));
+		 );
 
   my $seed = shift @filenames;				# N.B. oldest mtime
   foreach my $dst (@filenames) {
@@ -144,7 +156,7 @@ foreach my $digest (sort @dup_digests) {
 	link($seed,$dst)
 	  || die("link($seed,$dst): $!\n");
 	unlink($dst_bak);
-	printf("# link($seed,$dst): okay\n");
+	printf(STDERR "** link($seed,$dst): okay\n");
   }
 }
 
@@ -159,11 +171,11 @@ exit(0);
 foreach my $digest (sort @dup_digests) {
   my @inodes = keys %{$digest_inodes{$digest}};
   my $size = $inode_stats{$inodes[0]}[7];
-  printf("* %d inodes w/size=%d & digest=%s\n",
+  printf(STDERR "* %d inodes w/size=%d & digest=%s\n",
 		 $#inodes+1, $size, $digest);
   foreach my $inode (sort @inodes) {
 	# unlink duplicates, or link to one here
-	printf("  %8d: %s\n", $inode, join(' ', @{$inode_filenames{$inode}}));
+	printf(STDERR "  %8d: %s\n", $inode, join(' ', @{$inode_filenames{$inode}}));
   }
 }
 
@@ -203,6 +215,17 @@ sub compute_sha($$) {
   }
   return $ctx->hexdigest();
 }
+sub compute_md5($) {
+  my ($fp) = @_;
+  my $ctx = Digest::MD5->new();
+  my $fh = new IO::File;
+  if (not $fh->open($fp)) {
+	warn("$fp: $!\n");
+	return;
+  }
+  $ctx->addfile($fh);
+  return $ctx->hexdigest;
+}
 
 ## do_find
 sub do_find ($@) {
@@ -210,12 +233,18 @@ sub do_find ($@) {
   find( {
 		 follow => 0,
 		 no_chdir => 1,
-		 wanted => sub { process1file($_,$find_iter) if (-f $_ and not -l $_) },
+		 wanted => sub { process1file($_,$find_iter)
+						   if (-f $_ 
+							   and not -l $_
+							   and (not defined $opts{min_size} or (stat(_))[7] >= $opts{min_size})
+							   and (not defined $opts{max_size} or (stat(_))[7] <  $opts{max_size})
+							   ) },
 		},
 		@_
 	  );
   if ( defined $feedback_period ) {
-	printf("\r# files: %d (@_)\n", $n_filenames);
+	printf(STDERR "\r# files: %d; inodes: %d; f/i: %.1f (@_)\n", 
+		   $n_filenames, $n_inodes, $n_filenames/$n_inodes);
   }
 }
 
@@ -248,18 +277,22 @@ sub process1file {
   return if defined $opts{max_size} and $size >= $opts{max_size};
 
   $n_filenames++;
-  if ( defined $feedback_period
-		 and ($n_filenames % $feedback_period == 0) ) {
-	printf(STDERR "\r# files: %d", $n_filenames);
-  }
 
   push( @{$inode_filenames{$inode}}, $fn );
   if (not exists $inode_stats{$inode}) {
+	$n_inodes++;
 	@{$inode_stats{$inode}} = @stats;
 	$size_inodes{$size}{$inode}++;
   }
 
   $filename_find_iter{$fn} ||= $find_iter;	# lowest pass on which found
+
+  if ( defined $feedback_period
+		 and ($n_filenames % $feedback_period == 0) ) {
+	#printf(STDERR "\r# files: %d", $n_filenames);
+	printf(STDERR "\r# files: %d; inodes: %d; f/i: %.1f", 
+		   $n_filenames, $n_inodes, $n_filenames/$n_inodes);
+  }
 }
 
 

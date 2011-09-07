@@ -1,11 +1,9 @@
 My PYTHONPATH setup looks like this:
 
-export PYTHONPATH=$HOME/opt/python-modules:$HOME/opt/reece-external/lib/python${PYTHONPATH:+:$PYTHONPATH}
+export PYTHONPATH=$HOME/opt/reece-external/lib/python${PYTHONPATH:+:$PYTHONPATH}
 
 With that, an example package installation is:
-easy_install -d ~/opt/reece-external/lib/python hg-git
-OR
-easy_install -d ~/opt/python-modules hg-git
+pip install -d ~/opt/reece-external/lib/python sympy
 
 (I put modules that I want to share among my installations into
 reece-external, and those I want to isolate into python-modules.)

@@ -3,7 +3,6 @@
 ;; Rtrinkets -- miscellaneous emacs code
 ;; 
 
-(defconst Rtrinkets-version (substring "$Revision: 1.10 $" 11 -2))
 (defconst bar (make-string 80 45))			; 45 == '-'
 
 (defvar prefix-function-name t
@@ -14,6 +13,7 @@
 
 (defun add-to-load-path (elems)
   "Prepend elems (list or symbol) to load-path if not already there."
+  ; should use (add-to-list ...)?
   (setq load-path (prepend-if-not-member elems load-path)))
 
 (defun banner (PFX TEXT)
