@@ -17,6 +17,7 @@
 (load-library "init/modeline")
 (load-library "init/perl-mode")
 (load-library "init/python-mode")
+(load-library "init/scala-mode")
 ;(load-library "init/sh-mode")
 ;(load-library "init/shell")
 ;(load-library "init/sql")
