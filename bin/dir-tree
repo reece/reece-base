@@ -1,0 +1,62 @@
+#!/usr/bin/perl
+# dir-tree-descriptions -- create an annotated directory tree
+
+# find -L /locus -maxdepth 4 -name '.description' \
+# | xargs -n1 dirname \
+# | sort \
+# | dir-tree-descriptions
+
+
+use File::Basename qw(basename dirname);
+use Data::Dumper;
+
+my @d;										# .description files
+my %printed;
+my %dir_level = ('/' => 0, '/locus' => 0, '.' => 0);
+
+if (@ARGV) {
+  @d = @ARGV;
+} else {
+  @d = map {chomp;$_} <>;
+}
+@d = sort @d;
+
+while (my $d = shift(@d)) {
+  print_r($d);
+}
+
+exit(0);
+
+############################################################################
+
+sub print_r {
+  my $full_path = shift;
+
+  return if $printed{$full_path}++;			# already printed
+
+  if (not exists $dir_level{$full_path}) {
+	my $parent = dirname($full_path);
+	print_r($parent);
+	$dir_level{$full_path} = $dir_level{$parent} + 1;
+  }
+  my $level = $dir_level{$full_path};
+
+  my $d_fn = "$full_path/.description";
+  my @desc;
+  if (-l $full_path) {
+	push(@desc, '-L-> '.readlink($full_path));
+  }
+  if (open(F,"<$d_fn")) {
+	my $desc = <F>;
+	chomp($desc);
+	close(F);
+	push(@desc,$desc);
+  }
+
+  my $ppath = ($level==0 ? '/' : '') . basename($full_path);
+  $ppath .= '/' unless $ppath =~ m%/$%;
+  my $desc = @desc ? '-- '.join('; ',@desc) : '';
+  printf( "%-30s %s\n", '  'x$level . $ppath, $desc);
+
+  return $level;
+}

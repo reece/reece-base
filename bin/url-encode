@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use URI::Escape;
+use HTML::Entities;
+
+@ARGV = map { chomp; $_ } <> unless @ARGV;
+
+while( my $u = shift ) {
+  chomp $u;
+  print(uri_escape($u),"\n");
+}
+
