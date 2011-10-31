@@ -23,6 +23,21 @@ esac
 gsettings set org.gnome.settings-daemon.peripherals.mouse left-handed "$new_val"
 
 
+# in GNOME3, the touchpad has its own left-handed setting, but it's not true/false like
+# mouse's
+# gsettings set org.gnome.settings-daemon.peripherals.touchpad left-handed right
+
+# if tap to click is on, changes to handedness don't take effect until
+# it's unset and reset.
+key=/desktop/gnome/peripherals/touchpad/tap_to_click
+if [ "$(gconftool --get "$key")" = "true" ]; then
+	gconftool --set "$key" --type boolean false
+	gconftool --set "$key" --type boolean true
+fi
+
+
+
+
 handedness=right
 if [ "$(left_handed_now)" = "true" ]; then
 	handedness=left

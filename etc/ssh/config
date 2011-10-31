@@ -18,10 +18,10 @@ ControlPath ~/.ssh/controlmaster-%r@%h:%p
 Host whoville-localhost
 	 HostName 127.0.0.1
 	 HostKeyAlias whoville
-Host whoville-internal
+Host whoville-internal whoville w
 	 HostName 192.168.0.175
 	 HostKeyAlias whoville
-Host whoville-external whoville w
+Host whoville-external
 	 HostName whoville.homelinux.net
 	 HostKeyAlias whoville
 
@@ -53,11 +53,10 @@ Host cgl-proxy
 Host sage
 	 Hostname sage.locusdev.net
 
-Host outcast outcast.locusdx.com 
+Host outcast outcast.locusdev.net
 	 HostKeyAlias outcast
-	 Hostname outcast.locusdx.com
-	 #
-	 # ControlMaster auto
+	 Hostname outcast.locusdev.net
+	 #ControlMaster auto
 	 StrictHostKeyChecking no
 	 UserKnownHostsFile=/dev/null
 	 ForwardX11 no
@@ -68,3 +67,19 @@ Host ec2-*.amazonaws.com
 	 StrictHostKeyChecking no
 	 UserKnownHostsFile=/dev/null
 	 ForwardX11 no
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,5 +1,5 @@
 (setq emacs-home-dir "~/opt/reece-base/lib/emacs")
-(setq load-path (append (list emacs-home-dir) load-path))
+(add-to-list 'load-path emacs-home-dir)
 
 (load-library "Rtrinkets")
 
@@ -16,6 +16,7 @@
 ;     (load-library "init/font-lock"))
 (load-library "init/modeline")
 (load-library "init/perl-mode")
+(load-library "init/javascript-mode")
 (load-library "init/python-mode")
 (load-library "init/scala-mode")
 ;(load-library "init/sh-mode")
@@ -27,10 +28,6 @@
 ;(load-library "init/fortran-mode")
 ;(load-library "init/my-mail-mode")
 ;(load-library "init/tex-mode")
-
-
-(add-to-list 'load-path (concat emacs-home-dir "/pydoc-info"))
-(require 'pydoc-info)
 
 
 ; ==== MUST BE LAST TO LOAD

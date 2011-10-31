@@ -68,3 +68,7 @@ fi
 #     export USER=`whoami`
 # fi
 # export LOGNAME="$USER"
+
+
+# disable Unity global menus
+unset UBUNTU_MENUPROXY

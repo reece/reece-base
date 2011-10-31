@@ -13,6 +13,15 @@
   )
 (add-hook 'python-mode-hook 'reece-python-mode-setup)
 
+(add-to-list 'interpreter-mode-alist '("python2.7" . python-mode))
+(add-to-list 'interpreter-mode-alist '("python3" . python-mode))
+(add-to-list 'interpreter-mode-alist '("python3.1" . python-mode))
+(add-to-list 'interpreter-mode-alist '("python3.2" . python-mode))
+(add-to-list 'interpreter-mode-alist '("python3.3" . python-mode))
+
+(add-to-list 'load-path (concat emacs-home-dir "/pydoc-info"))
+(require 'pydoc-info)
+
 ;===============================================================================
 
 

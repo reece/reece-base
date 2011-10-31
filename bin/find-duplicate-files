@@ -29,11 +29,10 @@ sub fn_excerpt($$);
 
 my $sha_digest = 1; # or 224, 256, 384, 512
 my $feedback_period = ( -t 2 ? 7 : 200 ); # progress if STDERR is tty
-my $log = 1;
+my $log = 6;
 my %opts = (
-  'min_size' => undef,  'max_size' => undef,
-  #'min_size' => 10**$log,  'max_size' => 10**($log+1),
-  #'min_size' => 1e5,  'max_size' => 1e6,
+  #'min_size' => undef,  'max_size' => undef,
+  'min_size' => 10**$log,  'max_size' => 10**($log+1),
  );
 
 

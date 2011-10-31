@@ -4,7 +4,7 @@
 # Author: Reece Hart <reece@harts.net>
 
 DROPBOXEN_DIR=$HOME/.dropboxen
-ACCOUNTS=($(cd $DROPBOXEN_DIR; /bin/ls -1d *@berk* 2>/dev/null))
+ACCOUNTS=($(cd $DROPBOXEN_DIR; /bin/ls -1d *@* 2>/dev/null))
 
 do_for_all_accounts () {
 	cmd=${1+"$@"}

@@ -2,36 +2,61 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("locusdb"
- (filename . "/scp:outcast:/locus/opt/locusdb/")
+(("bio-hgvs-perl (dev)"
+ (filename . "/scp:outcast:/locus/home/reece/projects/bio-hgvs-perl/")
+ (front-context-string . ".hg/\n  -rw-r--r-")
+ (rear-context-string . "96 Oct  6 20:38 ")
+ (position . 214))
+("outcast:projects"
+ (filename . "/scp:outcast:/locus/home/reece/projects/")
+ (front-context-string . "bio-hgvs-perl/\n ")
+ (rear-context-string . "96 Oct  6 20:38 ")
+ (position . 200))
+("docdepot"
+ (filename . "/scp:outcast:/srv/locuslibrary/docdepot/")
+ (front-context-string . ".gitignore\n  drw")
+ (rear-context-string . "15 Feb 17  2011 ")
+ (position . 207))
+("locus-etc"
+ (filename . "/scp:outcast:/locus/etc/locus/")
+ (front-context-string)
+ (rear-context-string . "18 Sep 29 23:37 ")
+ (position . 451))
+("locus-python (dev)"
+ (filename . "/scp:outcast:projects/locus-python")
+ (front-context-string . ".hg/\n  -rw-r--r-")
+ (rear-context-string . "96 Sep 16 17:48 ")
+ (position . 213))
+("locus-database (dev)"
+ (filename . "/scp:outcast:projects/locus-database")
+ (front-context-string . ".hg/\n  -rw-r--r-")
+ (rear-context-string . "96 Aug  2 23:11 ")
+ (position . 192))
+("locus-web (dev)"
+ (filename . "/scp:outcast:projects/locus-web")
+ (front-context-string . ".hg/\n  -rw-r--r-")
+ (rear-context-string . "96 Aug  2 23:11 ")
+ (position . 192))
+("locus-python"
+ (filename . "/scp:outcast:/locus/opt/locus-python")
+ (front-context-string . ".hg/\n  -rw-r--r-")
+ (rear-context-string . "96 Sep 16 17:48 ")
+ (position . 213))
+("locus-database"
+ (filename . "/scp:outcast:/locus/opt/locus-database")
+ (front-context-string . ".hg/\n  -rw-r--r-")
+ (rear-context-string . "96 Aug  2 23:11 ")
+ (position . 192))
+("locus-web"
+ (filename . "/scp:outcast:/locus/opt/locus-web")
  (front-context-string . ".hg/\n  -rw-r--r-")
  (rear-context-string . "96 Aug  2 23:11 ")
  (position . 192))
 ("bio-hgvs-perl"
- (filename . "/scp:outcast:/local/home/reece/projects/bio-hgvs-perl/")
+ (filename . "/scp:outcast:/locus/opt/bio-hgvs-perl/")
  (front-context-string . ".hg/\n  -rw-r--r-")
- (rear-context-string . "96 Apr  6 19:31 ")
- (position . 211))
-("U54-NCBC"
- ((filename . "/local/home/reece/Dropbox/U54-NCBC/")
-  (front-context-string . "  /local/home/re")
-  (rear-context-string)
-  (position . 1)))
-("aws1"
- ((filename . "/ssh:aws1:/tmp/aws/")
-  (front-context-string)
-  (rear-context-string . "96 May 20 06:24 ")
-  (position . 181)))
-("aws2"
- ((filename . "/ssh:aws2:/tmp/aws/")
-  (front-context-string)
-  (rear-context-string . "96 May 20 06:24 ")
-  (position . 181)))
-("DDT article"
- ((filename . "~/gene/pub/2009/DDT article/")
-  (front-context-string . "BioTeam-Isilon-R")
-  (rear-context-string . "009-01-21 15:22 ")
-  (position . 245)))
+ (rear-context-string . "96 Oct  4 19:16 ")
+ (position . 216))
 ("hartsnet"
  ((filename . "/ssh:hn:")
   (front-context-string . ".bash/\n  -rw----")

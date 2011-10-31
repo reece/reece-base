@@ -5,23 +5,21 @@ cacerts = /etc/ssl/certs/ca-certificates.crt
 username = Reece Hart <reecehart@gmail.com>
 
 [extensions]
-extdiff =
-## # ### bundled extensions (see /usr/share/pyshared/hgext/):
-## bookmarks=
-## churn=
-## color=
-## convert=
-## fetch=
-## graphlog=
-## # inotify=  ## WARNING: hg st lies if inserve not running!
-## mq=
-## pager=
-## progress=
-## rebase=
-## ### local installations:
-## #hggit = ~/opt/reece-external/lib/hgext/hg-git/hggit
-## hgsubversion = ~/opt/reece-external/lib/hgext/hgsubversion/hgsubversion
-## hgshelve=~/opt/reece-external/lib/hgext/hgshelve/hgshelve.py
+bookmarks=
+churn=
+color=
+convert=
+extdiff=
+fetch=
+graphlog=
+mq=
+pager=
+progress=
+rebase=
+### local installations:
+hggit = ~/opt/reece-external/lib/hgext/hg-git/hggit
+hgsubversion = ~/opt/reece-external/lib/hgext/hgsubversion/hgsubversion
+hgshelve=~/opt/reece-external/lib/hgext/hgshelve/hgshelve.py
 
 [pager]
 pager = LESS='FSRX' less
