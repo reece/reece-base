@@ -1,0 +1,14 @@
+#!/usr/bin/env python
+
+import datetime,mailbox,os,sys
+
+fn = sys.argv[1]
+inbox = mailbox.Maidir(fn,factory=None,create=False)
+
+for msg in inbox.itervalues():
+    y = datetime.datetime.fromtimestamp(msg.get_date()).year
+    try:
+        outbox = inbox.get_folder(y)
+    except NoSuchMailboxError:
+        outbox = add_folder(y)
+    outbox.

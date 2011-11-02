@@ -1,0 +1,87 @@
+#!/usr/bin/python3
+# -*-python-*-
+# N.B. I couldn't make this work in python2 due to unicode gotchas
+
+import glob
+import os
+import sqlite3
+import sys
+import urllib.parse
+
+ACCOUNT_NAME='reece@harts.net'
+M_DIR = '~/.local/share/data/Mendeley Ltd./Mendeley Desktop/'
+M_DIR = os.path.expanduser(M_DIR)
+M_DB_PATH = ACCOUNT_NAME + '@www.mendeley.com.sqlite'
+
+
+# TODO
+# * implement dry-run
+# 
+
+-- DO NOT USE YET --
+
+class MendeleyChecker():
+    """Sanity check the Mendeley database"""
+    def __init__(self,path):
+        self.conn = sqlite3.connect(path)
+
+    def shorten_local_urls(self,max_len=175):
+        """shorten local urls to len=175 (default, incl. escaping) by
+        truncating the basename. If the truncation is non-unique, the hash
+        is used.  If the dirname portion exceeds the specified length, no
+        change is made."""
+        c = self.conn.cursor()
+        c.execute('''select hash,localurl,length(localurl)
+    		from files
+            where localurl like 'file://%'
+            and length(localurl) > ?''',
+            (max_len,) )
+        for (hash,old_url,url_len) in c:
+            try:
+                self._shorten_one_url(max_len,hash,old_url)
+            except Exception as e:
+                print(e)
+                pass
+
+    def _shorten_one_url(self,max_len,hash,old_url):
+        old_path = urllib.parse.unquote(old_url[7:])
+        (d,b) = os.path.split(old_path)
+        (br,be) = os.path.splitext(b)
+        new_path = os.path.join(d,hash+be)
+        new_url = 'file://' + urllib.parse.quote(new_path)
+        print('path:\n  old: %s\n  new: %s' % (old_path,new_path))
+        print('url :\n  old: %s\n  new: %s' % (old_url,new_url))
+        if (len(new_path) > max_len):
+            raise Exception('length(%s) > %d' % (new_path,max_len))
+        if os.path.exists(new_path):
+            raise Exception('%s: file exists' % (new_path))
+        with self.conn as conn:
+            print('rename %s -> %s' % (old_path,new_path))
+            self.conn.execute('update files set localurl=? where hash=?',
+                            (new_url,hash))
+            os.rename(old_path,new_path)
+        
+
+    def find_missing_files(self):
+        """find files in the database that don't exist in the filesystem"""
+        return
+
+    def find_untracked_files(self):
+        """find files in watched directores that aren't in the database"""
+        return
+
+    def fix_filenames(self):
+        """fix 1) multiple contiguous spaces in filenames, 2) ..."""
+        return
+
+    def rename_wacky_names(self):
+        # eg. Mendeley Desktop/Ìµ et al./2000/Ø ö ø × õù ò ×.pdf
+        return
+        
+#dbs = glob.glob(os.path.join(db_root, '*@*.sqlite'))
+
+mdb_fn = os.path.join(M_DIR,
+                      M_DB_PATH)
+print(mdb_fn)
+mdb = MendeleyChecker(mdb_fn)
+mdb.shorten_local_urls()

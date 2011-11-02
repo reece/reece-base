@@ -2,13 +2,23 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("bio-hgvs-perl (dev)"
- (filename . "/scp:outcast:/locus/home/reece/projects/bio-hgvs-perl/")
+(("locus-pipe"
+ (filename . "/scp:outcast:/locus/opt/locus-pipe/")
+ (front-context-string . "prd -> ./tip//\n ")
+ (rear-context-string . " 6 Oct 26 00:53 ")
+ (position . 277))
+("locus-pipe (dev)"
+ (filename . "/scp:outcast:projects/locus-pipe/")
+ (front-context-string . ".hg/\n  -rw-r--r-")
+ (rear-context-string . "96 Oct 31 21:22 ")
+ (position . 211))
+("bio-hgvs-perl (dev)"
+ (filename . "/scp:outcast:projects/bio-hgvs-perl/")
  (front-context-string . ".hg/\n  -rw-r--r-")
  (rear-context-string . "96 Oct  6 20:38 ")
  (position . 214))
 ("outcast:projects"
- (filename . "/scp:outcast:/locus/home/reece/projects/")
+ (filename . "/scp:outcast:projects/")
  (front-context-string . "bio-hgvs-perl/\n ")
  (rear-context-string . "96 Oct  6 20:38 ")
  (position . 200))

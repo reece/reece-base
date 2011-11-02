@@ -1,0 +1,11 @@
+#!/bin/sh
+s=2
+exec sudo sh -x <<EOF
+sudo service logmein-hamachi stop
+sleep $s
+service logmein-hamachi start
+sleep $s
+hamachi logoff
+sleep $s
+hamachi login
+EOF
