@@ -12,7 +12,7 @@ use Data::Dumper;
 
 my @d;										# .description files
 my %printed;
-my %dir_level = ('/' => 0, '/locus' => 0, '.' => 0);
+my %dir_level = ('/' => 0, '.' => 0);
 
 if (@ARGV) {
   @d = @ARGV;
@@ -53,10 +53,15 @@ sub print_r {
 	push(@desc,$desc);
   }
 
-  my $ppath = ($level==0 ? '/' : '') . basename($full_path);
-  $ppath .= '/' unless $ppath =~ m%/$%;
+  my $ppath = basename($full_path);
+  if ($full_path eq '/') {
+	$ppath = $full_path;
+  } elsif ($level == 0) { 					# pseudo-root path
+	$ppath = '/'.basename($full_path);
+  }
+  $ppath .= '/' if $ppath !~ m%/$% and -d $full_path;
   my $desc = @desc ? '-- '.join('; ',@desc) : '';
-  printf( "%-30s %s\n", '  'x$level . $ppath, $desc);
+  printf( "%-20s %s\n", '  'x$level.$ppath, $desc);
 
   return $level;
 }
