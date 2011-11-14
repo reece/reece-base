@@ -28,4 +28,4 @@ ignore = version, help, update, serve, record
 [extdiff]
 cmd.diffrw = diff
 opts.diffrw = -rw
-cmd.meld = 
+#cmd.meld = 

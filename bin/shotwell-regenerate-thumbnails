@@ -1,0 +1,20 @@
+#!/bin/sh
+# based on response in:
+# http://askubuntu.com/questions/15020/thumbnails-in-shotwell-are-all-gray
+# requires ImageMagick
+
+sqlite3 $HOME/.shotwell/data/photo.db \
+	"select id||' '||filename from PhotoTable order by timestamp desc" \
+| while read id filename; do
+	echo "* $id ($filename):"
+	for sz in 128 360; do
+		tf=$(printf $HOME/.shotwell/thumbs/thumbs$sz/thumb%016x.jpg $id);
+		echo -n "  ${sz}x${sz} "
+		if [ -e "$tf" ]; then
+			echo "exists"
+		else	
+			convert "$filename" -auto-orient -thumbnail ${sz}x${sz} "$tf"
+			echo "created $tf"
+		fi
+	done
+done

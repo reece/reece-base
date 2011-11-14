@@ -12,6 +12,11 @@
  (front-context-string . ".hg/\n  -rw-r--r-")
  (rear-context-string . "96 Oct 31 21:22 ")
  (position . 211))
+("helix (dev)"
+ (filename . "/scp:outcast:projects/helix/")
+ (front-context-string . ".hg/\n  -rw-r--r-")
+ (rear-context-string . "96 Oct 31 21:22 ")
+ (position . 211))
 ("bio-hgvs-perl (dev)"
  (filename . "/scp:outcast:projects/bio-hgvs-perl/")
  (front-context-string . ".hg/\n  -rw-r--r-")
