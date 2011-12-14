@@ -13,8 +13,11 @@ sqlite3 $HOME/.shotwell/data/photo.db \
 		if [ -e "$tf" ]; then
 			echo "exists"
 		else	
-			convert "$filename" -auto-orient -thumbnail ${sz}x${sz} "$tf"
-			echo "created $tf"
+			if convert "$filename" -auto-orient -thumbnail ${sz}x${sz} "$tf"; then
+				echo "created $tf"
+			else
+				echo "failed: convert \"$filename\" -auto-orient -thumbnail ${sz}x${sz} \"$tf\""
+			fi
 		fi
 	done
 done

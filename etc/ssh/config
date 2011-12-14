@@ -53,13 +53,16 @@ Host cgl-proxy
 Host sage
 	 Hostname sage.locusdev.net
 
-Host outcast outcast.locusdev.net
+Host outcast outcast.locusdev.net outcast-ext outcast-ext.locusdev.net
 	 HostKeyAlias outcast
-	 Hostname outcast.locusdev.net
-	 #ControlMaster auto
+	 #ControlMaster no
 	 StrictHostKeyChecking no
 	 UserKnownHostsFile=/dev/null
 	 ForwardX11 no
+Host outcast outcast.locusdev.net
+	 Hostname outcast.locusdev.net
+Host outcast-ext outcast-ext.locusdev.net
+	 Hostname outcast-ext.locusdev.net
 
 Host ec2-*.amazonaws.com
 	 IdentityFile ~/.ssh/keys/locus.pem
@@ -67,6 +70,16 @@ Host ec2-*.amazonaws.com
 	 StrictHostKeyChecking no
 	 UserKnownHostsFile=/dev/null
 	 ForwardX11 no
+
+
+
+
+
+
+
+
+
+
 
 
 

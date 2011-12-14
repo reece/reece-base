@@ -5,7 +5,7 @@ use warnings;
 use IO::Pipe;
 use Data::Dumper;
 
-my @scan_cmd = qw(sudo iwlist eth1 scanning);
+my @scan_cmd = qw(sudo iwlist wlan0 scanning);
 my $in = new IO::Pipe;
 $in->reader( @scan_cmd )
   || die("@scan_cmd: ", $!, "\n");
@@ -22,6 +22,7 @@ while( <$in> ) {
   if ( m/\s+Cell (\d+) - Address: (\S+)/ ) {
 	$cell_i = $1;
 	$cells[$cell_i]{address} = $2;
+	$cells[$cell_i]{quality} = 0;
 	next;
   }
 
@@ -75,7 +76,7 @@ foreach my $essid (@essids) {
   my @e_cells = @{$cells_by_essid{$essid}};
   foreach my $ec (@e_cells) {
 	printf("%-20s %3s %2d %15s %5s %4sms\n",
-		   @{$ec}{qw(essid encryption channel address quality)}, $ec->{last_beacon}||'?' )
+		   map {$_||''} @{$ec}{qw(essid encryption channel address quality)}, $ec->{last_beacon}||'?' )
   }
 }
 

@@ -1,2 +1,2 @@
 #!/bin/sh
-exec "$(dirname $(realpath "$0"))/renamer" --sha1rename ${1+"$@"}
+exec "$(dirname $(readlink -f "$0"))/renamer" --sha1rename ${1+"$@"}

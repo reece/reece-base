@@ -7,17 +7,17 @@
  (front-context-string . "prd -> ./tip//\n ")
  (rear-context-string . " 6 Oct 26 00:53 ")
  (position . 277))
-("locus-pipe (dev)"
+("locus-pipe (wd)"
  (filename . "/scp:outcast:projects/locus-pipe/")
  (front-context-string . ".hg/\n  -rw-r--r-")
  (rear-context-string . "96 Oct 31 21:22 ")
  (position . 211))
-("helix (dev)"
+("helix (wd)"
  (filename . "/scp:outcast:projects/helix/")
  (front-context-string . ".hg/\n  -rw-r--r-")
  (rear-context-string . "96 Oct 31 21:22 ")
  (position . 211))
-("bio-hgvs-perl (dev)"
+("bio-hgvs-perl (wd)"
  (filename . "/scp:outcast:projects/bio-hgvs-perl/")
  (front-context-string . ".hg/\n  -rw-r--r-")
  (rear-context-string . "96 Oct  6 20:38 ")
@@ -37,17 +37,17 @@
  (front-context-string)
  (rear-context-string . "18 Sep 29 23:37 ")
  (position . 451))
-("locus-python (dev)"
+("locus-python (wd)"
  (filename . "/scp:outcast:projects/locus-python")
  (front-context-string . ".hg/\n  -rw-r--r-")
  (rear-context-string . "96 Sep 16 17:48 ")
  (position . 213))
-("locus-database (dev)"
+("locus-database (wd)"
  (filename . "/scp:outcast:projects/locus-database")
  (front-context-string . ".hg/\n  -rw-r--r-")
  (rear-context-string . "96 Aug  2 23:11 ")
  (position . 192))
-("locus-web (dev)"
+("locus-web (wd)"
  (filename . "/scp:outcast:projects/locus-web")
  (front-context-string . ".hg/\n  -rw-r--r-")
  (rear-context-string . "96 Aug  2 23:11 ")
