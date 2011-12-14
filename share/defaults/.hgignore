@@ -3,16 +3,7 @@ syntax: glob
 *.bak
 *.orig
 *.pyc
-*.pyc
 *.pyo
 *.sqlite3
 *~
-.installed.cfg
-bin
-develop-eggs
-dist
-downloads
-eggs
-parts
-src/*.egg-info
 tmp
