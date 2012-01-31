@@ -16,19 +16,19 @@ download () {
 	mkdir $v || { echo "aborting" 1>&2; exit 1; }
 	cd $v
 	ln -fns ../bioperl-live .
-	#echo "enter 'CVSUSER' for password:"
+	echo "enter 'CVSUSER' for password if prompted"
 	set -ex
 	#cvs -d :pserver:cvsuser@cvs.sanger.ac.uk:/cvsroot/ensembl login
-	cvs -d :pserver:cvsuser@cvs.sanger.ac.uk:/cvsroot/ensembl checkout -r branch-ensembl-$v ensembl
-	cvs -d :pserver:cvsuser@cvs.sanger.ac.uk:/cvsroot/ensembl checkout -r branch-ensembl-$v ensembl-compara
-	cvs -d :pserver:cvsuser@cvs.sanger.ac.uk:/cvsroot/ensembl checkout -r branch-ensembl-$v ensembl-variation
-	cvs -d :pserver:cvsuser@cvs.sanger.ac.uk:/cvsroot/ensembl checkout -r branch-ensembl-$v ensembl-functgenomics
+	cvs -z9 -d :pserver:cvsuser@cvs.sanger.ac.uk:/cvsroot/ensembl checkout -r branch-ensembl-$v ensembl
+	cvs -z9 -d :pserver:cvsuser@cvs.sanger.ac.uk:/cvsroot/ensembl checkout -r branch-ensembl-$v ensembl-compara
+	cvs -z9 -d :pserver:cvsuser@cvs.sanger.ac.uk:/cvsroot/ensembl checkout -r branch-ensembl-$v ensembl-variation
+	cvs -z9 -d :pserver:cvsuser@cvs.sanger.ac.uk:/cvsroot/ensembl checkout -r branch-ensembl-$v ensembl-functgenomics
 }
 
 
 case "$1" in
 	[5-9][0-9])	download "$1";;
-	*) 
+	*)
 		echo "$0: version argument required (and only that)" 1>&2
 		exit 1
 		;;

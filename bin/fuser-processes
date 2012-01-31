@@ -1,0 +1,5 @@
+#!/bin/sh
+
+fuser -m "$1" \
+| perl -ne 's/^.+?://; @pids=m/(\d+)/g; print "@pids"' \
+| xargs -r ps -f

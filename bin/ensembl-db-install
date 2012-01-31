@@ -9,6 +9,12 @@
 # /srv/mirrors/ftp.ensembl.org/pub/current_mysql/homo_sapiens_core_62_37g
 
 MYSQL_ARGS='-u root'
+tmp_dir=$(mktemp -d)
+
+cleanup () {
+	[ -d "$tmp_dir" ] && rmdir -v "$tmp_dir"
+}
+trap cleanup EXIT
 
 while [ $# -gt 0 ]; do
 	dump_root="$1"; shift
@@ -28,17 +34,19 @@ while [ $# -gt 0 ]; do
 		gzip -cdq "$sql_fn" \
 			| mysql $MYSQL_ARGS "$fqdb"
 
+		# loop over table dumps
 		for f in "$dump_root"/*.txt.gz; do
-			if [[ "$(basename "$f")" =~ ^mart ]]; then
+			basename="$(basename "$f")"
+			if [[ "$basename" =~ "^mart" ]]; then
 				continue;
 			fi
-			dst="${f%.gz}"
+			dst="$tmp_dir/${basename%.gz}"
 			gzip -cdq <"$f" >"$dst"
 			time -p mysqlimport $MYSQL_ARGS $fqdb -L "$dst"
 			rm -f "$dst"
 		done
 
 		mysql $MYSQL_ARGS -e "grant select on $fqdb.* to anonymous;"
-		mysql $MYSQL_ARGS -e "grant all on $fqdb.* to reece;"
+		#mysql $MYSQL_ARGS -e "grant all on $fqdb.* to reece;"
 	)
 done
