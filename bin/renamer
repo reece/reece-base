@@ -219,7 +219,8 @@ sub _preload_modules() {
   }
 
   if ($opts{'filetype'}) {
-	eval 'use File::MMagic';
+	eval 'use File::MMagic; 1'
+	  or die("File::MMagic not installed");
 	$mm = new File::MMagic;
 	%mimetype_suffixes = load_mimetype_suffixes($opts{mimetype_fp});
 	override_mimetype_suffixes() if $opts{'use-suffix-overrides'};
