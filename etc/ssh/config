@@ -25,12 +25,9 @@ Host whoville-external
 	 HostName whoville.homelinux.net
 	 HostKeyAlias whoville
 
-
 Host hn unison-relay unison-relay-wget
 	 HostName harts.net
 	 User hartsnet
-
-
 
 Host bitbucket.org
 	 IdentityFile ~/.ssh/bitbucket
@@ -40,29 +37,23 @@ Host sf
 	 User reece
 
 
-Host cgl unison-relay-psql
-	 HostName socrates.cgl.ucsf.edu
-	 User rkh
-
-Host cgl-proxy
-	 Hostname socrates.cgl.ucsf.edu
-	 User rkh
-	 DynamicForward 1078
-
-
 Host sage
 	 Hostname sage.locusdev.net
+Host bwl
+	 Hostname bwl-vpn.locusdev.net
+Host fsdb
+	 Hostname fsdb-vpn.locusdev.net
 
-Host outcast outcast.locusdev.net outcast-ext outcast-ext.locusdev.net
-	 HostKeyAlias outcast
-	 #ControlMaster no
-	 StrictHostKeyChecking no
-	 UserKnownHostsFile=/dev/null
-	 ForwardX11 no
-Host outcast outcast.locusdev.net
-	 Hostname outcast.locusdev.net
-Host outcast-ext outcast-ext.locusdev.net
-	 Hostname outcast-ext.locusdev.net
+#Host outcast outcast.locusdev.net outcast-ext outcast-ext.locusdev.net
+#	 HostKeyAlias outcast
+#	 #ControlMaster no
+#	 StrictHostKeyChecking no
+#	 UserKnownHostsFile=/dev/null
+#	 ForwardX11 no
+#Host outcast.locusdev.net
+#	 Hostname outcast.locusdev.net
+#Host outcast outcast-ext outcast-ext.locusdev.net
+#	 Hostname outcast-ext.locusdev.net
 
 Host ec2-*.amazonaws.com
 	 IdentityFile ~/.ssh/keys/locus.pem
@@ -73,26 +64,13 @@ Host ec2-*.amazonaws.com
 
 
 
+Host cgl unison-relay-psql
+	 HostName socrates.cgl.ucsf.edu
+	 User rkh
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Host cgl-proxy
+	 Hostname socrates.cgl.ucsf.edu
+	 User rkh
+	 DynamicForward 1078
 
 

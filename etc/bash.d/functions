@@ -22,6 +22,15 @@ addsuffix () {
 }
 
 
+# sfxsub -- replace suffixes
+# eg$ make $(sfxsub .vcf -vus.xml P4*.vcf)
+sfxsub () {
+	s1=$1; shift;
+	s2=$1; shift;
+	for f in "$@"; do echo "${f%$s1}$s2"; done;
+}
+
+
 # diff .bak files against their new versions
 # I use this after a bulk replacement with 'perl -i.bak -p0e ...'
 bakdiff () { for f in "$@"; do diff -u "$f" "${f%.bak}"; done; }
