@@ -43,6 +43,9 @@ Host bwl
 	 Hostname bwl-vpn.locusdev.net
 Host fsdb
 	 Hostname fsdb-vpn.locusdev.net
+Host compute
+	 Hostname bwl-vpn.locusdev.net
+	 Port 31002
 
 #Host outcast outcast.locusdev.net outcast-ext outcast-ext.locusdev.net
 #	 HostKeyAlias outcast

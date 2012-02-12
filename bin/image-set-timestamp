@@ -1,0 +1,16 @@
+#!/bin/sh
+
+ts="$1"
+shift
+
+tmp_fn=$(mktemp)
+cat >"$tmp_fn" <<EOF
+set  Exif.Image.DateTime	$ts
+set  Exif.Photo.ExifVersion $ts
+EOF
+
+(
+set -x
+exiv2 -m "$tmp_fn" "$@"
+touch -d "$ts" "$@"
+)

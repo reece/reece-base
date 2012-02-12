@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+# export mendeley docs in folder (-f) to tagged foders in the filer path (-d)
+# don't file if pubmed/id exists
+
+import argparse, os, logging, pprint, shutil, sqlite3, urllib2
+
+logging.getLogger().setLevel(logging.DEBUG)
+
+parser = argparse.ArgumentParser(
+    description='copy files in Mendeley into folders')
+parser.add_argument(
+    '--database-path', '--db',
+    default=os.path.expanduser(
+        '~/.local/share/data/Mendeley Ltd./Mendeley Desktop/'
+        'reece@harts.net@www.mendeley.com.sqlite'),
+        help='Mendeley database file')
+parser.add_argument(
+    '--folder', '-f',
+    default='Share with Locus',
+    help='source folder')
+parser.add_argument(
+    '--library-directory', '-l',
+    default=os.path.expanduser('~/Dropbox/locus corp/library/'),
+    help='destination directory')
+args = parser.parse_args()
+
+select_documents_sql = """
+select distinct D.id,pmid,title,localUrl
+from Folders FO
+join DocumentFolders DFO on FO.id=DFO.folderId
+join Documents D on DFO.documentId=D.id
+join DocumentFiles DFI on D.id=DFI.documentId
+join Files FI on DFI.hash=FI.hash
+where FO.name=:folder
+"""
+
+document_folders_sql = """
+select documentId,folderId,FO.name
+from DocumentFolders DFO
+join Folders FO on DFO.folderId=FO.id
+where DFO.documentId=:documentId
+"""
+
+def row_dict_factory(cur, row):
+    return dict( (d[0],row[i]) for i,d in enumerate(cur.description) )
+
+logging.info('Opening '+args.database_path)
+conn = sqlite3.connect(args.database_path)
+conn.row_factory = row_dict_factory
+cur = conn.cursor()
+cur.execute(select_documents_sql, {'folder': args.folder})
+
+for doc in cur.fetchall():
+    pprint.pprint(doc)
+    if doc['pmid'] is None:
+        logging.warn("Missing PubMed: Can't file '%s'" % (doc['title']))
+        continue
+    assert doc['localUrl'].startswith('file://')
+    assert doc['localUrl'].endswith('.pdf')
+    src = urllib2.unquote(doc['localUrl'][len('file://'):])
+    dst = os.path.join(args.library_directory,'incoming',
+                       str(doc['pmid'])+'.pdf')
+    if not os.path.exists(os.path.dirname(dst)):
+        os.makedirs(os.path.dirname(dst))
+    shutil.copy(src,dst)
+    logging.info('%s -> %s' % (src,dst))

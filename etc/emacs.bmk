@@ -2,78 +2,18 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("vus-tool-comparison"
- (filename . "/scp:outcast:/locus/home/reece/projects/vus-tool-comparison/")
- (front-context-string . ".hg/\n  -rw-r--r-")
- (rear-context-string . "96 Dec 30 14:14 ")
- (position . 231))
-("locus-pipe"
- (filename . "/scp:outcast:/locus/opt/locus-pipe/")
- (front-context-string . "prd -> ./tip//\n ")
- (rear-context-string . " 6 Oct 26 00:53 ")
- (position . 277))
-("locus-pipe (wd)"
- (filename . "/scp:outcast:projects/locus-pipe/")
- (front-context-string . ".hg/\n  -rw-r--r-")
- (rear-context-string . "96 Oct 31 21:22 ")
- (position . 211))
-("helix (wd)"
- (filename . "/scp:outcast:projects/helix/")
- (front-context-string . ".hg/\n  -rw-r--r-")
- (rear-context-string . "96 Oct 31 21:22 ")
- (position . 211))
-("bio-hgvs-perl (wd)"
- (filename . "/scp:outcast:projects/bio-hgvs-perl/")
- (front-context-string . ".hg/\n  -rw-r--r-")
- (rear-context-string . "96 Oct  6 20:38 ")
- (position . 214))
-("outcast:projects"
- (filename . "/scp:outcast:projects/")
+(("fsdb:projects"
+ (filename . "/scp:fsdb:projects/")
  (front-context-string . "bio-hgvs-perl/\n ")
  (rear-context-string . "96 Oct  6 20:38 ")
  (position . 200))
-("docdepot"
- (filename . "/scp:outcast:/srv/locuslibrary/docdepot/")
- (front-context-string . ".gitignore\n  drw")
- (rear-context-string . "15 Feb 17  2011 ")
- (position . 207))
-("locus-etc"
- (filename . "/scp:outcast:/locus/etc/locus/")
+("fsdb:/locus/etc"
+ (filename . "/scp:fsdb:/locus/etc/")
  (front-context-string)
  (rear-context-string . "18 Sep 29 23:37 ")
  (position . 451))
-("locus-python (wd)"
- (filename . "/scp:outcast:projects/locus-python")
- (front-context-string . ".hg/\n  -rw-r--r-")
- (rear-context-string . "96 Sep 16 17:48 ")
- (position . 213))
-("locus-database (wd)"
- (filename . "/scp:outcast:projects/locus-database")
- (front-context-string . ".hg/\n  -rw-r--r-")
- (rear-context-string . "96 Aug  2 23:11 ")
- (position . 192))
-("locus-web (wd)"
- (filename . "/scp:outcast:projects/locus-web")
- (front-context-string . ".hg/\n  -rw-r--r-")
- (rear-context-string . "96 Aug  2 23:11 ")
- (position . 192))
-("locus-python"
- (filename . "/scp:outcast:/locus/opt/locus-python")
- (front-context-string . ".hg/\n  -rw-r--r-")
- (rear-context-string . "96 Sep 16 17:48 ")
- (position . 213))
-("locus-database"
- (filename . "/scp:outcast:/locus/opt/locus-database")
- (front-context-string . ".hg/\n  -rw-r--r-")
- (rear-context-string . "96 Aug  2 23:11 ")
- (position . 192))
-("locus-web"
- (filename . "/scp:outcast:/locus/opt/locus-web")
- (front-context-string . ".hg/\n  -rw-r--r-")
- (rear-context-string . "96 Aug  2 23:11 ")
- (position . 192))
-("bio-hgvs-perl"
- (filename . "/scp:outcast:/locus/opt/bio-hgvs-perl/")
+("fsdb:/locus/opt"
+ (filename . "/scp:fsdb:/locus/opt/")
  (front-context-string . ".hg/\n  -rw-r--r-")
  (rear-context-string . "96 Oct  4 19:16 ")
  (position . 216))
