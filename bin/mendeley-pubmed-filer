@@ -2,9 +2,16 @@
 # export mendeley docs in folder (-f) to tagged foders in the filer path (-d)
 # don't file if pubmed/id exists
 
-import argparse, os, logging, pprint, shutil, sqlite3, urllib2
+import argparse
+import os
+import logging
+import pprint
+import shutil
+import sqlite3
+import urllib2
 
-logging.getLogger().setLevel(logging.DEBUG)
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s %(levelname)s %(name)s %(message)s')
 
 parser = argparse.ArgumentParser(
     description='copy files in Mendeley into folders')
@@ -50,10 +57,15 @@ conn.row_factory = row_dict_factory
 cur = conn.cursor()
 cur.execute(select_documents_sql, {'folder': args.folder})
 
+existing_pmids = [ e.split('_')[0] for e in os.listdir(
+            os.path.join(args.library_directory,'locus')) ]
+
 for doc in cur.fetchall():
-    pprint.pprint(doc)
     if doc['pmid'] is None:
         logging.warn("Missing PubMed: Can't file '%s'" % (doc['title']))
+        continue
+    if str(doc['pmid']) in existing_pmids:
+        logging.info("Already exists: PubMed %s ('%s')" % (doc['pmid'],doc['title']))
         continue
     assert doc['localUrl'].startswith('file://')
     assert doc['localUrl'].endswith('.pdf')

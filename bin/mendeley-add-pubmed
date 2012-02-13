@@ -1,0 +1,79 @@
+#!/usr/bin/env python
+# update mendeley database with pubmed ids when doi is available
+
+from __future__ import print_function
+
+import argparse
+import os
+import logging
+import sqlite3
+import sys
+from Bio import Entrez
+
+Entrez.tool = sys.argv[0]
+Entrez.email = 'reecehart@gmail.com'
+tag = 'pmid-from-doi'
+
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s %(levelname)s %(name)s %(message)s')
+
+parser = argparse.ArgumentParser(
+    description='copy files in Mendeley into folders')
+parser.add_argument(
+    '--database-path', '--db',
+    default=os.path.expanduser(
+        '~/.local/share/data/Mendeley Ltd./Mendeley Desktop/'
+        'reece@harts.net@www.mendeley.com.sqlite'),
+        help='Mendeley database file')
+args = parser.parse_args()
+
+sel_sql = """
+select id,doi,pmid,title
+from Documents D
+where deletionPending is 'false'
+	and pmid is NULL
+	and doi is not NULL
+limit 20
+"""
+
+upd_sql = """
+update Documents
+set pmid=:pmid
+where id = :id
+"""
+
+tag_sql = """
+insert into DocumentTags values (:documentId,:tag)
+"""
+
+
+def row_dict_factory(cur, row):
+    return dict( (d[0],row[i]) for i,d in enumerate(cur.description) )
+
+logging.info('Opening '+args.database_path)
+conn = sqlite3.connect(args.database_path)
+conn.row_factory = row_dict_factory
+
+sel_cur = conn.cursor()
+sel_cur.execute(sel_sql)
+upd_cur = conn.cursor()
+tag_cur = conn.cursor()
+
+docs = sel_cur.fetchall()
+logging.info('%d documents to update' % (len(docs)))
+for doc in docs:
+    res = Entrez.read(Entrez.esearch(
+            db='pubmed',term='%s[doi]'%(doc['doi'])))
+    if int(res['Count']) == 0:
+        logging.info('No pubmed id for %s?' % (doc['doi']))
+        continue
+    if int(res['Count']) > 1:
+        logging.info('more that one pubmed id for %s?' % (doc['doi']))
+        continue
+    pmid = int(res['IdList'][0])
+
+    upd_cur.execute(upd_sql,{'pmid':pmid, 'id': doc['id']})
+    tag_cur.execute(tag_sql,{'tag':tag, 'documentId': doc['id']})
+    logging.info('%s: %s -> %s (%s)' % (doc['id'],doc['doi'],pmid,doc['title']))
+
+conn.commit()
