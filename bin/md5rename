@@ -1,2 +1,2 @@
 #!/bin/bash
-exec "$(dirname $(realpath "$0"))/renamer" --md5rename ${1+"$@"}
+exec "$(dirname $(readlink -f "$0"))/renamer" --md5rename ${1+"$@"}
