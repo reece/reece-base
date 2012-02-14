@@ -33,12 +33,13 @@ from Documents D
 where deletionPending is 'false'
 	and pmid is NULL
 	and doi is not NULL
-limit 20
+	and confirmed='false'
+limit 5
 """
 
 upd_sql = """
 update Documents
-set pmid=:pmid
+set pmid=:pmid,confirmed='false'
 where id = :id
 """
 
