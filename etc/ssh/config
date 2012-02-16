@@ -1,10 +1,3 @@
-# This caused infrequent hangs for me when suspending/resuming on
-# various wireless nets
-#Host *
-#	 ControlMaster auto
-#	 ControlPath ~/.ssh/master-%r@%h:%p
-
-
 # FORCED DEFAULTS
 ForwardAgent yes
 ConnectionAttempts 3
@@ -39,12 +32,16 @@ Host sf
 
 Host sage
 	 Hostname sage.locusdev.net
+	 ControlMaster auto
 Host bwl
 	 Hostname bwl-vpn.locusdev.net
+	 ControlMaster auto
 Host fsdb
 	 Hostname fsdb-vpn.locusdev.net
+	 ControlMaster auto
 Host compute
 	 Hostname bwl-vpn.locusdev.net
+	 ControlMaster auto
 	 Port 31002
 
 #Host outcast outcast.locusdev.net outcast-ext outcast-ext.locusdev.net

@@ -2,9 +2,14 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("fsdb:projects"
- (filename . "/scp:fsdb:projects/")
- (front-context-string . "bio-hgvs-perl/\n ")
+(("locus-pipe"
+ (filename . "/sshx:fsdb:/locus/home/reece/projects/locus-pipe/")
+ (front-context-string . "lib/\n  drwxr-xr-")
+ (rear-context-string . "96 Feb 16 17:14 ")
+ (position . 874))
+("fsdb:projects"
+ (filename . "/ssh:fsdb:/locus/home/reece/projects/")
+ (front-context-string)
  (rear-context-string . "96 Oct  6 20:38 ")
  (position . 200))
 ("fsdb:/locus/etc"
@@ -14,7 +19,7 @@
  (position . 451))
 ("fsdb:/locus/opt"
  (filename . "/scp:fsdb:/locus/opt/")
- (front-context-string . ".hg/\n  -rw-r--r-")
+ (front-context-string)
  (rear-context-string . "96 Oct  4 19:16 ")
  (position . 216))
 ("hartsnet"

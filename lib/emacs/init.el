@@ -3,7 +3,7 @@
 
 (load-library "Rtrinkets")
 
-;(autoload 'c-outline "c-outline" "Outline mode for C and Perl" t)
+(autoload 'c-outline "c-outline" "Outline mode for C and Perl" t)
 (load-library "shebang")
 ;(load-library "popchar")
 
@@ -19,6 +19,7 @@
 (load-library "init/javascript-mode")
 (load-library "init/python-mode")
 (load-library "init/scala-mode")
+(load-library "init/tramp")
 ;(load-library "init/sh-mode")
 ;(load-library "init/shell")
 ;(load-library "init/sql")

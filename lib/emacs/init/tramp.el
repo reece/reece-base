@@ -1,3 +1,7 @@
-(add-to-list 'load-path (concat emacs-home-dir "/tramp/lisp"))
-(add-to-list 'load-path (concat emacs-home-dir "/tramp/contrib"))
 (require 'tramp)
+
+(setq vc-ignore-dir-regexp
+                (format "\\(%s\\)\\|\\(%s\\)"
+                        vc-ignore-dir-regexp
+                        tramp-file-name-regexp))
+(setq tramp-verbose 2)

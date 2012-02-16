@@ -16,8 +16,9 @@ mq=
 pager=
 progress=
 rebase=
+hggit = 
+
 ### local installations:
-hggit = ~/opt/reece-external/lib/hgext/hg-git/hggit
 hgsubversion = ~/opt/reece-external/lib/hgext/hgsubversion/hgsubversion
 hgshelve=~/opt/reece-external/lib/hgext/hgshelve/hgshelve.py
 

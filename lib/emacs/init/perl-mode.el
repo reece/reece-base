@@ -13,7 +13,7 @@
 
 (defun Reece-perl-mode-setup ()
   (local-set-key "\C-c\C-d"   'cperl-perldoc)
-  (c-outline)
+  ;(c-outline)
   )
 (add-hook 'cperl-mode-hook 'Reece-perl-mode-setup)
 
