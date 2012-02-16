@@ -1,11 +1,14 @@
 #!/bin/sh
 s=2
-exec sudo sh -x <<EOF
-sudo service logmein-hamachi stop
-sleep $s
-service logmein-hamachi start
-sleep $s
-hamachi logoff
-sleep $s
-hamachi login
+exec sudo /bin/sh -x <<EOF
+if [ "$1" = "full" ]; then
+  sudo service logmein-hamachi stop
+  sleep $s
+  service logmein-hamachi start
+else
+  hamachi logoff
+  sleep $s
+  hamachi login
+fi
+hamachi
 EOF
