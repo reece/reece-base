@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+__doc__ = """
+igv-build-index -- build index XML files for Integrated Genome Viewer
+"""
+# Reece Hart <reecehart@gmail.com>
+
+
+import argparse,logging,os,pprint,re
+from lxml import etree
+
+
+logging.basicConfig(level=logging.INFO)
+
+
+igv_data_file_re = re.compile('.*\\.(?:bed|bam|vcf)')
+
+
+def track_name(fn):
+    try:
+        with open(fn,'r') as fh:
+            l = fh.next()
+            if not l.startswith('#gffTags'):
+                return
+            l = fh.next()
+            m = re.match('track\s+name="([^"]+)',l)
+            return m.group(1)
+    except AttributeError:
+        return
+
+def add_dir(xml,dir,url):
+    logging.debug('add_dir %s (%s) to node %s (%s)',
+                  dir, url, xml.tag, ';'.join(['='.join([k,v]) for k,v in xml.attrib.iteritems()]))
+    dirents = sorted(os.listdir(dir))
+    dirs = [ de for de in dirents if os.path.isdir(os.path.join(dir,de)) ]
+    files = [ de for de in dirents if igv_data_file_re.match(de)
+              and os.path.isfile(os.path.join(dir,de)) ]
+    logging.debug('%d dirents, %d dirs, %d files' % (len(dirents),len(dirs),len(files)))
+    #pprint.pprint(dirents)
+
+    for f in files:
+        rp = os.path.join(dir,f)
+        name = track_name(rp) or f
+        path = os.path.join(url,f)
+        etree.SubElement(xml, 'Resource', {'name': name, 'path': path})
+        logging.debug('added resource %s (%s)',f,path)
+        
+    for d in dirs:
+        sub = etree.SubElement(xml, 'Category', {'name': d})
+        logging.debug('added category %s',d)
+        add_dir(sub,
+                os.path.join(dir,d),
+                os.path.join(url,d))
+
+    return xml
+
+
+
+parser = argparse.ArgumentParser(
+    description = __doc__.strip(),
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+parser.add_argument('--root-url', '-u', 
+                    required=True, 
+                    help='URL corresponding to root directory')
+parser.add_argument('--root-directory', '-d', 
+                    required=True, default='.',
+                    help='root directory of igv files')
+parser.add_argument('--root-name', '-n', 
+                    required=True, default='IGV Files',
+                    help='root directory of igv files')
+# stdout
+# conf file in dirs
+
+
+args = parser.parse_args()
+
+
+
+root = etree.Element('Global',
+                     {'version': '1',
+                      'hyperlink': args.root_url,
+                      'name': args.root_name})
+
+add_dir(root,args.root_directory,args.root_url)
+
+
+print(etree.tostring(root,xml_declaration=True,pretty_print=True,encoding='UTF-8'))
