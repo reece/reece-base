@@ -22,9 +22,9 @@ export ORGANIZATION="Locus Development, Inc."
 export PSQL_EDITOR='emacs -nw'
 export VERSION_CONTROL=simple
 
-
 # Python setup
 export PYTHONPATH=${REECE_EXTERNAL_DIR}/lib/python${PYTHONPATH:+:$PYTHONPATH}
+export PYTHONUSERBASE=${REECE_EXTERNAL_DIR}
 #export PYTHONSTARTUP=$HOME/.pythonrc.py
 
 # Perl setup

@@ -49,8 +49,9 @@ computed are:
 ##############################################################################
 
 use POSIX qw( :errno_h );
-#use Getopt::Mixed 1.006;
 use vars qw( $RCSId $jemappelle $opt_version );
+
+binmode(STDOUT, ":utf8");
 
 $RCSId = '$Id: stats.pl,v 1.8 1998/02/12 04:58:13 reece Exp $ ';
 ($jemappelle=$0) =~ s,^.*/,,;

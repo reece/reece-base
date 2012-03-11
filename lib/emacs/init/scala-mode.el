@@ -2,3 +2,6 @@
 
 (add-to-list 'load-path (concat emacs-home-dir "/scala-emacs"))
 (require 'scala-mode-auto)
+
+(add-to-list 'load-path (concat emacs-home-dir "/ensime/elisp"))
+(add-hook 'scala-mode-hook 'ensime-scala-mode-hook)

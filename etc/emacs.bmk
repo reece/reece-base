@@ -3,27 +3,27 @@
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
 (("locus-pipe"
- (filename . "/sshx:fsdb:/locus/home/reece/projects/locus-pipe/")
+ (filename . "/scpc:fsdb:/locus/home/reece/projects/locus-pipe/")
  (front-context-string . "lib/\n  drwxr-xr-")
  (rear-context-string . "96 Feb 16 17:14 ")
  (position . 874))
 ("fsdb:projects"
- (filename . "/ssh:fsdb:/locus/home/reece/projects/")
+ (filename . "/scpc:fsdb:/locus/home/reece/projects/")
  (front-context-string)
  (rear-context-string . "96 Oct  6 20:38 ")
  (position . 200))
 ("fsdb:/locus/etc"
- (filename . "/scp:fsdb:/locus/etc/")
+ (filename . "/scpc:fsdb:/locus/etc/")
  (front-context-string)
  (rear-context-string . "18 Sep 29 23:37 ")
  (position . 451))
 ("fsdb:/locus/opt"
- (filename . "/scp:fsdb:/locus/opt/")
+ (filename . "/scpc:fsdb:/locus/opt/")
  (front-context-string)
  (rear-context-string . "96 Oct  4 19:16 ")
  (position . 216))
 ("hartsnet"
- ((filename . "/ssh:hn:")
+ ((filename . "/scpc:hn:/home4/hartsnet/")
   (front-context-string . ".bash/\n  -rw----")
   (rear-context-string . "20 Apr 20  2006 ")
   (position . 211)))

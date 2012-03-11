@@ -1,6 +1,6 @@
 #!/bin/sh
 s=2
-exec sudo /bin/sh -x <<EOF
+exec /bin/sh -x <<EOF
 if [ "$1" = "full" ]; then
   sudo service logmein-hamachi stop
   sleep $s

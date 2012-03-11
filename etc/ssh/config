@@ -3,9 +3,9 @@ ForwardAgent yes
 ConnectionAttempts 3
 HashKnownHosts no
 StrictHostKeyChecking no
-ForwardX11 yes
+ForwardX11 no
 IdentityFile ~/.ssh/id
-ControlPath ~/.ssh/controlmaster-%r@%h:%p
+#ControlPath ~/.ssh/controlmaster-%r@%h:%p
 
 
 Host whoville-localhost
@@ -32,17 +32,13 @@ Host sf
 
 Host sage
 	 Hostname sage.locusdev.net
-	 ControlMaster auto
 Host bwl
 	 Hostname bwl-vpn.locusdev.net
-	 ControlMaster auto
 Host fsdb
 	 Hostname fsdb-vpn.locusdev.net
-	 ControlMaster auto
 Host compute
 	 Hostname bwl-vpn.locusdev.net
-	 ControlMaster auto
-	 Port 31002
+	 Port 10022
 
 #Host outcast outcast.locusdev.net outcast-ext outcast-ext.locusdev.net
 #	 HostKeyAlias outcast
