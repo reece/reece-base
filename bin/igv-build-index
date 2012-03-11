@@ -18,12 +18,14 @@ igv_data_file_re = re.compile('.*\\.(?:bed|bam|vcf)')
 def track_name(fn):
     try:
         with open(fn,'r') as fh:
-            l = fh.next()
-            if not l.startswith('#gffTags'):
-                return
-            l = fh.next()
-            m = re.match('track\s+name="([^"]+)',l)
-            return m.group(1)
+            for n,l in enumerate(fh):
+                if l.startswith('#'):
+                    continue
+                if l.startswith('track'):
+                    m = re.match('track\s+name="([^"]+)',l)
+                    return m.group(1)
+                if n > 10:
+                    break
     except AttributeError:
         return
 

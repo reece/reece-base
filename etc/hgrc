@@ -20,7 +20,7 @@ rebase=
 ### local installations:
 hgsubversion=~/opt/reece-external/lib/hgext/hgsubversion/hgsubversion
 hgshelve=~/opt/reece-external/lib/hgext/hgshelve/hgshelve.py
-hggit=~/opt/reece-external/lib/hgext/hg-git/hggit
+#hggit=~/opt/reece-external/lib/hgext/hg-git/hggit
 
 [pager]
 pager = LESS='FSRX' less
