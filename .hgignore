@@ -9,3 +9,4 @@ syntax: glob
 .gitignore
 tmp
 .svn
+etc/ssh/known_hosts
