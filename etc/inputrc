@@ -1,6 +1,7 @@
 set bell-style visible
 set completion-query-items 25
-set convert-meta On
+set convert-meta Off
+set meta-flag On
 set editing-mode emacs
 set input-meta On
 set output-meta On
