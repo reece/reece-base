@@ -19,6 +19,7 @@ if [ -n "$PS1" ]; then	# interactive
    source_dot_bash status-line
 
    source_dot_bash scala
+   source_dot_bash locus
 fi
 
 source_dot_bash FINALIZE

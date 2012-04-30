@@ -3,8 +3,10 @@
 .Trash
 .beagle
 .cache
-.googleearth/Cache
 .gvfs
+.ivy2
+.m2
+.shotwell/thumbs
 .thumbnails
 /proc
 /sys
@@ -14,4 +16,3 @@ Trash
 core
 mnt
 tmp
-.shotwell/thumbs

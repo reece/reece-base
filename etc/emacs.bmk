@@ -2,7 +2,12 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("locus-pipe"
+(("reece@seqnas"
+ (filename . "/scpc:seqnas:/var/services/homes/reece/")
+ (front-context-string . ".hgrc\n  drwx----")
+ (rear-context-string . "06 Apr 18 13:43 ")
+ (position . 227))
+("locus-pipe"
  (filename . "/scpc:fsdb:/locus/home/reece/projects/locus-pipe/")
  (front-context-string . "lib/\n  drwxr-xr-")
  (rear-context-string . "96 Feb 16 17:14 ")

@@ -11,6 +11,7 @@ color=
 convert=
 extdiff=
 fetch=
+git=
 graphlog=
 mq=
 pager=
@@ -20,7 +21,6 @@ rebase=
 ### local installations:
 hgsubversion=~/opt/reece-external/lib/hgext/hgsubversion/hgsubversion
 hgshelve=~/opt/reece-external/lib/hgext/hgshelve/hgshelve.py
-#hggit=~/opt/reece-external/lib/hgext/hg-git/hggit
 
 [pager]
 pager = LESS='FSRX' less
@@ -29,4 +29,4 @@ ignore = version, help, update, serve, record
 [extdiff]
 cmd.diffrw = diff
 opts.diffrw = -rw
-#cmd.meld = 
+cmd.meld = 

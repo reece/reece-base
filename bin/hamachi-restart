@@ -1,8 +1,9 @@
 #!/bin/sh
 s=2
-exec /bin/sh -x <<EOF
+exec /bin/sh <<EOF
 if [ "$1" = "full" ]; then
   sudo service logmein-hamachi stop
+  sleep $s
   sleep $s
   service logmein-hamachi start
 else

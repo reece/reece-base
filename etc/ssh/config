@@ -3,8 +3,8 @@ ForwardAgent yes
 ConnectionAttempts 3
 HashKnownHosts no
 StrictHostKeyChecking no
-ForwardX11 no
-IdentityFile ~/.ssh/id
+ForwardX11 yes
+IdentityFile ~/.ssh/keys/snafu_pwl
 #ControlPath ~/.ssh/controlmaster-%r@%h:%p
 
 
@@ -23,7 +23,10 @@ Host hn unison-relay unison-relay-wget
 	 User hartsnet
 
 Host bitbucket.org
-	 IdentityFile ~/.ssh/bitbucket
+	 IdentityFile ~/.ssh/keys/bitbucket
+
+Host github.org
+	 IdentityFile ~/.ssh/keys/github
 
 Host sf
 	 HostName shell.sf.net
@@ -33,40 +36,14 @@ Host sf
 Host sage
 	 Hostname sage.locusdev.net
 Host bwl
-	 Hostname bwl-vpn.locusdev.net
+	 Hostname bwl.vpc.locusdev.net
 Host fsdb
-	 Hostname fsdb-vpn.locusdev.net
+	 Hostname fsdb.vpc.locusdev.net
 Host compute
-	 Hostname bwl-vpn.locusdev.net
-	 Port 10022
-
-#Host outcast outcast.locusdev.net outcast-ext outcast-ext.locusdev.net
-#	 HostKeyAlias outcast
-#	 #ControlMaster no
-#	 StrictHostKeyChecking no
-#	 UserKnownHostsFile=/dev/null
-#	 ForwardX11 no
-#Host outcast.locusdev.net
-#	 Hostname outcast.locusdev.net
-#Host outcast outcast-ext outcast-ext.locusdev.net
-#	 Hostname outcast-ext.locusdev.net
-
+	 Hostname compute.vpc.locusdev.net
+Host seqnas
+	 Hostname seqnas.locusdev.net
 Host ec2-*.amazonaws.com
 	 IdentityFile ~/.ssh/keys/locus.pem
 	 User ubuntu
-	 StrictHostKeyChecking no
 	 UserKnownHostsFile=/dev/null
-	 ForwardX11 no
-
-
-
-Host cgl unison-relay-psql
-	 HostName socrates.cgl.ucsf.edu
-	 User rkh
-
-Host cgl-proxy
-	 Hostname socrates.cgl.ucsf.edu
-	 User rkh
-	 DynamicForward 1078
-
-
