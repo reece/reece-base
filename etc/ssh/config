@@ -41,8 +41,8 @@ Host fsdb
 	 Hostname fsdb.vpc.locusdev.net
 Host compute
 	 Hostname compute.vpc.locusdev.net
-Host seqnas
-	 Hostname seqnas.locusdev.net
+Host seqnas1
+	 Hostname seqnas1.locusdev.net
 Host ec2-*.amazonaws.com
 	 IdentityFile ~/.ssh/keys/locus.pem
 	 User ubuntu
