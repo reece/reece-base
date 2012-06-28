@@ -12,7 +12,8 @@
 
 from __future__ import with_statement, print_function
 import argparse, logging, HTMLParser, os, re, sys, urllib2
-
+import urlgrabber, urlgrabber.progress
+import IPython
 
 class TALDownloader(object):
     """TALDownloader -- class to download and rename episodes of This American Life"""
@@ -33,11 +34,15 @@ class TALDownloader(object):
     def download_episode(self, epno, fn):
         # TODO: check header date v. file timestamp first
         url = self.mp3_url_fmt.format(epno=epno)
-        req = urllib2.urlopen(url)
         tmp_fn = fn + u'.tmp'
-        f = open(tmp_fn,'w')
-        f.write(req.read())
-        f.close()
+        if True:
+            urlgrabber.urlgrab(str(url), tmp_fn,
+                               progress_obj = urlgrabber.progress.text_progress_meter() )
+        else:
+            req = urllib2.urlopen(url)
+            f = open(tmp_fn,'w')
+            f.write(req.read())
+            f.close()
         os.rename(tmp_fn, fn)
 
 
