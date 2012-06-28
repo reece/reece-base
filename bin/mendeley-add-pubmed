@@ -6,19 +6,20 @@ from __future__ import print_function
 import argparse
 import os
 import logging
+import re
 import sqlite3
 import sys
 from Bio import Entrez
 
-Entrez.tool = sys.argv[0]
+tag = os.path.basename(sys.argv[0])
+Entrez.tool = tag
 Entrez.email = 'reecehart@gmail.com'
-tag = 'pmid-from-doi'
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
 
 parser = argparse.ArgumentParser(
-    description='copy files in Mendeley into folders')
+    description='add pubmed ids to documents that have DOIs')
 parser.add_argument(
     '--database-path', '--db',
     default=os.path.expanduser(
@@ -34,7 +35,6 @@ where deletionPending is 'false'
 	and pmid is NULL
 	and doi is not NULL
 	and confirmed='false'
-limit 5
 """
 
 upd_sql = """
@@ -47,6 +47,13 @@ tag_sql = """
 insert into DocumentTags values (:documentId,:tag)
 """
 
+def sliced_dois(doi):
+    """return a list of likely dois for the given doi-ish string, perhaps
+    laden with bogus suffixes"""
+    return [ 
+        doc['doi'],
+        re.sub(r'\[-.]\w*$','',doi),
+        ]
 
 def row_dict_factory(cur, row):
     return dict( (d[0],row[i]) for i,d in enumerate(cur.description) )
@@ -61,20 +68,25 @@ upd_cur = conn.cursor()
 tag_cur = conn.cursor()
 
 docs = sel_cur.fetchall()
-logging.info('%d documents to update' % (len(docs)))
+logging.info(u'%d documents to update' % (len(docs)))
 for doc in docs:
-    res = Entrez.read(Entrez.esearch(
-            db='pubmed',term='%s[doi]'%(doc['doi'])))
+    for doi in sliced_dois(doc['doi']):
+        res = Entrez.read(Entrez.esearch(
+                db='pubmed',term='%s[doi]'%(doi)))
+        if int(res['Count']) == 1:
+            break
     if int(res['Count']) == 0:
-        logging.info('No pubmed id for %s?' % (doc['doi']))
+        logging.info(u'No pubmed id for {doi} ({title})?'.format(**doc))
         continue
     if int(res['Count']) > 1:
-        logging.info('more that one pubmed id for %s?' % (doc['doi']))
+        logging.info(u'more that one pubmed id for {doi} ({title})?'.format(**doc))
         continue
+
     pmid = int(res['IdList'][0])
 
+    doc['pmid'] = pmid
     upd_cur.execute(upd_sql,{'pmid':pmid, 'id': doc['id']})
-    tag_cur.execute(tag_sql,{'tag':tag, 'documentId': doc['id']})
-    logging.info('%s: %s -> %s (%s)' % (doc['id'],doc['doi'],pmid,doc['title']))
+    tag_cur.execute(tag_sql,{'tag': tag, 'documentId': doc['id']})
+    logging.info(u'{id}: {doi} -> {pmid} ({title})'.format(**doc))
 
 conn.commit()
