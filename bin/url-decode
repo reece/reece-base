@@ -15,6 +15,6 @@ while( my $u = shift ) {
   #$u =~ s/\?r=\d+//;
   #$u =~ s/&amp;/&/g;
   print(uri_unescape($u),"\n");
-  #print(decode_entities($u),"\n");
+  print(decode_entities($u),"\n");
 }
 

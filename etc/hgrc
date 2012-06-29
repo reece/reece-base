@@ -10,6 +10,9 @@ merge = emacsclient-merge
 emacs.args = -q --eval "(ediff-merge-with-ancestor \"$local\" \"$other\" \"$base\" nil \"$output\")"
 
 
+[trusted]
+users = locusadm
+
 [extensions]
 bookmarks=
 churn=
