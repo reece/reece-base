@@ -3,6 +3,12 @@ cacerts = /etc/ssl/certs/ca-certificates.crt
 
 [ui]
 username = Reece Hart <reecehart@gmail.com>
+#merge = emacs
+merge = emacsclient-merge
+
+[merge-tools]
+emacs.args = -q --eval "(ediff-merge-with-ancestor \"$local\" \"$other\" \"$base\" nil \"$output\")"
+
 
 [extensions]
 bookmarks=

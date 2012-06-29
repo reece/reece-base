@@ -10,5 +10,3 @@ if [ "$COLORIZE" = 1 ]; then
 		eval "`TERM=xterm dircolors $HOME/.dir_colors`"
 	fi
 fi
-
-CDPATH=~/projects:~/opt:/locus/opt:/locus/data/conditions/0.9

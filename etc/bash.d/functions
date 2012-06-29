@@ -65,6 +65,7 @@ diffd () {
 		| while read fn; do (set -x; diff -c "$1/$fn" "$2/$fn") done
 }
 
+
 # emacs -- use existing emacs via emacsclient, if possible
 emacs () {
     emacsclient -n "$@" 2>/dev/null \

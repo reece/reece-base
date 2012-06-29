@@ -3,9 +3,10 @@ ForwardAgent yes
 ConnectionAttempts 3
 HashKnownHosts no
 StrictHostKeyChecking no
-ForwardX11 yes
+#ForwardX11 yes
 IdentityFile ~/.ssh/keys/snafu_pwl
 #ControlPath ~/.ssh/controlmaster-%r@%h:%p
+ServerAliveInterval 300
 
 
 Host whoville-localhost
@@ -36,11 +37,13 @@ Host sf
 Host sage
 	 Hostname sage.locusdev.net
 Host bwl
-	 Hostname bwl.vpc.locusdev.net
+	 Hostname 0-bwl.vpc.locusdev.net
 Host fsdb
-	 Hostname fsdb.vpc.locusdev.net
-Host compute
-	 Hostname compute.vpc.locusdev.net
+	 Hostname 0-fsdb.vpc.locusdev.net
+Host compute login
+	 Hostname compute.locusdev.net
+Host badboy
+	 Hostname 10.10.2.150
 Host seqnas1
 	 Hostname seqnas1.locusdev.net
 Host ec2-*.amazonaws.com
