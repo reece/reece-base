@@ -5,7 +5,7 @@ base=$1
 shift
 
 join -t'	' \
-	<(perl -i -pe 's/  /\t/' "$base" | sort) \
-	<(perl -i -pe 's/  /\t/' "$@" | sort) \
+	<(perl -pe 's/  /\t/' "$base" | sort) \
+	<(perl -pe 's/  /\t/' "$@" | sort) \
 | cut -f3 \
 | sort -u
