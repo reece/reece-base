@@ -1,0 +1,19 @@
+#!/usr/bin/env perl
+# dump col numbers and header names from first line of TSV
+
+use strict;
+use warnings;
+
+my $n_lines = 2;							# in add'n to header
+my @cells;									# [line][col]
+
+while ( $#cells < $n_lines and my $line = <> ) {
+  chomp($line);
+  push(@cells,[split(/\t/,$line)]);
+}
+
+my $fmt = '%2d %-40s' . ' %-20.20s'x($#cells) . "\n";
+
+for(my $col = 0; $col <= $#{$cells[0]}; $col++) {
+  printf($fmt, $col, map { $cells[$_][$col] || '' } 0..$#cells);
+}
