@@ -20,16 +20,21 @@ parser.add_argument(
     default=os.path.expanduser(
         '~/.local/share/data/Mendeley Ltd./Mendeley Desktop/'
         'reece@harts.net@www.mendeley.com.sqlite'),
-        help='Mendeley database file')
+    help='Mendeley database file')
 parser.add_argument(
     '--folder', '-f',
     default='Share with Locus',
+    help='source folder')
+parser.add_argument(
+    '--tag', '-t',
+    default='',
     help='source folder')
 parser.add_argument(
     '--library-directory', '-l',
     default=os.path.expanduser('~/Dropbox/locus corp/library/'),
     help='destination directory')
 args = parser.parse_args()
+
 
 select_documents_sql = """
 select distinct D.id,pmid,title,localUrl
@@ -59,6 +64,7 @@ cur.execute(select_documents_sql, {'folder': args.folder})
 
 existing_pmids = [ e.split('_')[0] for e in os.listdir(
             os.path.join(args.library_directory,'locus')) ]
+
 
 for doc in cur.fetchall():
     if doc['pmid'] is None:

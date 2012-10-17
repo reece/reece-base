@@ -10,7 +10,8 @@
 /var/crash
 /var/lock
 /var/tmp
-VirtualBox*
+.VirtualBox
+VirtualBox VMs
 Videos
 Audio
 Dropbox
