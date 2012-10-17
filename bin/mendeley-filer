@@ -1,0 +1,96 @@
+#!/usr/bin/env python
+# export mendeley docs in folder (-f) to tagged foders in the filer path (-d)
+# don't file if pubmed/id exists
+
+import argparse
+import os
+import logging
+import pprint
+import shutil
+import sqlite3
+import urllib2
+import IPython
+
+
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s %(levelname)s %(name)s %(message)s')
+
+parser = argparse.ArgumentParser(
+    description='copy files in Mendeley into folders')
+parser.add_argument('--database-path', '--db',
+                    default = os.path.expanduser(
+        '~/.local/share/data/Mendeley Ltd./Mendeley Desktop/'
+        'reece@harts.net@www.mendeley.com.sqlite'),
+                    help='Mendeley database file')
+parser.add_argument('--folder', '-F',
+                    help = 'source folder')
+parser.add_argument('--tag', '-T',
+                    default = '',
+                    help='source tag')
+parser.add_argument('--destination-directory', '-d',
+                    default = os.path.expanduser('~/Insync/reece@harts.net/papers'),
+                    help = 'destination directory')
+args = parser.parse_args()
+
+
+assert any([args.folder, args.tag]), "must specify folder or tag"
+
+
+select_documents_sql = """
+select distinct D.id,pmid,title,localUrl
+from Folders FO
+join DocumentFolders DFO on FO.id=DFO.folderId
+join Documents D on DFO.documentId=D.id
+join DocumentFiles DFI on D.id=DFI.documentId
+join Files FI on DFI.hash=FI.hash
+where FO.name=:folder
+"""
+
+document_folders_sql = """
+select documentId,folderId,FO.name
+from DocumentFolders DFO
+join Folders FO on DFO.folderId=FO.id
+where DFO.documentId=:documentId
+"""
+
+def row_dict_factory(cur, row):
+    return dict( (d[0],row[i]) for i,d in enumerate(cur.description) )
+
+logging.info('Opening '+args.database_path)
+conn = sqlite3.connect(args.database_path)
+conn.row_factory = row_dict_factory
+cur = conn.cursor()
+cur.execute(select_documents_sql, {'folder': args.folder})
+
+dst_dir = os.path.join(args.destination_directory, args.folder)
+try:
+    existing_files = set(os.listdir(dst_dir))
+except OSError:
+    existing_files = set()
+
+for doc in cur.fetchall():
+    if not doc['localUrl'].endswith('.pdf'):
+        logging.warn("%s (%s): skipping non-PDF" % (doc['id'], doc['title']))
+        continue
+
+    if not doc['localUrl'].startswith('file://'):
+        logging.warn("%s (%s): doesn't start with file://" % (doc['id'], doc['title']))
+        continue
+
+    src = urllib2.unquote(doc['localUrl'][len('file://'):])
+    src_bn = os.path.basename(src)
+    dst = os.path.join(dst_dir,src_bn)
+    if not os.path.exists(dst_dir):
+        os.makedirs(dst_dir)
+    try:
+        shutil.copy(src,dst)
+    except IOError as ex:
+        logging.error(ex)
+        continue
+
+    logging.info('%s -> %s' % (src,dst))
+
+    try:
+        existing_files.remove(src_bn)
+    except KeyError:
+        pass
