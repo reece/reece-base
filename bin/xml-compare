@@ -4,8 +4,10 @@ from __future__ import print_function
 __doc__ = """compare structures of two XML documents"""
 # 2013-01-11 11:19 Reece Hart <reecehart@gmail.com>
 
-import os,sys
+import logging,os,sys
 import lxml.etree as le
+
+logging.basicConfig(level = logging.INFO)
 
 indent_string = '  '
 
@@ -14,11 +16,14 @@ def compare_nodes(node_a, node_b, path=[], opts=None):
     def _ifelse(b,opt1,opt2):
         return opt1 if b else opt2
 
+    def _attr_str(e):
+        return ' '.join(['%s="%s"'%(k,v) 
+                         for k,v in sorted(e.attrib.iteritems())])
+
     def _label(e):
         "return prettified string repr of node"
         return '%s [%s]' % (
-            e.tag, ' '.join(['%s="%s"'%(k,v) 
-                             for k,v in sorted(e.attrib.iteritems())]))
+            e.tag, _attr_str(e))
 
     def _find_matching_node(query, targets, opts):
         """find query within targets that matches child according to opts;
@@ -27,6 +32,10 @@ def compare_nodes(node_a, node_b, path=[], opts=None):
                     for t in targets
                     if (query.tag == t.tag
                         and query.attrib == t.attrib) ]
+        if len(matches) > 1:
+            # TODO: try to disambiguate records based on subtrees
+            logging.warn("multiple (%d) matches for <%s %s>" % (
+                    len(matches), query.tag, _attr_str(query)))
         return None if len(matches) == 0 else matches[0]
     
     assert node_a is not None or node_b is not None, \
@@ -34,9 +43,11 @@ def compare_nodes(node_a, node_b, path=[], opts=None):
 
     if node_a is not None:
         children_a = node_a.getchildren()
+        children_a = [ e for e in children_a if type(e) != le._Comment ]
         childtags_a = set([n.tag for n in children_a])
     if node_b is not None:
         children_b = node_b.getchildren()
+        children_b = [ e for e in children_b if type(e) != le._Comment ]
         childtags_b = set([n.tag for n in children_b])
 
     if node_a is not None and node_b is not None:
@@ -44,8 +55,8 @@ def compare_nodes(node_a, node_b, path=[], opts=None):
                 'AB',
                 _ifelse(node_a.tag == node_b.tag, ' ', 'T'),
                 _ifelse(node_a.attrib == node_b.attrib, ' ', '@'),
+                _ifelse(childtags_a == childtags_b, ' ', 'C'),
                 _ifelse(len(children_a) == len(children_b), ' ', '#'),
-                _ifelse(childtags_a == childtags_b, ' ', 'C '),
                 ])
         label = _label(node_a)
     elif node_a is not None:
@@ -58,7 +69,7 @@ def compare_nodes(node_a, node_b, path=[], opts=None):
     indent = indent_string * len(path)
     #path_string = '/'.join([e.tag for e in path] + [label])
     path_string = label
-    print( match_string.ljust(6), indent, path_string )
+    print( match_string.ljust(8), indent, path_string )
 
     if node_a is not None and node_b is not None:
         # compare children in A with matches in B
