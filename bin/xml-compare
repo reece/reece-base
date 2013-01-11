@@ -1,0 +1,81 @@
+#!/usr/bin/env python
+from __future__ import print_function
+
+__doc__ = """compare structures of two XML documents"""
+# 2013-01-11 11:19 Reece Hart <reecehart@gmail.com>
+
+import os,sys
+import lxml.etree as le
+
+indent_string = '  '
+
+def compare_nodes(node_a, node_b, path=[], opts=None):
+    """compare two XML nodes recursively"""
+    def _ifelse(b,opt1,opt2):
+        return opt1 if b else opt2
+
+    def _label(e):
+        "return prettified string repr of node"
+        return '%s [%s]' % (
+            e.tag, ' '.join(['%s="%s"'%(k,v) 
+                             for k,v in sorted(e.attrib.iteritems())]))
+
+    def _find_matching_node(query, targets, opts):
+        """find query within targets that matches child according to opts;
+        return None if no match"""
+        matches = [ t
+                    for t in targets
+                    if (query.tag == t.tag
+                        and query.attrib == t.attrib) ]
+        return None if len(matches) == 0 else matches[0]
+    
+    assert node_a is not None or node_b is not None, \
+        'Recursed with compare_nodes(None,None)'
+
+    if node_a is not None:
+        children_a = node_a.getchildren()
+        childtags_a = set([n.tag for n in children_a])
+    if node_b is not None:
+        children_b = node_b.getchildren()
+        childtags_b = set([n.tag for n in children_b])
+
+    if node_a is not None and node_b is not None:
+        match_string =  ''.join([
+                'AB',
+                _ifelse(node_a.tag == node_b.tag, ' ', 'T'),
+                _ifelse(node_a.attrib == node_b.attrib, ' ', '@'),
+                _ifelse(len(children_a) == len(children_b), ' ', '#'),
+                _ifelse(childtags_a == childtags_b, ' ', 'C '),
+                ])
+        label = _label(node_a)
+    elif node_a is not None:
+        match_string = 'A '
+        label = _label(node_a)
+    elif node_b is not None:
+        match_string = ' B'
+        label = _label(node_b)
+
+    indent = indent_string * len(path)
+    #path_string = '/'.join([e.tag for e in path] + [label])
+    path_string = label
+    print( match_string.ljust(6), indent, path_string )
+
+    if node_a is not None and node_b is not None:
+        # compare children in A with matches in B
+        for child_a in children_a:
+            child_b = _find_matching_node(child_a, children_b, opts)
+            compare_nodes(child_a, child_b,
+                          path = path + [node_a], opts=opts)
+        # list any B children not in A
+        for child_b in children_b:
+            child_a = _find_matching_node(child_b, children_a, opts)
+            if child_a is None:
+                compare_nodes(child_a, child_b,
+                              path = path + [node_a], opts=opts)
+
+
+if __name__ == '__main__':
+    file_a, file_b = sys.argv[1:]
+    doc_a = le.parse(file_a)
+    doc_b = le.parse(file_b)
+    compare_nodes(doc_a.getroot(), doc_b.getroot())
