@@ -4,13 +4,32 @@ from __future__ import print_function
 __doc__ = """compare structures of two XML documents"""
 # 2013-01-11 11:19 Reece Hart <reecehart@gmail.com>
 
-import logging,os,sys
+import argparse,ConfigParser,logging,os,sys
 import lxml.etree as le
 import hashlib
 
-logging.basicConfig(level = logging.INFO)
-
 indent_string = '  '
+
+logging_levels = [logging.ERROR, logging.WARN, logging.INFO, logging.DEBUG]
+
+def parse_args(argv):
+    ap = argparse.ArgumentParser(
+        description = __doc__,
+        formatter_class = argparse.ArgumentDefaultsHelpFormatter,
+        )
+    ap.add_argument('fileA')
+    ap.add_argument('fileB')
+    ap.add_argument('--conf-file', '-c', metavar="FILE",
+                    default = [],
+                    action = 'append',
+                    help="config file")
+    ap.add_argument('--verbose', '-v',
+                    default = 0,
+                    action = 'count',
+                    help = 'be more chatty')
+    args = ap.parse_args( argv )
+    return args
+
 
 def compare_nodes(node_a, node_b, path=[], opts=None):
     """compare two XML nodes recursively"""
@@ -65,9 +84,9 @@ def compare_nodes(node_a, node_b, path=[], opts=None):
     if node_a is not None and node_b is not None:
         match_string =  ''.join([
                 'AB',
-                _ifelse(node_a.tag == node_b.tag, ' ', 'T'),
-                _ifelse(node_a.attrib == node_b.attrib, ' ', '@'),
-                _ifelse(childtags_a == childtags_b, ' ', 'C'),
+                _ifelse(node_a.tag == node_b.tag,           ' ', 'T'),
+                _ifelse(node_a.attrib == node_b.attrib,     ' ', '@'),
+                _ifelse(childtags_a == childtags_b,         ' ', 'C'),
                 _ifelse(len(children_a) == len(children_b), ' ', '#'),
                 ])
         label = _label(node_a)
@@ -98,7 +117,15 @@ def compare_nodes(node_a, node_b, path=[], opts=None):
 
 
 if __name__ == '__main__':
-    file_a, file_b = sys.argv[1:]
-    doc_a = le.parse(file_a)
-    doc_b = le.parse(file_b)
+    opts = parse_args(sys.argv[1:])
+
+    logging.basicConfig(level = logging_levels[opts.verbose],
+                        format = '%(level)s: %(msg)s')
+
+    for fn in opts.conf_file:
+        cp.readfp(open(fn))
+        logging.debug('read '+fn)
+
+    doc_a = le.parse(opts.fileA)
+    doc_b = le.parse(opts.fileB)
     compare_nodes(doc_a.getroot(), doc_b.getroot())
