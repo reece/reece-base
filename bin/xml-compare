@@ -6,6 +6,7 @@ __doc__ = """compare structures of two XML documents"""
 
 import logging,os,sys
 import lxml.etree as le
+import hashlib
 
 logging.basicConfig(level = logging.INFO)
 
@@ -25,18 +26,29 @@ def compare_nodes(node_a, node_b, path=[], opts=None):
         return '%s [%s]' % (
             e.tag, _attr_str(e))
 
+    def _fingerprint(e):
+        "return hash of xml subtree content"
+        return hashlib.md5( le.tostring(e) ).hexdigest()
+
     def _find_matching_node(query, targets, opts):
         """find query within targets that matches child according to opts;
-        return None if no match"""
+        return None if no match or multiple matches"""
         matches = [ t
                     for t in targets
                     if (query.tag == t.tag
                         and query.attrib == t.attrib) ]
-        if len(matches) > 1:
-            # TODO: try to disambiguate records based on subtrees
-            logging.warn("multiple (%d) matches for <%s %s>" % (
-                    len(matches), query.tag, _attr_str(query)))
-        return None if len(matches) == 0 else matches[0]
+        match_count = len(matches)
+        if match_count > 1:
+            # matched multiple nodes... try to find one by fingerprinting
+            # by definition, this succeeds only if the b side matches exactly
+            # ... which make this a bit lame. 
+            q_fp = _fingerprint(query)
+            matches = [ t for t in matches
+                        if _fingerprint(t) == q_fp ]
+            logging.warn("multiple (%d) matches for <%s %s>; reduced to %d after fingerprinting" % (
+                    match_count, query.tag, _attr_str(query), len(matches) ))
+
+        return matches[0] if len(matches) == 1 else None
     
     assert node_a is not None or node_b is not None, \
         'Recursed with compare_nodes(None,None)'
