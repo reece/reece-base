@@ -40,8 +40,9 @@ exclusions=
 (
 set -e
 date '+# Started: %F-%T'
+echo '# ' "$@"
 mkdir -v "$snap_pfx.tmp"
-rsync -HRav "$@" "$snap_pfx.tmp" \
+rsync -HRavx "$@" "$snap_pfx.tmp" \
 	--link-dest="$SNAPPER_ROOT/latest/." \
 	--exclude-from=$top/rsync/patterns/snapper \
 	--exclude-from=$top/rsync/patterns/never
@@ -49,4 +50,4 @@ mv -v "$snap_pfx.tmp" "$snap_pfx"
 ln -fnsv "$ts" "$SNAPPER_ROOT/latest"
 date '+# Finished: %F-%T'
 echo 'Normal exit'
-) 1>&2 | tee "$snap_pfx.log"
+) 2>&1 | tee "$snap_pfx.log"

@@ -1,29 +1,34 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # -*-python-*-
 # N.B. I couldn't make this work in python2 due to unicode gotchas
 
 import glob
+import logging
 import os
+import shutil
 import sqlite3
 import sys
 import urllib.parse
+import IPython
+
+logging.basicConfig(level = logging.INFO)
+
 
 ACCOUNT_NAME='reece@harts.net'
 M_DIR = '~/.local/share/data/Mendeley Ltd./Mendeley Desktop/'
-M_DIR = os.path.expanduser(M_DIR)
 M_DB_PATH = ACCOUNT_NAME + '@www.mendeley.com.sqlite'
+DOC_DIR = '~/Documents/Mendeley Desktop/'
+UT_DIR = '~/untracked'
 
-
-# TODO
-# * implement dry-run
-# 
-
--- DO NOT USE YET --
+M_DIR = os.path.expanduser(M_DIR)
+DOC_DIR = os.path.expanduser(DOC_DIR)
+UT_DIR = os.path.expanduser(UT_DIR)
 
 class MendeleyChecker():
     """Sanity check the Mendeley database"""
     def __init__(self,path):
         self.conn = sqlite3.connect(path)
+        logging.info('connected to '+path)
 
     def shorten_local_urls(self,max_len=175):
         """shorten local urls to len=175 (default, incl. escaping) by
@@ -44,11 +49,12 @@ class MendeleyChecker():
                 pass
 
     def _shorten_one_url(self,max_len,hash,old_url):
-        old_path = urllib.parse.unquote(old_url[7:])
+        #old_path = urllib.parse.unquote(old_url[7:])
+        old_path = urllib.unquote(old_url[7:])
         (d,b) = os.path.split(old_path)
         (br,be) = os.path.splitext(b)
         new_path = os.path.join(d,hash+be)
-        new_url = 'file://' + urllib.parse.quote(new_path)
+        new_url = 'file://' + urllib.quote(new_path)
         print('path:\n  old: %s\n  new: %s' % (old_path,new_path))
         print('url :\n  old: %s\n  new: %s' % (old_url,new_url))
         if (len(new_path) > max_len):
@@ -64,24 +70,68 @@ class MendeleyChecker():
 
     def find_missing_files(self):
         """find files in the database that don't exist in the filesystem"""
+        c = self.conn.cursor()
+        c.execute('select localurl from files')
+        for row in c:
+            localurl = row[0]
+            url = urllib.parse.urlparse(localurl)
+            fp = urllib.parse.unquote(url.path)
+            if not os.path.exists(fp):
+                logging.warn('missing: '+fp)
         return
 
     def find_untracked_files(self):
         """find files in watched directores that aren't in the database"""
-        return
+        files_in_db = set(self._files_in_db())
+        files_in_dir = set(self._files_in_dir())
+        return list(files_in_dir - files_in_db)
 
     def fix_filenames(self):
         """fix 1) multiple contiguous spaces in filenames, 2) ..."""
         return
 
     def rename_wacky_names(self):
-        # eg. Mendeley Desktop/Ìµ et al./2000/Ø ö ø × õù ò ×.pdf
+        ## eg. Mendeley Desktop/Ìµ et al./2000/Ø ö ø × õù ò ×.pdf
         return
-        
-#dbs = glob.glob(os.path.join(db_root, '*@*.sqlite'))
+
+
+    def _files_in_dir(self,dir=DOC_DIR,suffixes=None):
+        for dirpath,dirnames,filenames in os.walk(dir):
+            for fn in filenames:
+                if suffixes is None or any(fn.endswith('.'+s) for s in suffixes):
+                    yield os.path.join(dirpath,fn)
+
+    def _files_in_db(self):
+        def _row_to_fp(row):
+            localurl = row[0]
+            url = urllib.parse.urlparse(localurl)
+            fp = urllib.parse.unquote(url.path)
+            return fp
+        c = self.conn.cursor()
+        c.execute('select localurl from files')
+        return ( _row_to_fp(row) for row in c )
+
 
 mdb_fn = os.path.join(M_DIR,
                       M_DB_PATH)
-print(mdb_fn)
 mdb = MendeleyChecker(mdb_fn)
-mdb.shorten_local_urls()
+
+files_in_db = set(mdb._files_in_db())
+files_in_dir = set(mdb._files_in_dir())
+
+missing = list(files_in_db - files_in_dir)
+untracked = list(files_in_dir - files_in_db)
+
+logging.info('%d missing, %d untracked' % (len(missing),len(untracked)))
+
+try:
+    os.mkdir(UT_DIR)
+except OSError:
+    pass
+for ut_fp in untracked:
+    dst = os.path.join( UT_DIR, os.path.basename(ut_fp) )
+    if os.path.exists(dst):
+        logging.warn("couldn't move untracked file: %s exists" % dst)
+        continue
+    shutil.move(ut_fp,dst)
+    logging.info('moved: %s -> %s' % (ut_fp,UT_DIR))

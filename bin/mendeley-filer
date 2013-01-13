@@ -2,6 +2,8 @@
 # export mendeley docs in folder (-f) to tagged foders in the filer path (-d)
 # don't file if pubmed/id exists
 
+from __future__ import print_function
+
 import argparse
 import os
 import logging
@@ -43,31 +45,26 @@ join DocumentFolders DFO on FO.id=DFO.folderId
 join Documents D on DFO.documentId=D.id
 join DocumentFiles DFI on D.id=DFI.documentId
 join Files FI on DFI.hash=FI.hash
-where FO.name=:folder
 """
 
-document_folders_sql = """
-select documentId,folderId,FO.name
-from DocumentFolders DFO
-join Folders FO on DFO.folderId=FO.id
-where DFO.documentId=:documentId
-"""
+select_documents_by_folder_sql = select_documents_sql + 'where FO.name=:folder'
+select_documents_by_bn_sql = select_documents_sql + "where localUrl like :like_bn"
+
 
 def row_dict_factory(cur, row):
     return dict( (d[0],row[i]) for i,d in enumerate(cur.description) )
 
-logging.info('Opening '+args.database_path)
+dst_dir = os.path.join(args.destination_directory, args.folder)
+if not os.path.exists(dst_dir):
+    os.makedirs(dst_dir)
+existing_files = set(os.listdir(dst_dir))
+
 conn = sqlite3.connect(args.database_path)
 conn.row_factory = row_dict_factory
 cur = conn.cursor()
-cur.execute(select_documents_sql, {'folder': args.folder})
+logging.info('Opened and created cursor for '+args.database_path)
 
-dst_dir = os.path.join(args.destination_directory, args.folder)
-try:
-    existing_files = set(os.listdir(dst_dir))
-except OSError:
-    existing_files = set()
-
+cur.execute(select_documents_by_folder_sql, {'folder': args.folder})
 for doc in cur.fetchall():
     if not doc['localUrl'].endswith('.pdf'):
         logging.warn("%s (%s): skipping non-PDF" % (doc['id'], doc['title']))
@@ -80,17 +77,34 @@ for doc in cur.fetchall():
     src = urllib2.unquote(doc['localUrl'][len('file://'):])
     src_bn = os.path.basename(src)
     dst = os.path.join(dst_dir,src_bn)
-    if not os.path.exists(dst_dir):
-        os.makedirs(dst_dir)
-    try:
-        shutil.copy(src,dst)
-    except IOError as ex:
-        logging.error(ex)
-        continue
 
-    logging.info('%s -> %s' % (src,dst))
+    if not os.path.exists(dst):
+        try:
+            shutil.copy(src,dst)
+            logging.info('%s -> %s' % (src,dst))
+        except IOError as ex:
+            logging.error(ex)
+            continue
 
     try:
         existing_files.remove(src_bn)
     except KeyError:
         pass
+
+
+logging.info( '%d docs in %s are not in folder %s' % (
+        len(existing_files), dst_dir, args.folder))
+
+#print(select_documents_by_bn_sql)
+for bn in existing_files:
+    cur.execute(select_documents_by_bn_sql, {
+            'like_bn': '%/' + urllib2.quote(bn)
+            })
+    if cur.rowcount == -1:
+        logging.warn("%s not found in database; skipping" % bn)
+        continue
+    if cur.rowcount > 1:
+        logging.warn("%: %d occurrences in database; like, weird" % (bn, cur.rowcount))
+        continue
+    rec = cur.fetchone()
+    

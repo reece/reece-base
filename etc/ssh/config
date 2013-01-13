@@ -12,10 +12,10 @@ ServerAliveInterval 300
 Host whoville-localhost
 	 HostName 127.0.0.1
 	 HostKeyAlias whoville
-Host whoville-internal whoville w
+Host whoville-internal
 	 HostName 192.168.0.175
 	 HostKeyAlias whoville
-Host whoville-external
+Host whoville-external whoville w
 	 HostName whoville.homelinux.net
 	 HostKeyAlias whoville
 
@@ -40,40 +40,6 @@ Host ec2-*.amazonaws.com
 	 IdentityFile ~/.ssh/keys/locus.pem
 	 User ubuntu
 	 UserKnownHostsFile=/dev/null
+Host fsdb
+	HostName fs.locusdev.net
 
-
-#BEGIN_EC2_SSH_CONFIG_BLOCK
-Host i-5ea5d739 openvpn-access-server
-	HostName 10.10.1.254
-	HostKeyAlias i-5ea5d739
-Host i-dae4c3bd bw
-	HostName 10.10.1.232
-	HostKeyAlias i-dae4c3bd
-Host i-56f2df31 fsdb
-	HostName 10.10.1.113
-	HostKeyAlias i-56f2df31
-Host i-73d62615 vpc-nat-server
-	HostName 10.10.1.253
-	HostKeyAlias i-73d62615
-Host i-77c50d11 compute-miseq-analysis-1
-	HostName 10.10.2.150
-	HostKeyAlias i-77c50d11
-Host i-76de8a0f build
-	HostName 10.10.2.14
-	HostKeyAlias i-76de8a0f
-Host i-a1c726da seqana-1
-	HostName 10.10.2.80
-	HostKeyAlias i-a1c726da
-Host i-e7c6279c seqana-3
-	HostName 10.10.2.191
-	HostKeyAlias i-e7c6279c
-Host i-60997e1a compute5
-	HostName 10.10.2.81
-	HostKeyAlias i-60997e1a
-Host i-3e428c44 syslog-1
-	HostName 10.10.2.200
-	HostKeyAlias i-3e428c44
-Host i-4cebed36 badboy
-	HostName 10.10.2.24
-	HostKeyAlias i-4cebed36
-#END_EC2_SSH_CONFIG_BLOCK
