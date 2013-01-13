@@ -8,8 +8,6 @@ import argparse,ConfigParser,logging,os,sys
 import lxml.etree as le
 import hashlib
 
-indent_string = '  '
-
 logging_levels = [logging.ERROR, logging.WARN, logging.INFO, logging.DEBUG]
 
 def parse_args(argv):
@@ -17,12 +15,15 @@ def parse_args(argv):
         description = __doc__,
         formatter_class = argparse.ArgumentDefaultsHelpFormatter,
         )
-    ap.add_argument('fileA')
-    ap.add_argument('fileB')
+    ap.add_argument('file_A')
+    ap.add_argument('file_B')
     ap.add_argument('--conf-file', '-c', metavar="FILE",
                     default = [],
                     action = 'append',
                     help="config file")
+    ap.add_argument('--indent-string',
+                    help = 'string unit used to indent each level of tree',
+                    default = '  ')
     ap.add_argument('--verbose', '-v',
                     default = 0,
                     action = 'count',
@@ -52,20 +53,31 @@ def compare_nodes(node_a, node_b, path=[], opts=None):
     def _find_matching_node(query, targets, opts):
         """find query within targets that matches child according to opts;
         return None if no match or multiple matches"""
-        matches = [ t
-                    for t in targets
-                    if (query.tag == t.tag
-                        and query.attrib == t.attrib) ]
+        matches = [ t for t in targets 
+                    if query.tag == t.tag and query.attrib == t.attrib ]
+
+        if len(matches) == 0:
+            return None
+        if len(matches) == 1:
+            return matches[0]
+
+        # multiple matches. Try to disambiguate by user-provided key or 
+        # (default) fingerprinting
         match_count = len(matches)
-        if match_count > 1:
-            # matched multiple nodes... try to find one by fingerprinting
-            # by definition, this succeeds only if the b side matches exactly
-            # ... which make this a bit lame. 
-            q_fp = _fingerprint(query)
-            matches = [ t for t in matches
-                        if _fingerprint(t) == q_fp ]
-            logging.warn("multiple (%d) matches for <%s %s>; reduced to %d after fingerprinting" % (
-                    match_count, query.tag, _attr_str(query), len(matches) ))
+        key_gen = lambda e: _fingerprint(e)
+        how = 'tree fingerprint'
+        try:
+            key_xpath = opts.conf.get('element-unique-keys', query.tag)
+            key_gen = lambda e: ''.join(e.xpath(key_xpath))
+            how = 'xpath (%s)' % key_xpath
+        except (NoSectionError, NoOptionError):
+            pass
+
+        q_key = key_gen(query)
+        matches = [ t for t in matches
+                    if key_gen(t) == q_key ]
+        logging.warn("multiple (%d) matches for <%s %s>; reduced to %d by %s" % (
+                match_count, query.tag, _attr_str(query), len(matches), how ))
 
         return matches[0] if len(matches) == 1 else None
     
@@ -97,7 +109,7 @@ def compare_nodes(node_a, node_b, path=[], opts=None):
         match_string = ' B'
         label = _label(node_b)
 
-    indent = indent_string * len(path)
+    indent = opts.indent_string * len(path)
     #path_string = '/'.join([e.tag for e in path] + [label])
     path_string = label
     print( match_string.ljust(8), indent, path_string )
@@ -120,12 +132,15 @@ if __name__ == '__main__':
     opts = parse_args(sys.argv[1:])
 
     logging.basicConfig(level = logging_levels[opts.verbose],
-                        format = '%(level)s: %(msg)s')
+                        format = '%(levelname)s: %(msg)s')
 
+    opts.conf = ConfigParser.SafeConfigParser()
     for fn in opts.conf_file:
-        cp.readfp(open(fn))
+        opts.conf.readfp(open(fn))
         logging.debug('read '+fn)
 
-    doc_a = le.parse(opts.fileA)
-    doc_b = le.parse(opts.fileB)
-    compare_nodes(doc_a.getroot(), doc_b.getroot())
+    doc_a = le.parse(opts.file_A)
+    logging.debug('parsed file_A (%s)' % (opts.file_A))
+    doc_b = le.parse(opts.file_B)
+    logging.debug('parsed file_B (%s)' % (opts.file_B))
+    compare_nodes(doc_a.getroot(), doc_b.getroot(), opts=opts)
