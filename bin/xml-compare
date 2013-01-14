@@ -32,11 +32,8 @@ def parse_args(argv):
     return args
 
 
-def compare_nodes(node_a, node_b, path=[], opts=None):
+def compare_nodes(node_a, node_b, match_handler, path=[], opts=None):
     """compare two XML nodes recursively"""
-    def _ifelse(b,opt1,opt2):
-        return opt1 if b else opt2
-
     def _attr_str(e):
         return ' '.join(['%s="%s"'%(k,v) 
                          for k,v in sorted(e.attrib.iteritems())])
@@ -93,39 +90,61 @@ def compare_nodes(node_a, node_b, path=[], opts=None):
         children_b = [ e for e in children_b if type(e) != le._Comment ]
         childtags_b = set([n.tag for n in children_b])
 
+    match = {
+        'path': path,
+        }
     if node_a is not None and node_b is not None:
-        match_string =  ''.join([
-                'AB',
-                _ifelse(node_a.tag == node_b.tag,           ' ', 'T'),
-                _ifelse(node_a.attrib == node_b.attrib,     ' ', '@'),
-                _ifelse(childtags_a == childtags_b,         ' ', 'C'),
-                _ifelse(len(children_a) == len(children_b), ' ', '#'),
-                ])
-        label = _label(node_a)
+        match['state'] = 'AB'
+        match['tag'] = node_a.tag == node_b.tag
+        match['attr'] = node_a.attrib == node_b.attrib
+        match['childtags'] = childtags_a == childtags_b
+        match['nchildren'] = len(children_a) == len(children_b)
+        match['label'] = _label(node_a)
     elif node_a is not None:
-        match_string = 'A '
-        label = _label(node_a)
+        match['state'] = 'A'
+        match['label'] = _label(node_a)
     elif node_b is not None:
-        match_string = ' B'
-        label = _label(node_b)
+        match['state'] = 'B'
+        match['label'] = _label(node_b)
 
-    indent = opts.indent_string * len(path)
-    #path_string = '/'.join([e.tag for e in path] + [label])
-    path_string = label
-    print( match_string.ljust(8), indent, path_string )
+    match_handler(match,opts)
 
     if node_a is not None and node_b is not None:
         # compare children in A with matches in B
         for child_a in children_a:
             child_b = _find_matching_node(child_a, children_b, opts)
             compare_nodes(child_a, child_b,
+                          match_handler,
                           path = path + [node_a], opts=opts)
         # list any B children not in A
         for child_b in children_b:
             child_a = _find_matching_node(child_b, children_a, opts)
             if child_a is None:
                 compare_nodes(child_a, child_b,
+                              match_handler,
                               path = path + [node_a], opts=opts)
+
+
+def print_function(match,opts):
+    def _ifelse(b,opt1,opt2):
+        return opt1 if b else opt2
+
+    indent = opts.indent_string * len(match['path'])
+    # path_string = '/'.join([e.tag for e in path] + [label])
+    path_string = match['label']
+    if match['state'] == 'AB':
+        match_string = ''.join(['AB',
+                                _ifelse(match['tag'],      ' ','T'),
+                                _ifelse(match['attr'],     ' ','A'),
+                                _ifelse(match['childtags'],' ','C'),
+                                _ifelse(match['nchildren'],' ','#')
+                                ])
+    elif match['state'] == 'A':
+        match_string = 'A'
+    elif match['state'] == 'B':
+        match_string = ' B'
+    print( match_string.ljust(8), indent, path_string )
+
 
 
 if __name__ == '__main__':
@@ -143,4 +162,7 @@ if __name__ == '__main__':
     logging.debug('parsed file_A (%s)' % (opts.file_A))
     doc_b = le.parse(opts.file_B)
     logging.debug('parsed file_B (%s)' % (opts.file_B))
-    compare_nodes(doc_a.getroot(), doc_b.getroot(), opts=opts)
+
+    compare_nodes(doc_a.getroot(), doc_b.getroot(), 
+                  match_handler=print_function, 
+                  opts=opts)
