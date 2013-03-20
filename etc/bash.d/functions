@@ -73,6 +73,15 @@ emacs () {
 	|| command $EDITOR "$@"; 
 }
 
+# mount encfs filesystem, assuming enc fs dir = mp with . prefix
+encfs-mount () {
+	local d f bn
+    f=$(readlink -f "$1")
+	d=$(dirname "$f")
+	bn=$(basename "$f")
+	encfs "$d/.$bn" "$d/$bn"
+}
+
 # link-subtract -- list files in $2,$3,... that are linked in $1
 link-subtract () { 
 	local V

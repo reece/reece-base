@@ -35,6 +35,7 @@ Host sf
 
 
 Host seqnas1
+	 ControlPath ~/.ssh/controlmaster-%r@%h:%p
 	 Hostname seqnas1.locusdev.net
 Host ec2-*.amazonaws.com
 	 IdentityFile ~/.ssh/keys/locus.pem

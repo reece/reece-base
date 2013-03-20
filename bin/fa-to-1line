@@ -11,4 +11,3 @@ my $in = new Bio::SeqIO (-fh => \*STDIN);
 while (my $s = $in->next_seq()) {
 	printf("%s$sep%s\n", $s->display_id(), $s->seq())
 }
-
