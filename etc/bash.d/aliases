@@ -17,6 +17,7 @@ alias p='${PAGER:-cat}'
 alias mv='mv -bi'
 alias pcd='pushd'
 alias pd='popd'
+alias psql-tsv="psql -A -F$'\t'"
 alias pst='pstree -Glpua | p -r'
 #alias pst='ps --forest -u$USER -fw'
 alias qdelall='qdel `qstat -urkh | fgrep "^[0-9]" | cut -f1 -d.`'
@@ -25,6 +26,8 @@ alias rm~='rm -f -- *~ .*~ *.bak .*.bak'
 alias t=tail
 alias tf='tail --follow=name --retry'
 alias w='type -p'			# wheresit?
+
+alias bsubsh="bsub -n 8 -R 'span[hosts=1]' -Is /bin/bash"
 
 # bs = blank slate -- a scrubbed environment for package building
 # bsx = ditto, with X
