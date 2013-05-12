@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+
+__doc__ = '''
+create or update cloudformation stack
+'''
+
+import argparse
+import boto
+from boto.exception import BotoClientError,BotoServerError
+import json
+import logging
+
+
+ap = argparse.ArgumentParser(description = __doc__)
+ap.add_argument('--stack', '-s',
+                required = True,
+                help='stack name')
+ap.add_argument('--template', '-t',
+                required = True,
+                help='template file' )
+ap.add_argument('--access-key', '--ak', '-A',
+                required = True,
+                help="AWS Access Key" )
+ap.add_argument('--secret-access-key', '--sak', '-S',
+                required = True,
+                help="AWS Access Key" )
+ap.add_argument('--create', '-c',
+                default = False,
+                action = 'store_true',
+                help="create if the stack doesn't already exist" )
+ap.add_argument('--rollback-on-failure', '-R',
+                action = 'store_true',
+                default = False
+                )
+ap.add_argument('--tags',
+                default = [],
+                action = 'append',
+                help="tags in k=v form; multiple --tags okay" )
+ap.add_argument('--parameter', '-p',
+                default = [],
+                action = 'append',
+                help="params in k=v form; multiple --params okay" )
+#ap.add_argument('--region', '-r'
+#                help="AWS Region" )
+
+opts = ap.parse_args()
+template_body = open(opts.template,'r').read()
+tmpl = json.loads(template_body)
+
+opts_params = dict()
+if 'Parameters' in tmpl:
+    tmpl_keys = tmpl['Parameters'].keys()
+    opts_params = [ kvp.split('=',1) for kvp in opts.parameter ]
+    opts_params = [ kvp for kvp in opts_params if kvp[0] in tmpl_keys ]
+    opts_keys = [ kv[0] for kv in opts_params ]
+    missing_keys = set(tmpl_keys) - set(opts_keys)
+    if len(missing_keys) > 0:
+        raise RuntimeError('Missing %d parameters (%s); use -p key=value' % (
+                len(missing_keys), ', '.join(missing_keys)))
+    
+
+cf = boto.connect_cloudformation(aws_access_key_id = opts.access_key, 
+                                 aws_secret_access_key = opts.secret_access_key,
+                                 debug = 1
+                                 )
+
+m = cf.create_stack if opts.create else cf.update_stack
+try:
+    m( stack_name = opts.stack,
+       template_body = template_body,
+       capabilities = ['CAPABILITY_IAM'],
+       parameters = opts_params,
+       disable_rollback = not opts.rollback_on_failure,
+       tags = dict([ kvp.split('=',1) for kvp in opts.tags ])
+       )
+except (BotoClientError, BotoServerError) as e:
+    logging.warn(type(e).__name__ + ': ' + json.loads(e.error_message)['Error']['Message'])
+
