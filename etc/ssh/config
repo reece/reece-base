@@ -25,13 +25,14 @@ Host hn unison-relay unison-relay-wget
 
 Host bitbucket.org
 	 IdentityFile ~/.ssh/keys/bitbucket
-
 Host github.org
 	 IdentityFile ~/.ssh/keys/github
-
 Host sf
 	 HostName shell.sf.net
 	 User reece
+
+Host compute
+	 HostName 1-compute.vpc.locusdev.net
 
 
 Host seqnas1

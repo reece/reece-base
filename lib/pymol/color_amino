@@ -1,0 +1,55 @@
+# http://life.nthu.edu.tw/~fmhsu/rasframe/COLORS.HTM#aminocolors
+#snafu$ perl -pe 's@(\d+)@sprintf("%0.3f",$1/255)@eg;' /tmp/z
+#  ASP,GLU   bright red [0.902,0.039,0.039]     CYS,MET     yellow [0.902,0.902,0.000]
+#  LYS,ARG   blue       [0.078,0.353,1.000]     SER,THR     orange [0.980,0.588,0.000]
+#  PHE,TYR   mid blue   [0.196,0.196,0.667]     ASN,GLN     cyan   [0.000,0.863,0.863]
+#  GLY       light grey [0.922,0.922,0.922]   LEU,VAL,ILE green  [0.059,0.510,0.059]
+#  ALA       dark grey  [0.784,0.784,0.784]   TRP         pink   [0.706,0.353,0.706]
+#  HIS       pale blue  [0.510,0.510,0.824]   PRO         flesh  [0.863,0.588,0.510]
+
+from pymol import cmd
+
+def color_amino(selection='all'):
+        s = str(selection)
+	print s
+	cmd.set_color("color_ala3",[0.784,0.784,0.784])
+	cmd.set_color("color_arg3",[0.078,0.353,1.000])
+	cmd.set_color("color_asn3",[0.000,0.863,0.863])
+	cmd.set_color("color_asp3",[0.902,0.039,0.039])
+	cmd.set_color("color_cys3",[0.902,0.902,0.000])
+	cmd.set_color("color_gln3",[0.000,0.863,0.863])
+	cmd.set_color("color_glu3",[0.902,0.039,0.039])
+	cmd.set_color("color_gly3",[0.922,0.922,0.922])
+	cmd.set_color("color_his3",[0.510,0.510,0.824])
+	cmd.set_color("color_ile3",[0.059,0.510,0.059])
+	cmd.set_color("color_leu3",[0.059,0.510,0.059])
+	cmd.set_color("color_lys3",[0.078,0.353,1.000])
+	cmd.set_color("color_met3",[0.902,0.902,0.000])
+	cmd.set_color("color_phe3",[0.196,0.196,0.667])
+	cmd.set_color("color_pro3",[0.863,0.588,0.510])
+	cmd.set_color("color_ser3",[0.980,0.588,0.000])
+	cmd.set_color("color_thr3",[0.980,0.588,0.000])
+	cmd.set_color("color_trp3",[0.706,0.353,0.706])
+	cmd.set_color("color_tyr3",[0.196,0.196,0.667])
+	cmd.set_color("color_val3",[0.059,0.510,0.059])
+        cmd.color("color_ile3","("+s+" and resn ile)")
+        cmd.color("color_phe3","("+s+" and resn phe)")
+        cmd.color("color_val3","("+s+" and resn val)")
+        cmd.color("color_leu3","("+s+" and resn leu)")
+        cmd.color("color_trp3","("+s+" and resn trp)")
+        cmd.color("color_met3","("+s+" and resn met)")
+        cmd.color("color_ala3","("+s+" and resn ala)")
+        cmd.color("color_gly3","("+s+" and resn gly)")
+        cmd.color("color_cys3","("+s+" and resn cys)")
+        cmd.color("color_tyr3","("+s+" and resn tyr)")
+        cmd.color("color_pro3","("+s+" and resn pro)")
+        cmd.color("color_thr3","("+s+" and resn thr)")
+        cmd.color("color_ser3","("+s+" and resn ser)")
+        cmd.color("color_his3","("+s+" and resn his)")
+        cmd.color("color_glu3","("+s+" and resn glu)")
+        cmd.color("color_asn3","("+s+" and resn asn)")
+        cmd.color("color_gln3","("+s+" and resn gln)")
+        cmd.color("color_asp3","("+s+" and resn asp)")
+        cmd.color("color_lys3","("+s+" and resn lys)")
+        cmd.color("color_arg3","("+s+" and resn arg)")
+cmd.extend('color_amino',color_amino)

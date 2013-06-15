@@ -20,6 +20,7 @@ if [ -n "$PS1" ]; then	# interactive
 
    source_dot_bash scala
    source_dot_bash locus
+   #source_dot_bash python
 fi
 
 source_dot_bash FINALIZE
