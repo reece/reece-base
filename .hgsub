@@ -1,4 +1,2 @@
 lib/emacs/pkgs/pydoc-info = https://reece@bitbucket.org/jonwaltman/pydoc-info
 lib/emacs/pkgs/scala-emacs = [svn]http://lampsvn.epfl.ch/svn-repos/scala/scala-tool-support/trunk/src/emacs
-
-lib/emacs/plugins/auto-complete = [git]http://cx4a.org/repo/auto-complete.git

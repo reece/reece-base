@@ -1,0 +1,6 @@
+#!/bin/bash
+# from: http://www.kurup.org/blog/2012/10/24/emacs-for-python-programming/
+
+pyflakes "$1"
+pep8 --repeat "$1"
+true

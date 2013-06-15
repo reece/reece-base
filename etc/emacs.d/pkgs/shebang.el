@@ -1,14 +1,5 @@
-;; -*- mode:emacs-lisp; mode: outline-minor -*-
-;;
-;; $RCSfile: shebang.el,v $
-;; $Revision: 1.4 $
-;; $Date: 2007/10/15 18:47:49 $
-;;
-;; NAME
 ;; shebang.el -- check for valid #! interpreter and set executable mode
-;;
-;; @@banner@@
-;; 
+;; Reece Hart <reecehart@gmail.com>
 
 (defvar shebang-file "ask"
   "See shebang-chmod.")
@@ -40,8 +31,7 @@ shebang-file is \"ask\", the user will be prompted."
 	 (if (string= shebang-file "ask")		; and shebang-file preference
 		 (y-or-n-p
 		  (format
-		   "%sChange mode of %s to %o? "
-		   (if prefix-function-name "shebang: " "")
+		   "shebang: Change mode of %s to %o? "
 		   (buffer-file-name)
 		   shebang-modes
 		   ))
@@ -70,8 +60,7 @@ shebang-file is \"ask\", the user will be prompted."
 				(not (and (file-exists-p interpreter)
 						  (file-executable-p interpreter))))
 			  (message
-			   "%sWarning: `%s' is not a valid interpreter."
-			   (if prefix-function-name "shebang: " "")
+			   "shebang: Warning: `%s' is not a valid interpreter."
 			   interpreter)
 			)
 		  )
