@@ -81,8 +81,9 @@
  query-replace-highlight t
  resize-minibuffer-mode t
  search-highlight t
- tex-dvi-view-command "xdvi"
  version-control t							; number backups
+ yas/root-directory '("~/emacs.d/my-snippets"
+                      "~/emacs.d/other-snippets")
  )
 
 (let ((lat (getenv "LATITUDE"))
@@ -121,4 +122,5 @@
 (if window-system
 	(global-set-key "\C-x\C-c" 'my-exit-from-emacs))
 
-;===============================================================================
+
+(menu-bar-mode)

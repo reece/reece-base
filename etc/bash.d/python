@@ -1,2 +1,5 @@
+# pip install --user virtualenvwrapper --upgrade
+
 export WORKON_HOME=$HOME/virtualenvs
-source /etc/bash_completion.d/virtualenvwrapper
+source virtualenvwrapper.sh
+

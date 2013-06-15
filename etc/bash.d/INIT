@@ -4,6 +4,8 @@ source_dot_bash env
 source_dot_bash env-mine
 source_dot_bash opt
 
+source_dot_bash python
+
 if [ -n "$PS1" ]; then	# interactive
    source_dot_bash colorize
    source_dot_bash term
@@ -20,7 +22,6 @@ if [ -n "$PS1" ]; then	# interactive
 
    source_dot_bash scala
    source_dot_bash locus
-   source_dot_bash python
 fi
 
 source_dot_bash FINALIZE
