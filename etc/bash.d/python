@@ -1,5 +1,7 @@
+# -*-sh-*-
 # pip install --user virtualenvwrapper --upgrade
 
-export WORKON_HOME=$HOME/virtualenvs
-source virtualenvwrapper.sh
-
+if `type virtualenvwrapper.sh 1>/dev/null 2>/dev/null`; then
+   source virtualenvwrapper.sh
+   export WORKON_HOME=$HOME/virtualenvs
+fi
