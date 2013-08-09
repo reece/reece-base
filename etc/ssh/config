@@ -5,7 +5,6 @@ HashKnownHosts no
 StrictHostKeyChecking no
 #ForwardX11 yes
 IdentityFile ~/.ssh/keys/snafu_pwl
-#ControlPath ~/.ssh/controlmaster-%r@%h:%p
 ServerAliveInterval 300
 
 
@@ -31,7 +30,9 @@ Host sf
 	 HostName shell.sf.net
 	 User reece
 
-Host compute
+Host 0-compute
+	 HostName 0-compute.vpc.locusdev.net
+Host 1-compute
 	 HostName 1-compute.vpc.locusdev.net
 
 
@@ -45,14 +46,23 @@ Host ec2-*.amazonaws.com
 Host fsdb
 	HostName fs.locusdev.net
 
+Host db2
+	 HostName db2.locusdev.net
+	 ControlPath ~/.ssh/controlmaster-%r@%h:%p
+Host anvil
+	 HostName anvil.locusdev.net
+	 #ControlPath ~/.ssh/controlmaster-%r@%h:%p
+Host oink
+	 HostName oink.458.locusdev.net
+	 #ControlPath ~/.ssh/controlmaster-%r@%h:%p
+Host g
+	 HostName 172.20.1.69
+
 
 #BEGIN_EC2_SSH_CONFIG_BLOCK
 Host i-6ddf4e00 ensembl-71
 	HostName 10.10.2.15
 	HostKeyAlias i-6ddf4e00
-Host i-bb4f8ad6 compute-reece
-	HostName 10.10.2.250
-	HostKeyAlias i-bb4f8ad6
 Host i-e07af98b cc1-exec-node
 	HostName 10.10.3.137
 	HostKeyAlias i-e07af98b
@@ -86,9 +96,6 @@ Host i-73d62615 vpc-nat-server
 Host i-76de8a0f build
 	HostName 10.10.2.14
 	HostKeyAlias i-76de8a0f
-Host i-60997e1a compute5-(0-compute)
-	HostName 10.10.2.81
-	HostKeyAlias i-60997e1a
 Host i-991dfde5 cc1-master
 	HostName 10.10.2.40
 	HostKeyAlias i-991dfde5

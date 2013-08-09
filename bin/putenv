@@ -1,0 +1,25 @@
+#!/bin/bash
+# putenv [pid] [var=value] -- set an env variable in a running process
+
+if [ "$EUID" != "0" ]; then
+	cat <<EOF 1>&1
+root may be required to set env variable on processes
+You're not root, and therefore this may fail
+EOF
+fi
+
+tmpfn=$(mktemp)
+trap cleanup EXIT
+cleanup() {
+	/bin/rm -fv "$tmpfn"
+}
+
+cat <<EOF >"$tmpfn"
+attach $1
+call putenv("$2")
+detach
+EOF
+
+gdb -batch-silent -nh -x $tmpfn
+
+# cleanup automatically

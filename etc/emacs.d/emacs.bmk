@@ -2,11 +2,16 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("exome"
- (filename . "/var/run/user/reece/gvfs/smb-share:server=oink,share=invitae/projects/exome/")
- (front-context-string . "bin/\n  drwx-----")
- (rear-context-string . " 0 Apr 25 18:53 ")
- (position . 236))
+(("postgres@db2"
+ (filename . "/scpc:postgres@db2:/home/postgres/")
+ (front-context-string . ".bash_history\n  ")
+ (rear-context-string . "99 Jun 19 03:28 ")
+ (position . 209))
+("exome"
+ (filename . "/sftp:g:/invitae/projects/exome/")
+ (front-context-string . ".DS_Store*\n  drw")
+ (rear-context-string . "08 Aug  1 20:54 ")
+ (position . 208))
 ("clarity"
  (filename . "/scpc:fsdb:/locus/home/reece/projects/clarity/")
  (front-context-string . ".hg/\n  -rw-r--r-")

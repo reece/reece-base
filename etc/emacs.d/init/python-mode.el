@@ -1,7 +1,10 @@
 ; downloaded from:
 ; https://launchpad.net/python-mode/trunk/6.1.1/+download/python-mode.el-6.1.1.tar.gz
 
-(setq py-install-directory (concat user-emacs-dir "/pkgs/python-mode.el-6.1.1/"))
+(setq
+ py-docstring-style "DJANGO"
+ py-install-directory (concat user-emacs-dir "/pkgs/python-mode.el-6.1.1/")
+ )
 (add-to-list 'load-path py-install-directory)
 (require 'python-mode)
 
@@ -14,7 +17,10 @@
 
 ; jedi
 (autoload 'jedi:setup "jedi" nil t)
-(setq jedi:complete-on-dot t)
+(setq
+ jedi:complete-on-dot t
+ jedi:server-args     '("--virtual-env" "/home/reece/virtualenvs/default2.7")
+)
 (add-hook 'python-mode-hook 'jedi:setup)
 
 (add-hook 'python-mode-hook 'auto-complete-mode)

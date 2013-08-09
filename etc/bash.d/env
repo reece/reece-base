@@ -6,6 +6,7 @@ PATH=$PATH:/usr/sbin:/usr/bin:/sbin:/bin
 export REECE_BASE_DIR=${HOME}/opt/reece-base
 export REECE_EXTERNAL_DIR=${HOME}/opt/reece-external
 
+HISTTIMEFORMAT="%F %T "
 export CVSEDITOR=vi
 export CVS_RSH=ssh
 export DATEFMT="%Y/%m/%d"
@@ -20,6 +21,7 @@ export LOCATE_PATH=$HOME/share/locatedb${LOCATE_PATH:+:$LOCATE_PATH}
 export NAME="$FULLNAME"
 export ORGANIZATION="Locus Development, Inc."
 export PSQL_EDITOR='emacs -nw'
+export PYCHARM_JDK=~/opt/java/jdk1.7.0_21
 export VERSION_CONTROL=simple
 
 # Python setup

@@ -8,6 +8,10 @@
 # N.B. args are paths to mysql dump directories, such as:
 # /srv/mirrors/ftp.ensembl.org/pub/current_mysql/homo_sapiens_core_62_37g
 
+# ftp://ftp.ensembl.org/pub/release-72/mysql/homo_sapiens_core_72_37/
+# 
+
+ 
 MYSQL_ARGS='-u root'
 tmp_dir=$(mktemp -d)
 
