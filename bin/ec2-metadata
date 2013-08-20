@@ -49,7 +49,7 @@ Options:
 function chk_config()
 {
  #check if run inside an ec2-instance
- x=$(curl -s http://169.254.169.254/)
+ x=$(curl --connect-timeout 2 -s http://169.254.169.254/)
  if [ $? -gt 0 ]; then
     echo '[ERROR] Command not valid outside EC2 instance. Please run this command within a running EC2 instance.'
     exit 1
