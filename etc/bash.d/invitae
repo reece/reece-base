@@ -5,8 +5,8 @@ pipe-activate () {
 	local locus_pipe_version=${2:-$locus_python_version}
 	export LOCUS_ROOT=${3:-$HOME/projects}
 
-	local locus_python_path="$LOCUS_ROOT/locus-python/$LOCUS_PYTHON_VERSION"
-	local locus_pipe_path="$LOCUS_ROOT/locus-pipe/$LOCUS_PIPE_VERSION"
+	local locus_python_path="$LOCUS_ROOT/locus-python/$locus_python_version"
+	local locus_pipe_path="$LOCUS_ROOT/locus-pipe/$locus_pipe_version"
 
 	source /locus/etc/profile
 	PATH=/locus/opt/sbt/prd/bin:$PATH

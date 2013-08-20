@@ -9,10 +9,11 @@ syntax: glob
 .git
 .gitignore
 .svn
+\#_ascpc_*\#
 archive
 etc/emacs.d/ac-comphist.dat
 etc/emacs.d/elpa
-etc/ssh/known_hosts
 etc/emacs.d/pkgs
+etc/ssh/known_hosts
 lib/emacs/pkgs
 tmp

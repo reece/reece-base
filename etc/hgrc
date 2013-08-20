@@ -7,7 +7,8 @@ username = Reece Hart <reecehart@gmail.com>
 merge = emacsclient-merge
 
 [merge-tools]
-emacs.args = -q --eval "(ediff-merge-with-ancestor \"$local\" \"$other\" \"$base\" nil \"$output\")"
+#emacs.args = -q --eval "(ediff-merge-with-ancestor \"$local\" \"$other\" \"$base\" nil \"$output\")"
+emacs.args = -q --eval "(emerge-files-with-ancestor nil \"$local\" \"$other\" \"$base\" \"$output\" nil 'kill-emacs)"
 
 
 [trusted]

@@ -7,7 +7,7 @@ else
 fi
 
 case "$TERM" in
-xterm*|linux|vt220)
+xterm*|linux|vt220|screen)
 	if [ "$COLORIZE" = 1 ]; then
 		if [ "$UID" = 0 ]; then
 			fi='\033[1;41;33m'
