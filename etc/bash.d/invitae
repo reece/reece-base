@@ -1,0 +1,10 @@
+#-*-sh-*-
+
+pipe-activate () {
+	export LOCUS_ROOT=${1:-$HOME/projects} LOCUS_VERSION=${2:-tip}
+	echo "activating $LOCUS_ROOT/{locus-python,locus-pipe}, version $LOCUS_VERSION" 
+	source /locus/etc/profile
+	source $LOCUS_ROOT/locus-python/$LOCUS_VERSION/etc/setup.bash
+	source $LOCUS_ROOT/locus-pipe/$LOCUS_VERSION/etc/setup.bash 
+	PATH=/locus/opt/sbt/prd/bin:$PATH
+}

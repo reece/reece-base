@@ -57,6 +57,7 @@ Host oink
 	 #ControlPath ~/.ssh/controlmaster-%r@%h:%p
 Host g
 	 HostName 172.20.1.69
+	 ControlPath ~/.ssh/controlmasters/%r@%h:%p
 
 
 #BEGIN_EC2_SSH_CONFIG_BLOCK

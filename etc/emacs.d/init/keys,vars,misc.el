@@ -81,6 +81,9 @@
  query-replace-highlight t
  resize-minibuffer-mode t
  search-highlight t
+ vc-ignore-dir-regexp (format "\\(%s\\)\\|\\(%s\\)"
+							  vc-ignore-dir-regexp
+							  tramp-file-name-regexp)
  version-control t							; number backups
  yas/root-directory '("~/emacs.d/my-snippets"
                       "~/emacs.d/other-snippets")
