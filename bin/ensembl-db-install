@@ -2,18 +2,19 @@
 # ensembl-install -- install an ensembl database component
 # 
 # Use:
-# $ wget -b -P/tmp ftp://ftp.ensembl.org/pub/current_mysql/homo_sapiens_core_62_37g
-# $ MYSQL_PWD='clearpassword' ensembl-install /tmp/ftp.ensembl.org/pub/current_mysql/*
+# $ wget -np -m -b ftp://ftp.ensembl.org/pub/current_mysql/homo_sapiens_{core,variation,otherfeatures}_70*
+# $ MYSQL_PWD='clearpassword' time ensembl-db-install $DLDIR/homo_sapiens_{core,variation,otherfeatures}*69* >/tmp/ens69-install.log 2>&1) &
 #
-# N.B. args are paths to mysql dump directories, such as:
-# /srv/mirrors/ftp.ensembl.org/pub/current_mysql/homo_sapiens_core_62_37g
+# See also: ensembl-cvs-fetch, as in
+# $ ensembl-cvs-fetch 69
+
 
 # ftp://ftp.ensembl.org/pub/release-72/mysql/homo_sapiens_core_72_37/
 # 
 
  
 MYSQL_ARGS='-u root'
-tmp_dir=$(mktemp -d)
+tmp_dir=$(mktemp -d -p ~/tmp)
 
 cleanup () {
 	[ -d "$tmp_dir" ] && rmdir -v "$tmp_dir"
