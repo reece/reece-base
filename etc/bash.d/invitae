@@ -4,6 +4,9 @@ pipe-activate () {
 	local locus_python_version=${1:-tip}
 	local locus_pipe_version=${2:-$locus_python_version}
 	export LOCUS_ROOT=${3:-$HOME/projects}
+	export LOCUS_SRLC=$locus_python_version
+
+	echo "# $LOCUS_ROOT, python $locus_python_version, pipe $locus_pipe_version, LOCUS_SRLC=$LOCUS_SRLC" 1>&2
 
 	local locus_python_path="$LOCUS_ROOT/locus-python/$locus_python_version"
 	local locus_pipe_path="$LOCUS_ROOT/locus-pipe/$locus_pipe_version"
