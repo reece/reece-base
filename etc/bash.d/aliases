@@ -1,11 +1,15 @@
 ## aliases -- Reece's bash aliases -*-sh-*-
 
+#alias pst='ps --forest -u$USER -fw'
 alias ..='cd ..; awd'
 alias .=awd
 alias bp='less "+/^(>.*|Query.*)"'
-alias dp='less "+/^[0-9][0-9,]*[acd].*|^diff .+|^Only in .+|^Common subd.+|^Binary files|^--- .+|^@@ .+"'
+alias bsubsh="bsub -n 8 -R 'span[hosts=1]' -Is /bin/bash"
 alias cp='cp -bi'
+alias dp='less "+/^[0-9][0-9,]*[acd].*|^diff .+|^Only in .+|^Common subd.+|^Binary files|^--- .+|^@@ .+"'
 alias h=head
+alias hg-update-projects='(cd ~/projects; find . -name .hg | while read dir; do (hr; cd "$(dirname $dir)"; hg pull); done)'
+alias hr='echo ============================================================================'
 alias j='jobs -l'
 alias ll='ls $LS_FLAGS -Flh --si'
 alias lla='ls $LS_FLAGS -FlhA --si'
@@ -13,21 +17,19 @@ alias lld='ls $LS_FLAGS -Flhd --si'
 alias llz='ls $LS_FLAGS -Flh --sort=size --si'
 alias ls='ls $LS_FLAGS -F'
 alias lsa='ls $LS_FLAGS -FA'
-alias p='${PAGER:-cat}'
 alias mv='mv -bi'
+alias p='${PAGER:-cat}'
 alias pcd='pushd'
 alias pd='popd'
+alias psme='ps -o pid,ppid,user,s,nlwp,%cpu,cputime,%mem,vsz,sz,rss,cmd'
 alias psql-tsv="psql -A -F$'\t'"
 alias pst='pstree -Glpua | p -r'
-#alias pst='ps --forest -u$USER -fw'
 alias qdelall='qdel `qstat -urkh | fgrep "^[0-9]" | cut -f1 -d.`'
 alias rm='rm -i'
 alias rm~='rm -f -- *~ .*~ *.bak .*.bak'
 alias t=tail
 alias tf='tail --follow=name --retry'
 alias w='type -p'			# wheresit?
-
-alias bsubsh="bsub -n 8 -R 'span[hosts=1]' -Is /bin/bash"
 
 # bs = blank slate -- a scrubbed environment for package building
 # bsx = ditto, with X

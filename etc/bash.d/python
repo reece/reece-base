@@ -1,4 +1,9 @@
 # pip install --user virtualenvwrapper --upgrade
 
 export WORKON_HOME=$HOME/virtualenvs
-source virtualenvwrapper.sh
+
+if [ -f $WORKON_HOME/virtualenvwrapper.sh ]; then
+	source virtualenvwrapper.sh
+else
+	warn $WORKON_HOME/virtualenvwrapper.sh
+fi
