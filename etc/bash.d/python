@@ -1,9 +1,17 @@
-# pip install --user virtualenvwrapper --upgrade
+# -*-sh-*-
 
-export WORKON_HOME=$HOME/virtualenvs
+export PYTHONPATH=${REECE_EXTERNAL_DIR}/lib/python${PYTHONPATH:+:$PYTHONPATH}
+export PYTHONUSERBASE=${REECE_EXTERNAL_DIR}
 
-if [ -f $WORKON_HOME/virtualenvwrapper.sh ]; then
+PATH=$PYTHONUSERBASE/bin:$PATH
+
+if [ -f $PYTHONUSERBASE/bin/virtualenvwrapper.sh ]; then
+	export WORKON_HOME=$HOME/virtualenvs
 	source virtualenvwrapper.sh
 else
-	warn $WORKON_HOME/virtualenvwrapper.sh
+	:
+	# Install virtualenv components like this:
+	# pip install --user virtualenv
+	# pip install --user virtualenvwrapper --upgrade
+	# warn $WORKON_HOME/virtualenvwrapper.sh
 fi

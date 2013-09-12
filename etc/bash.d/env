@@ -24,11 +24,6 @@ export PSQL_EDITOR='emacs -nw'
 export PYCHARM_JDK=~/opt/java/jdk1.7.0_21
 export VERSION_CONTROL=simple
 
-# Python setup
-export PYTHONPATH=${REECE_EXTERNAL_DIR}/lib/python${PYTHONPATH:+:$PYTHONPATH}
-export PYTHONUSERBASE=${REECE_EXTERNAL_DIR}
-#export PYTHONSTARTUP=$HOME/.pythonrc.py
-
 # Perl setup
 PERL_PREFIX="${REECE_EXTERNAL_DIR}/perl"
 PERL5LIB=$PERL_PREFIX/lib/perl5:${PERL5LIB:+:$PERL5LIB}
