@@ -1,0 +1,94 @@
+#!/usr/bin/env python3.3
+__doc__ = """
+copy email from one Google account to another
+
+Config looks like this:
+
+[gmail-mover]
+src_account = acct1@gmail.com
+src_host = imap.gmail.com
+src_password = 
+src_port = 993
+src_mbox = [Gmail]/All Mail
+
+dst_account = acct2@gmail.com
+dst_host = imap.gmail.com
+dst_password = 
+dst_port = 993
+dst_mbox = SomeLabel
+"""
+
+import argparse, datetime, email, getpass, imaplib
+import logging, os, pprint, sys, time
+from configparser import SafeConfigParser
+import IPython
+
+def parse_args(argv):
+    ap = argparse.ArgumentParser(
+        description = __doc__,
+        formatter_class = argparse.ArgumentDefaultsHelpFormatter,
+        add_help = False,
+        )
+    ap.add_argument('--conf-file', '-C', metavar="FILE",
+                    required = True,
+                    help="config file")
+    opts = ap.parse_args(argv)
+    return opts
+
+def email_to_imap_date(date):
+    """convert email header date like 'Thu, 23 Aug 2012 16:39:31 -0700'
+    to imap date like '23-Aug-2012 16:39:31 -0700'"""
+    vals = date.split(' ')
+    return '"{vals[1]}-{vals[2]}-{vals[3]} {vals[4]} {vals[5]}"'.format(vals=vals)
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+    opts = parse_args(sys.argv[1:])
+    conf = SafeConfigParser()
+    conf.readfp(open(opts.conf_file))
+    logging.info('opened '+opts.conf_file)
+    opts.__dict__.update(conf.items('gmail-mover'))
+
+    src = imaplib.IMAP4_SSL(opts.src_host,opts.src_port)
+    src.login(opts.src_account, opts.src_password)
+    logging.info('src: connected to %s:***@%s:%s' % (
+            opts.src_account, opts.src_host, opts.src_port))
+
+    status, messages = src.select(opts.src_mbox, 1)
+    if status != 'OK':
+        raise RuntimeError("Couldn't select source "+opts.src_mbox)
+
+
+    dst = imaplib.IMAP4_SSL(opts.dst_host,opts.dst_port)
+    dst.login(opts.dst_account, opts.dst_password)
+    logging.info('dst: connected to %s:***@%s:%s' % (
+            opts.dst_account, opts.dst_host, opts.dst_port))
+
+    status, messages = dst.select(opts.dst_mbox)
+    if status != 'OK':
+        raise RuntimeError("Couldn't select destination "+opts.dst_mbox)
+
+    import IPython; IPython.embed()
+
+
+    status,data = src.uid('search',None,'ALL')
+    if status != 'OK':
+        raise RuntimeError("Couldn't search: "+data[0])
+    uids = data[0].split()
+    logging.info('%d messages in %s' % (len(uids),opts.src_mbox))
+
+    for uid in uids:
+        status,data = src.uid('fetch', uid, '(RFC822)')
+        if status != 'OK':
+            raise RuntimeError("Couldn't fetch uid "+uid)
+
+        msg = email.message_from_string(data[0][1])
+
+        status,messages = dst.append(opts.dst_mbox,r'(\Seen)',None,data[0][1])
+        if status != 'OK':
+            raise RuntimeError("Couldn't append message "+str(uid))
+
+        logging.info('{uid} {msg[Date]} {msg[From]}->{msg[To]} {msg[Subject]}'.format(uid=uid,msg=msg))
+
+        # status, data = dst.uid('FETCH', ','.join(duids) , '(BODY.PEEK[HEADER.FIELDS (From Subject Message-Id)] RFC822.SIZE)')
