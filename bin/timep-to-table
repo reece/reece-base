@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+
+__doc__ = """
+make a table from time -p output
+
+eg$ tail -n3 *.log | timep-to-table
+
+"""
+
+import os
+import re
+import sys
+
+import prettytable
+
+strip_common_prefix = True
+timep_re = re.compile('==> (?P<source>.+?) <==\nreal (?P<real>\d+\.\d+)\nuser (?P<user>\d+\.\d+)\nsys (?P<sys>\d+\.\d+)')
+cols = ['source','real','user','sys']
+
+if __name__ == '__main__':
+    recs = [ tpm.groupdict() for tpm in timep_re.finditer( open(sys.argv[1]).read() ) ]
+
+    if strip_common_prefix:
+        prefix = os.path.commonprefix( [ rec['source'] for rec in recs ] )
+        for rec in recs:
+            rec['source'] = rec['source'].lstrip(prefix)
+
+    t = prettytable.PrettyTable(field_names = cols)
+    t.align = 'r'
+    t.align['source'] = 'l'
+
+    for rec in recs:
+        t.add_row([ rec[col] for col in cols ])
+
+    print(t)
