@@ -12,7 +12,7 @@ emacs.args = -q --eval "(emerge-files-with-ancestor nil \"$local\" \"$other\" \"
 
 
 [trusted]
-users = locusadm
+users = locusadm, kjacobs
 
 [extensions]
 bookmarks=
@@ -21,7 +21,7 @@ color=
 convert=
 extdiff=
 fetch=
-git=
+#git=
 graphlog=
 mq=
 pager=
@@ -29,8 +29,8 @@ progress=
 rebase=
 
 ### local installations:
-hgsubversion=~/opt/reece-external/lib/hgext/hgsubversion/hgsubversion
-hgshelve=~/opt/reece-external/lib/hgext/hgshelve/hgshelve.py
+#hgsubversion=~/opt/reece-external/lib/hgext/hgsubversion/hgsubversion
+#hgshelve=~/opt/reece-external/lib/hgext/hgshelve/hgshelve.py
 
 [pager]
 pager = LESS='FSRX' less
