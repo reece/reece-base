@@ -46,6 +46,17 @@
 (global-set-key [mouse-4] '(lambda () (interactive) (scroll-down 4)))
 (global-set-key [mouse-5] '(lambda () (interactive) (scroll-up 4)))
 
+;(global-set-key [C-mouse-4] '(lambda () (interactive) (text-scale-increase 1)))
+;(global-set-key [C-mouse-5] '(lambda () (interactive) (text-scale-decrease 1)))
+
+(defun change-font-height (delta)
+  (set-face-attribute 'default 
+					  (selected-frame)
+					  :height (+ (face-attribute 'default :height) delta)))
+(global-set-key [C-mouse-4] '(lambda () (interactive) (change-font-height +4)))
+(global-set-key [C-mouse-5] '(lambda () (interactive) (change-font-height -4)))
+
+
 (define-key query-replace-map [return] 'act)
 (define-key query-replace-map [?\C-m] 'act)
 
