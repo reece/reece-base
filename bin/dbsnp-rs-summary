@@ -10,48 +10,53 @@ from lxml import etree
 docsum_ns = 'http://www.ncbi.nlm.nih.gov/SNP/docsum'
 fq_rs_tag = '{{{docsum_ns}}}Rs'.format(docsum_ns=docsum_ns)
 nsmap = {
-	's': docsum_ns,
-	}
+    's': docsum_ns,
+    }
 
 def parse_rs_elem(e):
-	hgvs_tags = [ n.text for n in e.findall('s:hgvs',namespaces=nsmap) ]
-	asy = e.xpath("s:Assembly[@genomeBuild='37_1' and @groupLabel='GRCh37' and @current='true']",namespaces=nsmap)[0]
-	com = asy.xpath('s:Component[@chromosome]',namespaces=nsmap)[0]
-	pm = com.xpath('s:MapLoc[@physMapInt and @leftContigNeighborPos and @rightContigNeighborPos and @orient]',namespaces=nsmap)
-	if len(pm) == 0:
-		return
-	length = int(pm[0].get('rightContigNeighborPos')) - int(pm[0].get('leftContigNeighborPos')) - 1
-	if length == 0:
-		gstart = int(pm[0].get('physMapInt')) + 1
-	else:
-		gstart = int(pm[0].get('physMapInt'))
-	gend = gstart + length
+    """parse a single Rs record into summary fields"""
+    hgvs_tags = [ n.text for n in e.findall('s:hgvs',namespaces=nsmap) ]
+    #asy = e.xpath("s:Assembly[@genomeBuild='37_1' and @groupLabel='GRCh37' and @current='true']",namespaces=nsmap)[0]
+    asy = e.xpath("s:Assembly[starts-with(@groupLabel,'GRCh37') and @current='true']",namespaces=nsmap)[0]
+    com = asy.xpath('s:Component[@chromosome]',namespaces=nsmap)[0]
+    pm = com.xpath('s:MapLoc[@physMapInt and @leftContigNeighborPos and @rightContigNeighborPos and @orient]',namespaces=nsmap)
+    if len(pm) == 0:
+        return
+    length = int(pm[0].get('rightContigNeighborPos')) - int(pm[0].get('leftContigNeighborPos')) - 1
+    gstart = int(pm[0].get('physMapInt'))
+    gend = gstart + length
 
-	strand = '?'
-	if pm[0].get('orient') == 'forward':
-		strand = '+'
-	elif pm[0].get('orient') == 'reverse':
-		strand = '-'
+    strand = '?'
+    if pm[0].get('orient') == 'forward':
+        strand = '+'
+    elif pm[0].get('orient') == 'reverse':
+        strand = '-'
 
-	return {
-		'rs': e.get('rsId'),
-		'chr': com.get('chromosome'),
-		'strand': strand,
-		'gstart': gstart,
-		'gend': gend,
-		'len': length,
-		'hgvs_tags': hgvs_tags
-		}
+    return {
+        'rs': e.get('rsId'),
+        'chr': com.get('chromosome'),
+        'strand': strand,
+        'gstart': gstart,
+        'gend': gend,
+        'len': length,
+        'hgvs_tags': hgvs_tags
+        }
 
-
-for _, elem in etree.iterparse(sys.stdin,tag=fq_rs_tag):
-	if not ( elem.get('snpType') == 'notwithdrawn' and elem.get('molType') == 'genomic' ):
-		continue
-	r = parse_rs_elem(elem)
-	if r is None:
-		continue
-	for vtag in r['hgvs_tags']:
-		print(vtag + '\t%(chr)s\t%(strand)s\t%(gstart)s\t%(gend)s\t%(len)d\thttp://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=%(rs)s' % r)
-	elem.clear()
+def iterparse_dbsnp_rs(fp):
+    """generator for dbsnp rs records from given file"""
+    for evt, elem in etree.iterparse(sys.stdin,tag=fq_rs_tag):
+        if elem.get('snpType') == 'notwithdrawn' and elem.get('molType') == 'genomic':
+            r = parse_rs_elem(elem)
+            if r is not None:
+                yield r
+        elem.clear()
 
 
+if __name__ == '__main__':
+    for r in iterparse_dbsnp_rs(sys.stdin):
+        if not ( r['gstart'] < 21940000 and r['gend'] > 21580000 and r['strand'] == '+'):   #DNAH11 hack
+            continue
+        data = [ str(r[k]) for k in ['rs','chr','strand','gstart','gend','len'] ]
+        data += [ ','.join(r['hgvs_tags']) ]
+        data += [ 'http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=' + r['rs'] ]
+        print( '\t'.join(data) )
