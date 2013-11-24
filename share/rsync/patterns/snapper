@@ -1,5 +1,3 @@
-*.pyc
-*.toc.bin
 /dev/
 /media/
 /var/lib/mysql
@@ -10,8 +8,6 @@
 /var/crash
 /var/lock
 /var/tmp
-.VirtualBox
-VirtualBox VMs
-Videos
-Audio
-Dropbox
+no-snapper
+no-backup
+/local/home/reece/secure/.exome

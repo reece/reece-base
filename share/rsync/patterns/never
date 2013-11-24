@@ -18,3 +18,5 @@ core
 gvfs
 mnt
 tmp
+*.pyc
+*.toc.bin
