@@ -17,9 +17,11 @@ tar: ../${PFX}.tar.bz2
 pull:
 	hg pull -u
 
+# hg push returns 0 for "pushed (something) successfully", distinct
+# from 1 for "nothing to push". 
 push:
-	hg push ssh://hg@bitbucket.org/reece/reece-base
-	hg push git+ssh://git@github.com/reecehart/reece-base.git
+	-hg push ssh://hg@bitbucket.org/reece/reece-base
+	-hg push git+ssh://git@github.com/reece/reece-base.git
 
 .PHONY: clean cleaner cleanest
 clean:
