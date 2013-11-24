@@ -4,7 +4,7 @@ copy email from one Google account to another
 
 Config looks like this:
 
-[gmail-mover]
+[gmail-copier]
 src_account = acct1@gmail.com
 src_host = imap.gmail.com
 src_password = 
@@ -18,9 +18,11 @@ dst_port = 993
 dst_mbox = SomeLabel
 """
 
-import argparse, datetime, email, getpass, imaplib
-import logging, os, pprint, sys, time
+import argparse, datetime, email
+import logging, os, sys, time
 from configparser import SafeConfigParser
+from imapclient import IMAPClient
+
 import IPython
 
 def parse_args(argv):
@@ -41,6 +43,10 @@ def email_to_imap_date(date):
     vals = date.split(' ')
     return '"{vals[1]}-{vals[2]}-{vals[3]} {vals[4]} {vals[5]}"'.format(vals=vals)
 
+def _hdr_tuple(hdr):
+    e = email.message_from_string( hdr )
+    return ( e['date'],e['from'],e['to'],e['subject'],e['message-id'] )
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
@@ -48,47 +54,54 @@ if __name__ == '__main__':
     conf = SafeConfigParser()
     conf.readfp(open(opts.conf_file))
     logging.info('opened '+opts.conf_file)
-    opts.__dict__.update(conf.items('gmail-mover'))
-
-    src = imaplib.IMAP4_SSL(opts.src_host,opts.src_port)
-    src.login(opts.src_account, opts.src_password)
-    logging.info('src: connected to %s:***@%s:%s' % (
-            opts.src_account, opts.src_host, opts.src_port))
-
-    status, messages = src.select(opts.src_mbox, 1)
-    if status != 'OK':
-        raise RuntimeError("Couldn't select source "+opts.src_mbox)
+    opts.__dict__.update(conf.items('gmail-copier'))
 
 
-    dst = imaplib.IMAP4_SSL(opts.dst_host,opts.dst_port)
+    # open destination mbox
+    dst = IMAPClient(host = opts.dst_host, port = opts.dst_port,
+                        use_uid = True, ssl = True)
     dst.login(opts.dst_account, opts.dst_password)
     logging.info('dst: connected to %s:***@%s:%s' % (
             opts.dst_account, opts.dst_host, opts.dst_port))
 
-    status, messages = dst.select(opts.dst_mbox)
-    if status != 'OK':
-        raise RuntimeError("Couldn't select destination "+opts.dst_mbox)
+    # open source mbox
+    src = IMAPClient(host = opts.src_host, port = opts.src_port,
+                        use_uid = True, ssl = True)
+    src.login(opts.src_account, opts.src_password)
+    logging.info('src: connected to %s:***@%s:%s' % (
+            opts.src_account, opts.src_host, opts.src_port))
 
-    import IPython; IPython.embed()
+    # select folders
+    src_ex = src.select_folder(opts.src_mbox, readonly=True)
+    dst_ex = dst.select_folder(opts.dst_mbox, readonly=False)
+    logging.info('{src_ex[EXISTS]} messages in src, {dst_ex[EXISTS]} messages in dst'.format(
+        src_ex = src_ex, dst_ex = dst_ex))
 
+    # hash destination message headers
+    dst_msgs = dst.search()
+    dst_hdrs = dst.fetch(dst_msgs, ['FLAGS', 'RFC822.SIZE', 'RFC822.HEADER'])
+    dst_hts = [ _hdr_tuple(dst_hdrs[msgid]['RFC822.HEADER']) for msgid in dst_hdrs ]
 
-    status,data = src.uid('search',None,'ALL')
-    if status != 'OK':
-        raise RuntimeError("Couldn't search: "+data[0])
-    uids = data[0].split()
-    logging.info('%d messages in %s' % (len(uids),opts.src_mbox))
-
-    for uid in uids:
-        status,data = src.uid('fetch', uid, '(RFC822)')
-        if status != 'OK':
-            raise RuntimeError("Couldn't fetch uid "+uid)
-
-        msg = email.message_from_string(data[0][1])
-
-        status,messages = dst.append(opts.dst_mbox,r'(\Seen)',None,data[0][1])
-        if status != 'OK':
-            raise RuntimeError("Couldn't append message "+str(uid))
-
-        logging.info('{uid} {msg[Date]} {msg[From]}->{msg[To]} {msg[Subject]}'.format(uid=uid,msg=msg))
-
-        # status, data = dst.uid('FETCH', ','.join(duids) , '(BODY.PEEK[HEADER.FIELDS (From Subject Message-Id)] RFC822.SIZE)')
+    # loop over messages in src, copying if not in dst
+    src_msgs = src.search()
+    src_hdrs = src.fetch(src_msgs, ['FLAGS', 'RFC822.SIZE', 'RFC822.HEADER'])
+    src.debug = 4
+    for src_msgid in src_hdrs:
+        ht = _hdr_tuple(src_hdrs[src_msgid]['RFC822.HEADER'])
+        if ht in dst_hts:
+            #logging.info('{ht} in destination; skipping'.format(ht=ht))
+            continue
+                
+        src_msg = src.fetch(src_msgid, ['RFC822'])
+        try:
+            logging.info(u'{ht}: not in dst; appending...'.format(ht=ht))
+            em = email.message_from_string(src_msg[src_msgid]['RFC822'])
+            response = dst.append(opts.dst_mbox,
+                                  src_msg[src_msgid]['RFC822'].decode('utf-8'),
+                                  [r'\Seen'],
+                                  email.utils.parsedate_to_datetime(em['date']))
+            logging.info(u'{ht}: appended'.format(ht=ht))
+        except Exception as e:
+            logging.error("!! {ht}: {e}".format(ht=ht,e=e))
+            import IPython; IPython.embed()
+            continue
