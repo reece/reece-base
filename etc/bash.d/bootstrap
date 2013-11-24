@@ -26,18 +26,18 @@ fi
 
 _burp () {
 	[ -t 0 ] || return;
-	c="$1"; shift
+	c="47;37"
 	cl="$1"; shift
     if [ "$COLORIZE" = 1 ]; then
-		echo -e "\033[1;1;${c}m$cl: $@\033[0m" 1>&2
+		echo -e "\033[1;1;${c}m${cl}: $@\033[0m" 1>&2
     else
-		echo "NOTICE: $@" 1>&2
+		echo "${cl}: $@" 1>&2
     fi
 }
 
-notify () { _burp '47;37' NOTICE  "$@"; }
-warn   () { _burp '41;37' WARNING "$@"; }
-error  () { _burp '41;37' ERROR   "$@"; }
+notify () { _burp NOTICE  "$@"; }
+warn   () { _burp WARNING "$@"; }
+error  () { _burp ERROR   "$@"; }
 
 obsolete () { warn 'This function ($1) is obsolete!'; }
 
