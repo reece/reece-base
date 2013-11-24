@@ -14,6 +14,7 @@ archive
 etc/emacs.d/ac-comphist.dat
 etc/emacs.d/elpa
 etc/emacs.d/pkgs
+etc/emacs.d/session.*
 etc/ssh/known_hosts
 lib/emacs/pkgs
 tmp
