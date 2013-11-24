@@ -19,7 +19,7 @@ pull:
 
 push:
 	hg push ssh://hg@bitbucket.org/reece/reece-base
-	hg push git+ssh://git@github.com/reecehart/reece-base.git
+	hg push git+ssh://git@github.com/reece/reece-base.git
 
 .PHONY: clean cleaner cleanest
 clean:
