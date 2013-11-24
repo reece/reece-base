@@ -2,7 +2,12 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("exome"
+(("EX014"
+ (filename . "/sshx:g:/invitae/projects/exome/did_data/EX014/")
+ (front-context-string . "Draft Reports/\n ")
+ (rear-context-string . " 3 Nov  1 13:52 ")
+ (position . 210))
+("exome"
  (filename . "/sshx:g:/invitae/projects/exome/")
  (front-context-string . ".DS_Store*\n  drw")
  (rear-context-string . "08 Aug  1 20:54 ")

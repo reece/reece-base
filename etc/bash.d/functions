@@ -225,3 +225,16 @@ swap-names () {
 		&& /bin/mv -v "$2" "$1" \
 		&& /bin/mv -v "$1-$id" "$2"; 
 }
+
+
+hg-update-projects () {
+	# update mercurial projects in ~/projects from sources
+    cd ~/projects
+    find . -name .hg | sort | while read dir; do (
+        cd "$(dirname $dir)"
+        hr
+        pwd
+        hg pull
+        if [ -z "$(hg st -admrn)" ]; then hg up; fi
+        ) done
+}

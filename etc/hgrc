@@ -27,10 +27,10 @@ mq=
 pager=
 progress=
 rebase=
+#>2.8: shelve=
 
 ### local installations:
-hgsubversion=~/opt/reece-external/lib/hgext/hgsubversion/hgsubversion
-hgshelve=~/opt/reece-external/lib/hgext/hgshelve/hgshelve.py
+## hgsubversion=~/opt/reece-external/lib/hgext/hgsubversion/hgsubversion
 
 [pager]
 pager = LESS='FSRX' less

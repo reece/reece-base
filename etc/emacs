@@ -43,7 +43,8 @@
  '(foreground-color "#839496")
  '(inhibit-startup-screen t)
  '(package-archives (quote (("gnu" . "http://elpa.gnu.org/packages/") ("melpa" . "http://melpa.milkbox.net/packages/") ("marmalade" . "http://marmalade-repo.org/packages/"))))
- '(py-underscore-word-syntax-p nil))
+ '(py-underscore-word-syntax-p nil)
+ '(safe-local-variable-values (quote ((encoding . utf-8)))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.

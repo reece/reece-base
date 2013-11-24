@@ -8,7 +8,6 @@ alias bsubsh="bsub -n 8 -R 'span[hosts=1]' -Is /bin/bash"
 alias cp='cp -bi'
 alias dp='less "+/^[0-9][0-9,]*[acd].*|^diff .+|^Only in .+|^Common subd.+|^Binary files|^--- .+|^@@ .+"'
 alias h=head
-alias hg-update-projects='(cd ~/projects; find . -name .hg | while read dir; do (hr; cd "$(dirname $dir)"; hg pull); done)'
 alias hr='echo ============================================================================'
 alias j='jobs -l'
 alias ll='ls $LS_FLAGS -Flh --si'
