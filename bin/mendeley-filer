@@ -1,110 +1,129 @@
-#!/usr/bin/env python
-# export mendeley docs in folder (-f) to tagged foders in the filer path (-d)
-# don't file if pubmed/id exists
+#!/usr/bin/env python3
+# export mendeley docs in folder (-f) to folders in the filer path (-d)
 
 from __future__ import print_function
 
 import argparse
 import os
 import logging
-import pprint
 import shutil
 import sqlite3
-import urllib2
-import IPython
-
-
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s %(levelname)s %(name)s %(message)s')
-
-parser = argparse.ArgumentParser(
-    description='copy files in Mendeley into folders')
-parser.add_argument('--database-path', '--db',
-                    default = os.path.expanduser(
-        '~/.local/share/data/Mendeley Ltd./Mendeley Desktop/'
-        'reece@harts.net@www.mendeley.com.sqlite'),
-                    help='Mendeley database file')
-parser.add_argument('--folder', '-F',
-                    help = 'source folder')
-parser.add_argument('--tag', '-T',
-                    default = '',
-                    help='source tag')
-parser.add_argument('--destination-directory', '-d',
-                    default = os.path.expanduser('~/Insync/reece@harts.net/papers'),
-                    help = 'destination directory')
-args = parser.parse_args()
-
-
-assert any([args.folder, args.tag]), "must specify folder or tag"
+import sys
+import urllib.parse
 
 
 select_documents_sql = """
-select distinct D.id,pmid,title,localUrl
+select distinct D.id,pmid,title,FI.localUrl,FI.hash
 from Folders FO
 join DocumentFolders DFO on FO.id=DFO.folderId
 join Documents D on DFO.documentId=D.id
 join DocumentFiles DFI on D.id=DFI.documentId
 join Files FI on DFI.hash=FI.hash
 """
-
 select_documents_by_folder_sql = select_documents_sql + 'where FO.name=:folder'
 select_documents_by_bn_sql = select_documents_sql + "where localUrl like :like_bn"
 
 
-def row_dict_factory(cur, row):
-    return dict( (d[0],row[i]) for i,d in enumerate(cur.description) )
+def parse_args(argv):
+    parser = argparse.ArgumentParser(
+        description='copy files in Mendeley into folders')
 
-dst_dir = os.path.join(args.destination_directory, args.folder)
-if not os.path.exists(dst_dir):
-    os.makedirs(dst_dir)
-existing_files = set(os.listdir(dst_dir))
+    parser.add_argument('--database-path', '--db',
+                        default = os.path.expanduser(
+                            '~/.local/share/data/Mendeley Ltd./Mendeley Desktop/{opts.username}@www.mendeley.com.sqlite'),
+                            help='Mendeley database file')
+    parser.add_argument('--folder', '-F',
+                        help = 'source folder')
+    parser.add_argument('--tag', '-T',
+                        default = '',
+                        help='source tag')
+    parser.add_argument('--username', '-U',
+                        default = 'reece@harts.net')
+    parser.add_argument('--destination-directory', '-d',
+                        default = os.path.expanduser('~/Insync/reece@harts.net/papers'),
+                        help = 'destination directory')
+    opts = parser.parse_args()
 
-conn = sqlite3.connect(args.database_path)
-conn.row_factory = row_dict_factory
-cur = conn.cursor()
-logging.info('Opened and created cursor for '+args.database_path)
+    return opts
 
-cur.execute(select_documents_by_folder_sql, {'folder': args.folder})
-for doc in cur.fetchall():
-    if not doc['localUrl'].endswith('.pdf'):
-        logging.warn("%s (%s): skipping non-PDF" % (doc['id'], doc['title']))
-        continue
 
-    if not doc['localUrl'].startswith('file://'):
-        logging.warn("%s (%s): doesn't start with file://" % (doc['id'], doc['title']))
-        continue
+def fetch_documents(cur,opts):
+    cur.execute("select * from Folders FO where FO.name=?",(opts.folder,))
+    if cur.fetchone is None:
+        raise RuntimeError("Folder '{folder}' doesn't exist".format(folder=opts.folder))
 
-    src = urllib2.unquote(doc['localUrl'][len('file://'):])
-    src_bn = os.path.basename(src)
-    dst = os.path.join(dst_dir,src_bn)
+    cur.execute(select_documents_by_folder_sql, {'folder': opts.folder})
+    rows = cur.fetchall()
+    n_sel = len(rows)
+    rows = list( filter( lambda row: row['localUrl'].endswith('.pdf'), rows ) )
+    n_pdf = len(rows)
+    rows = list( filter( lambda row: row['localUrl'].startswith('file://'), rows ) )
+    n_file = len(rows)
 
-    if not os.path.exists(dst):
+    logging.info('selected {n_docs} from folder {opts.folder} (sel: {n_sel}, pdf: {n_pdf}, file: {n_file})'.format(
+        n_docs = len(rows), opts = opts, n_sel = n_sel, n_pdf = n_pdf, n_file = n_file))
+
+    return rows
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s %(levelname)s %(name)s %(message)s')
+
+    opts = parse_args(sys.argv[1:])
+    assert any([opts.folder, opts.tag]), "must specify folder or tag"
+    opts.database_path = opts.database_path.format(opts=opts)
+
+    dst_dir = os.path.join(opts.destination_directory, opts.folder)
+    if not os.path.exists(dst_dir):
+        os.makedirs(dst_dir)
+
+    existing_files = set(os.listdir(dst_dir))
+    logging.info( '%d pre-existing docs in %s' % (
+        len(existing_files), dst_dir) )
+
+    #def _row_dict_factory(cur, row):
+    #    return dict( (d[0],row[i]) for i,d in enumerate(cur.description) )
+    conn = sqlite3.connect(opts.database_path)
+    conn.row_factory = sqlite3.Row
+    #conn.row_factory = _row_dict_factory
+    cur = conn.cursor()
+    logging.info('Opened and created cursor for {opts.database_path}'.format(opts=opts))
+
+    docs = fetch_documents(cur,opts)
+    for doc in docs:
+        src = urllib.parse.unquote(doc['localUrl'][len('file://'):])
+        src_bn = os.path.basename(src)
+        dst = os.path.join(dst_dir,src_bn)
+
+        if not os.path.exists(dst):
+            try:
+                shutil.copy(src,dst)
+                logging.info('%s -> %s' % (src,dst))
+            except IOError as ex:
+                logging.error(ex)
+                import IPython; IPython.embed()
+                continue
+
         try:
-            shutil.copy(src,dst)
-            logging.info('%s -> %s' % (src,dst))
-        except IOError as ex:
-            logging.error(ex)
-            continue
-
-    try:
-        existing_files.remove(src_bn)
-    except KeyError:
-        pass
+            existing_files.remove(src_bn)
+        except KeyError:
+            pass
 
 
-logging.info( '%d docs in %s are not in folder %s' % (
-        len(existing_files), dst_dir, args.folder))
+    logging.info( '%d pre-existing docs in %s are not in folder %s' % (
+        len(existing_files), dst_dir, opts.folder) )
 
-#print(select_documents_by_bn_sql)
-for bn in existing_files:
-    cur.execute(select_documents_by_bn_sql, {
-            'like_bn': '%/' + urllib2.quote(bn)
+    for bn in existing_files:
+        cur.execute(select_documents_by_bn_sql, {
+            'like_bn': '%/' + urllib.parse.quote(bn)
             })
-    if cur.rowcount == -1:
-        logging.warn("%s not found in database; skipping" % bn)
-        continue
-    if cur.rowcount > 1:
-        logging.warn("%: %d occurrences in database; like, weird" % (bn, cur.rowcount))
-        continue
-    rec = cur.fetchone()
-    
+        if cur.rowcount == -1:
+            logging.warn("%s not found in database; skipping" % bn)
+            continue
+        if cur.rowcount > 1:
+            logging.warn("%: %d occurrences in database; like, weird" % (bn, cur.rowcount))
+            continue
+        rec = cur.fetchone()
+        #os.remove(bn)
+        logging.info('deleted {fn}'.format(fn = bn))
