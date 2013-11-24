@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # tal-download -- download and rename This American Life episodes
 #
 # eg$ tal-download $(seq 400 410)
@@ -28,7 +28,7 @@ class TALDownloader(object):
         t = [ line for line in urllib2.urlopen(url).readlines() if '<title>' in line ][0]
         m = self.title_re.search(t)
         ti = self.html_parser.unescape( m.group(1).decode('utf-8') )
-        logging.debug('epno=%s, url=%s, title=%s', epno, url, ti)
+        logging.debug(u'epno=%d, url=%s, title=%s', epno, url, ti)
         return ti
 
     def download_episode(self, epno, fn):
@@ -36,7 +36,7 @@ class TALDownloader(object):
         url = self.mp3_url_fmt.format(epno=epno)
         tmp_fn = fn + u'.tmp'
         if True:
-            urlgrabber.urlgrab(str(url), tmp_fn,
+            urlgrabber.urlgrab(str(url), tmp_fn.encode('utf-8'),
                                progress_obj = urlgrabber.progress.text_progress_meter() )
         else:
             req = urllib2.urlopen(url)
@@ -56,7 +56,7 @@ def main(argv=None):
     parser.add_argument(
         '-d', '--directory', 
         help = u'destination directory',
-        default = os.path.expanduser(u'~/Audio/mp3/This American Life')
+        default = os.path.expanduser(u'~/Audio/enc/This American Life')
         )
     parser.add_argument(u'episodes', metavar='N', type=int, nargs='+',
                         help=u'episode numbers')
