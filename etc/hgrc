@@ -40,3 +40,7 @@ ignore = version, help, update, serve, record
 cmd.diffrw = diff
 opts.diffrw = -rw
 cmd.meld = 
+
+
+[alias]
+removed-files = log --template "{rev}: {file_dels}\n"

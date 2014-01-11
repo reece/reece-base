@@ -3,7 +3,6 @@ source $BASH_CONF_DIR/bootstrap
 source_dot_bash env
 source_dot_bash env-mine
 source_dot_bash opt
-
 source_dot_bash python
 
 if [ -n "$PS1" ]; then	# interactive

@@ -1,8 +1,2 @@
 #-*-sh-*-
 
-function locus-hg-update-all () {
-	for p in ~/projects/{helix,locus-{database,pipe,python,web}}; do
-		echo '================================================';
-		hg -R $p pull -u && hg -R $p id -bit && hg -R $p st
-	done;
-}

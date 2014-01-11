@@ -1,0 +1,95 @@
+#!/usr/bin/env python
+
+__doc__ = """list Jira issues"""
+
+
+import argparse
+import collections
+import itertools
+import prettytable
+import sys
+
+from jira.client import JIRA
+
+fields = collections.OrderedDict([
+    ('project key',     lambda o,i: i.fields.project.key ),
+    ('components',      lambda o,i: ','.join([ c.name for c in i.fields.components ]) ),
+    ('priority',		lambda o,i: i.fields.priority.name if i.fields.priority else '' ),
+    ('fix versions',    lambda o,i: ','.join([ c.name for c in i.fields.fixVersions ]) ),
+    ('issue key',       lambda o,i: i.key ),
+    ('summary',         lambda o,i: i.fields.summary ),
+    ('assignee',        lambda o,i: i.fields.assignee.name if i.fields.assignee else '' ),
+    ('status',          lambda o,i: i.fields.status.name ),
+    ('due date',        lambda o,i: i.fields.duedate if i.fields.duedate else '' ),
+    ('updated',         lambda o,i: i.fields.updated if i.fields.updated else '' ),
+    ('link',            lambda o,i: 'https://{o.hostname}/browse/{i.key}'.format(o=o,i=i)),
+    ])
+
+def parse_args(argv):
+    def sep_and_flatten(l):
+        # split comma-sep elements and flatten list
+        # e.g., ['a','b','c,d'] -> set('a','b','c','d')
+        return None if len(l) == 0 else list( itertools.chain.from_iterable( e.split(',') for e in l ) )
+
+    ap = argparse.ArgumentParser(
+        description = __doc__
+        )
+    ap.add_argument(
+        '--hostname', '-H',
+        required = True,
+        default = None,
+        help = 'host name of Jira instances (used for url like https://hostname/, e.g., "instancename.jira.com")',
+        )
+    ap.add_argument(
+        '--username', '--user', '-U',
+        required = True
+        )
+    ap.add_argument(
+        '--password', '--pass', '-P',
+        required = True
+        )
+    ap.add_argument(
+        '--projects', '-p',
+        action = 'append',
+        default = [],
+        help = 'project key (e.g., JRA); multiple and comma-separated okay',
+        )
+    ap.add_argument(
+        '--issues', '-i',
+        action = 'append',
+        default = [],
+        help = 'issue id (e.g., JRA-9); multiple and comma-separated okay; default = all in project',
+        )
+    ap.add_argument(
+        '--components', '-c',
+        action = 'append',
+        default = [],
+        help = 'components (e.g., frobonicator); multiple and comma-separated okay; default = all in project',
+        )
+
+    opts = ap.parse_args(argv)
+
+    opts.projects = sep_and_flatten(opts.projects)
+    opts.components = sep_and_flatten(opts.components)
+    opts.issues = sep_and_flatten(opts.issues)
+
+    if opts.projects is None and opts.issues is None:
+        raise RuntimeError("You must specify either projects or issues")
+
+    return opts
+
+def fetch_issues(opts,jira):
+    return jira.search_issues('project = {opts.projects[0]}'.format(opts=opts))
+
+if __name__ == '__main__':
+    opts = parse_args(sys.argv[1:])
+    
+    jira = JIRA({'server': 'https://{opts.hostname}/'.format(opts=opts)}, basic_auth=(opts.username,opts.password))
+
+    pt = prettytable.PrettyTable(field_names = fields.keys())
+
+    import IPython; IPython.embed()
+
+    for i in fetch_issues(opts,jira):
+        pt.add_row([ fx(opts,i) or '' for fx in fields.itervalues() ])
+    print(pt)

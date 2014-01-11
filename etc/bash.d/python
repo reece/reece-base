@@ -6,7 +6,7 @@ export PYTHONUSERBASE=${REECE_EXTERNAL_DIR}
 PATH=$PYTHONUSERBASE/bin:$PATH
 
 if [ -f $PYTHONUSERBASE/bin/virtualenvwrapper.sh ]; then
-	export WORKON_HOME=$HOME/virtualenvs
+	#export WORKON_HOME=$HOME/virtualenvs
 	source virtualenvwrapper.sh
 else
 	:

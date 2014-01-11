@@ -2,4 +2,7 @@
 # remove 10.10.0.2 from resolv.conf to fix invitiae openvpn config
 # problems
 
-sudo perl -i.bak -pe 's/^nameserver 10.10.0.2/#$&/' /etc/resolv.conf
+#sudo perl -i.bak -pe 's/^nameserver 10.10.0.2/#$&\nnameserver 10.10.2.247\nnameserver 172.20.19.222\n/' /etc/resolv.conf
+sudo perl -i.bak -pe 'print "nameserver 10.10.2.247\nnameserver 172.20.19.222\n" if m/^nameserver/' /run/resolvconf/resolv.conf
+
+#172.20.19.222, 10.10.2.247

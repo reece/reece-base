@@ -19,7 +19,7 @@
 (autoload 'jedi:setup "jedi" nil t)
 (setq
  jedi:complete-on-dot t
- jedi:server-args     '("--virtual-env" "/home/reece/virtualenvs/default2.7")
+ jedi:server-args     '("--virtual-env" "/home/reece/.virtualenvs/default-2.7")
 )
 (add-hook 'python-mode-hook 'jedi:setup)
 

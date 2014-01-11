@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+
+__doc__ = """move issues from JIRA to bitbucket"""
+
+import argparse
+import collections
+import configparser
+import itertools
+import json
+import logging
+import os
+import prettytable
+import requests
+import sys
+
+import bitbucket
+import jira.client
+
+fields = collections.OrderedDict([
+    ('project key',     lambda o,i: i.fields.project.key ),
+    ('components',      lambda o,i: ','.join([ c.name for c in i.fields.components ]) ),
+    ('priority',		lambda o,i: i.fields.priority.name if i.fields.priority else '' ),
+    ('fix versions',    lambda o,i: ','.join([ c.name for c in i.fields.fixVersions ]) ),
+    ('issue key',       lambda o,i: i.key ),
+    ('summary',         lambda o,i: i.fields.summary ),
+    ('assignee',        lambda o,i: i.fields.assignee.name if i.fields.assignee else '' ),
+    ('status',          lambda o,i: i.fields.status.name ),
+    ('due date',        lambda o,i: i.fields.duedate if i.fields.duedate else '' ),
+    ('updated',         lambda o,i: i.fields.updated if i.fields.updated else '' ),
+    ('link',            lambda o,i: 'https://{o.jira_hostname}/browse/{i.key}'.format(o=o,i=i)),
+    ])
+
+
+def parse_args(argv):
+    def sep_and_flatten(l):
+        # split comma-sep elements and flatten list
+        # e.g., ['a','b','c,d'] -> set('a','b','c','d')
+        return None if len(l) == 0 else list( itertools.chain.from_iterable( e.split(',') for e in l ) )
+
+    cf = configparser.ConfigParser()
+    cf.read_file(open(os.path.expanduser('~/.config/jira-issues-move-to-bitbucket.conf'),'r'))
+
+    ap = argparse.ArgumentParser(
+        description = __doc__
+        )
+
+    ap.add_argument(
+        '--bitbucket-user', '-U',
+        default = cf.get('default','bitbucket-user',fallback=None),
+        )
+    ap.add_argument(
+        '--bitbucket-password', '-P',
+        default = '<set>' if cf.get('default','bitbucket-password',fallback=None) else None,
+        )
+    ap.add_argument(
+        '--bitbucket-project', '-J',
+        default = cf.get('default','bitbucket-project',fallback=None),
+        )
+
+    ap.add_argument(
+        '--jira-hostname', '-H',
+        default = cf.get('default','jira-hostname',fallback=None),
+        help = 'host name of Jira instances (used for url like https://hostname/, e.g., "instancename.jira.com")',
+        )
+    ap.add_argument(
+        '--jira-username', '--user', '-u',
+        default = cf.get('default','jira-username',fallback=None),
+        )
+    ap.add_argument(
+        '--jira-password', '--pass', '-p',
+        default = cf.get('default','jira-password',fallback=None),
+        )
+    ap.add_argument(
+        '--jira-projects', '-j',
+        action = 'append',
+        default = [],
+        help = 'project key (e.g., JRA); multiple and comma-separated okay',
+        )
+    ap.add_argument(
+        '--jira-issues', '-i',
+        action = 'append',
+        default = [],
+        help = 'issue id (e.g., JRA-9); multiple and comma-separated okay; default = all in project',
+        )
+    ap.add_argument(
+        '--jira-components', '-c',
+        action = 'append',
+        default = [],
+        help = 'components (e.g., frobonicator); multiple and comma-separated okay; default = all in project',
+        )
+
+    ap.add_argument(
+        '--owners', '-o',
+        action = 'append',
+        default = [],
+        )
+
+    opts = ap.parse_args(argv)
+
+    opts.jira_projects = sep_and_flatten(opts.jira_projects)
+    opts.jira_components = sep_and_flatten(opts.jira_components)
+    opts.jira_issues = sep_and_flatten(opts.jira_issues)
+
+    if opts.jira_projects is None and opts.jira_issues is None:
+        raise RuntimeError("You must specify either projects or issues")
+
+    return opts
+
+
+
+
+def fetch_issues(opts,jira):
+    jql = []
+    if opts.jira_issues:
+        jql += [ ' OR '.join([ 'issue = '+i for i in opts.jira_issues ]) ]
+    if opts.jira_projects:
+        jql += [ ' OR '.join([ 'project = '+p for p in opts.jira_projects ]) ]
+    if opts.jira_components:
+        jql += [ ' OR '.join([ 'component = '+c for p in opts.jira_components ]) ]
+    jql_str = ' AND '.join(jql)
+    logging.info('executing query ' + jql_str)
+    return jira.search_issues(jql_str)
+
+
+if __name__ == '__main__':
+    opts = parse_args(sys.argv[1:])
+    
+    jira = jira.client.JIRA({'server': 'https://{opts.jira_hostname}/'.format(opts=opts)},
+                            basic_auth=(opts.jira_username,opts.jira_password))
+    
+    pt = prettytable.PrettyTable(field_names = fields.keys())
+    for i in fetch_issues(opts,jira):
+        pt.add_row([ fx(opts,i) or '' for fx in fields.values() ])
+    print(pt)
+
+
+if __name__ == 'not main':
+    logging.basicConfig(level=logging.INFO)
+
+    opts = parse_args(sys.argv[1:])
+    
+    repos = json.loads(requests.get(
+        url='https://bitbucket.org/api/2.0/user/repositories',
+        auth=(opts.user, opts.password),
+        ).content.decode('utf-8'))
+    
+    # split owners elements on commas, and flatten to a set
+    owners = set( itertools.chain.from_iterable( oe.split(',') for oe in opts.owners ) )
+    
+    pt = prettytable.PrettyTable(field_names=fields)
+    for repo in repos:
+        if repo['owner'] in owners:
+            repo['url'] = 'https://bitbucket.org/{repo[owner]}/{repo[slug]}'.format(repo=repo)
+            repo['ssh'] = 'ssh://hg@bitbucket.org/{repo[owner]}/{repo[slug]}'.format(repo=repo)
+            pt.add_row([ repo[k] for k in fields ])
+            
+    print(pt)
