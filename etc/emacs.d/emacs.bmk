@@ -2,51 +2,11 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("EX014"
- (filename . "/sshx:g:/invitae/projects/exome/did_data/EX014/")
- (front-context-string . "Draft Reports/\n ")
- (rear-context-string . " 3 Nov  1 13:52 ")
- (position . 210))
-("exome"
- (filename . "/sshx:g:/invitae/projects/exome/")
- (front-context-string . ".DS_Store*\n  drw")
- (rear-context-string . "08 Aug  1 20:54 ")
- (position . 208))
-("postgres@db2"
- (filename . "/scpc:postgres@db2:/home/postgres/")
- (front-context-string . ".bash_history\n  ")
- (rear-context-string . "99 Jun 19 03:28 ")
- (position . 209))
-("clarity"
- (filename . "/scpc:fsdb:/locus/home/reece/projects/clarity/")
- (front-context-string . ".hg/\n  -rw-r--r-")
- (rear-context-string . "96 Jul  1 19:43 ")
- (position . 210))
-("reece@seqnas"
- (filename . "/scpc:seqnas1:/var/services/homes/reece/")
- (front-context-string . ".hgrc\n  drwx----")
- (rear-context-string . "06 Apr 18 13:43 ")
- (position . 227))
-("locus-pipe"
- (filename . "/scpc:fsdb:/locus/home/reece/projects/locus-pipe/")
- (front-context-string . "lib/\n  drwxr-xr-")
- (rear-context-string . "96 Feb 16 17:14 ")
- (position . 874))
-("fsdb:projects"
- (filename . "/scpc:fsdb:/locus/home/reece/projects/")
+(("projects"
+ (filename . "/scpc:1-compute:/locus/home/reece/projects/")
  (front-context-string)
  (rear-context-string . "96 Oct  6 20:38 ")
  (position . 200))
-("fsdb:/locus/etc"
- (filename . "/scpc:fsdb:/locus/etc/")
- (front-context-string)
- (rear-context-string . "18 Sep 29 23:37 ")
- (position . 451))
-("fsdb:/locus/opt"
- (filename . "/scpc:fsdb:/locus/opt/")
- (front-context-string)
- (rear-context-string . "96 Oct  4 19:16 ")
- (position . 216))
 ("hartsnet"
  ((filename . "/scpc:hn:/home4/hartsnet/")
   (front-context-string . ".bash/\n  -rw----")

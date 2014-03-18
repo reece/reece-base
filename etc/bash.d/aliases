@@ -21,7 +21,7 @@ alias p='${PAGER:-cat}'
 alias pcd='pushd'
 alias pd='popd'
 alias psme='ps -o pid,ppid,user,s,nlwp,%cpu,cputime,%mem,vsz,sz,rss,cmd'
-alias psql-tsv="psql -A -F$'\t'"
+alias psql-tsv="psql -P footer=off -A -F$'\t'"
 alias pst='pstree -Glpua | p -r'
 alias qdelall='qdel `qstat -urkh | fgrep "^[0-9]" | cut -f1 -d.`'
 alias rm='rm -i'

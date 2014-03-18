@@ -1,20 +1,28 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 __doc__ = """move issues from JIRA to bitbucket"""
 
 import argparse
 import collections
-import configparser
+import ConfigParser
 import itertools
 import json
 import logging
 import os
-import prettytable
-import requests
+import pprint
 import sys
 
-import bitbucket
-import jira.client
+import prettytable
+import requests
+from jira.client import JIRA
+import bitbucketeer.client
+
+
+# map issue references
+# add comments
+# move attachments
+# prepend original JIRA issue w/link
+# subtasks?
 
 fields = collections.OrderedDict([
     ('project key',     lambda o,i: i.fields.project.key ),
@@ -37,38 +45,42 @@ def parse_args(argv):
         # e.g., ['a','b','c,d'] -> set('a','b','c','d')
         return None if len(l) == 0 else list( itertools.chain.from_iterable( e.split(',') for e in l ) )
 
-    cf = configparser.ConfigParser()
-    cf.read_file(open(os.path.expanduser('~/.config/jira-issues-move-to-bitbucket.conf'),'r'))
+    cf = ConfigParser.ConfigParser()
+    cf.readfp(open(os.path.expanduser('~/.config/jira-issues-move-to-bitbucket.conf'),'r'))
 
     ap = argparse.ArgumentParser(
         description = __doc__
         )
 
     ap.add_argument(
-        '--bitbucket-user', '-U',
-        default = cf.get('default','bitbucket-user',fallback=None),
+        '--bitbucket-username', '-U',
+        default = cf.get('default','bitbucket-username',None),
         )
     ap.add_argument(
         '--bitbucket-password', '-P',
-        default = '<set>' if cf.get('default','bitbucket-password',fallback=None) else None,
+        default = cf.get('default','bitbucket-password',None),
         )
     ap.add_argument(
-        '--bitbucket-project', '-J',
-        default = cf.get('default','bitbucket-project',fallback=None),
+        '--bitbucket-owner', '-O',
+        default = cf.get('default','bitbucket-owner',None),
+        )
+    ap.add_argument(
+        '--bitbucket-repo', '-R',
+        default = cf.get('default','bitbucket-repo',None),
         )
 
     ap.add_argument(
         '--jira-hostname', '-H',
-        default = cf.get('default','jira-hostname',fallback=None),
+        default = cf.get('default','jira-hostname',None),
         help = 'host name of Jira instances (used for url like https://hostname/, e.g., "instancename.jira.com")',
         )
     ap.add_argument(
-        '--jira-username', '--user', '-u',
-        default = cf.get('default','jira-username',fallback=None),
+        '--jira-username', '-u',
+        default = cf.get('default','jira-username',None),
         )
     ap.add_argument(
-        '--jira-password', '--pass', '-p',
-        default = cf.get('default','jira-password',fallback=None),
+        '--jira-password', '-p',
+        default = cf.get('default','jira-password',None),
         )
     ap.add_argument(
         '--jira-projects', '-j',
@@ -107,8 +119,6 @@ def parse_args(argv):
     return opts
 
 
-
-
 def fetch_issues(opts,jira):
     jql = []
     if opts.jira_issues:
@@ -116,29 +126,100 @@ def fetch_issues(opts,jira):
     if opts.jira_projects:
         jql += [ ' OR '.join([ 'project = '+p for p in opts.jira_projects ]) ]
     if opts.jira_components:
-        jql += [ ' OR '.join([ 'component = '+c for p in opts.jira_components ]) ]
+        jql += [ ' OR '.join([ 'component = '+c for c in opts.jira_components ]) ]
     jql_str = ' AND '.join(jql)
     logging.info('executing query ' + jql_str)
     return jira.search_issues(jql_str)
 
 
+def jira_to_bitbucket_issue(opts,ji):
+    priority_map = {
+        'Critical (P1)': 'critical',
+        'Major (P2)': 'major',
+        'Minor (P3)': 'minor',
+        'Nice (P4)': 'trivial',
+        }
+    person_map = {
+        'reece.hart': 'reece',
+        'rudy.rico': 'rrico',
+        'vincent.fusaro': 'vfusaro',
+        }
+    issuetype_map = {
+        'Improvement': 'enhancement',
+        'New Feature': 'enhancement',
+        'Bug': 'bug',
+        'Technical task': 'task',
+        'Task': 'task',
+        }
+    status_map = {
+        'Open': 'new',
+        'Closed': 'resolved',
+        'Resolved': 'resolved',
+        'In Progress': 'open',
+        }
+    return {
+        'title': ji.fields.summary,
+        'content': ji.fields.description,
+        'status': status_map[ji.fields.status.name],
+        'priority': priority_map[ji.fields.priority.name],
+        'responsible': None if ji.fields.assignee is None else person_map[ji.fields.assignee.name],
+        'kind': issuetype_map[ji.fields.issuetype.name],
+        'component': None,
+        'milestone': None,
+        'version': None,
+        }
+
+
+
 if __name__ == '__main__':
-    opts = parse_args(sys.argv[1:])
-    
-    jira = jira.client.JIRA({'server': 'https://{opts.jira_hostname}/'.format(opts=opts)},
-                            basic_auth=(opts.jira_username,opts.jira_password))
-    
-    pt = prettytable.PrettyTable(field_names = fields.keys())
-    for i in fetch_issues(opts,jira):
-        pt.add_row([ fx(opts,i) or '' for fx in fields.values() ])
-    print(pt)
-
-
-if __name__ == 'not main':
     logging.basicConfig(level=logging.INFO)
 
     opts = parse_args(sys.argv[1:])
     
+    jira = JIRA({'server': 'https://{opts.jira_hostname}/'.format(opts=opts)},
+        basic_auth=(opts.jira_username,opts.jira_password))
+
+    jc = bitbucketeer.client.JSONClient(opts.bitbucket_username,
+                                        opts.bitbucket_password)
+    pc = bitbucketeer.client.PythonClient(jc)
+
+    for ji in fetch_issues(opts,jira)[:5]:
+        import IPython; IPython.embed()
+bb_data = jira_to_bitbucket_issue(opts,ji)
+        logging.info('adding issue {ji.key}: {j} -> {b}\n'.format(
+            ji=ji,
+            j=pprint.pformat({'key':ji.key, 'summary':ji.fields.summary}),
+            b=pprint.pformat(bb_data),
+            ))
+        bbi = pc.post_issue(opts.bitbucket_owner,opts.bitbucket_repo,bb_data)
+
+
+
+if False:
+    jira_issues = fetch_issues(opts,jira)[:5]
+    pt = prettytable.PrettyTable(field_names = fields.keys())
+    for ji in jira_issues:
+        pt.add_row([ fx(opts,ji) or '' for fx in fields.values() ])
+    print(pt)
+
+
+    bb_fields = ['title', 'content', 'status', 'priority', 'responsible',
+                 'kind', 'component', 'milestone', 'version',]
+    pt = prettytable.PrettyTable(field_names = bb_fields)
+    for ji in jira_issues:
+        import IPython; IPython.embed()
+        bb_data = jira_to_bitbucket_issue(opts,ji)
+        pt.add_row([ bb_data[f] for f in bb_fields ])
+        logging.info('adding issue ' + pprint.pformat(bb_data))
+        bbi = pc.post_issue(opts.bitbucket_owner,opts.bitbucket_repo,bb_data)
+    print(pt)
+
+    
+
+    
+if False:
+    logging.basicConfig(level=logging.DEBUG)
+
     repos = json.loads(requests.get(
         url='https://bitbucket.org/api/2.0/user/repositories',
         auth=(opts.user, opts.password),

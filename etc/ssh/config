@@ -25,15 +25,15 @@ Host hn unison-relay unison-relay-wget
 Host bitbucket.org
 	 IdentityFile ~/.ssh/keys/bitbucket
 Host github.org
-	 IdentityFile ~/.ssh/keys/github
+	 IdentityFile ~/.ssh/keys/bitbucket
 Host sf
 	 HostName shell.sf.net
 	 User reece
 
-Host 0-compute
-	 HostName 0-compute.vpc.locusdev.net
+
+#1-compute.vpc.locusdev.net
 Host 1-compute
-	 HostName 1-compute.vpc.locusdev.net
+	 HostName 10.10.2.189
 
 
 Host seqnas1
@@ -45,19 +45,16 @@ Host ec2-*.amazonaws.com
 	 UserKnownHostsFile=/dev/null
 Host fsdb
 	HostName fs.locusdev.net
+Host otto
+	 Hostname 10.10.3.250
 
-Host db2
-	 HostName db2.locusdev.net
-	 ControlPath ~/.ssh/controlmaster-%r@%h:%p
+
 Host anvil
 	 HostName anvil.locusdev.net
 	 #ControlPath ~/.ssh/controlmaster-%r@%h:%p
 Host oink
 	 HostName oink.458.locusdev.net
 	 #ControlPath ~/.ssh/controlmaster-%r@%h:%p
-Host g
-	 HostName 172.20.1.69
-	 #ControlPath ~/.ssh/controlmasters/%r@%h:%p
 
 
 #BEGIN_EC2_SSH_CONFIG_BLOCK

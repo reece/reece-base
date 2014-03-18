@@ -5,13 +5,13 @@ export PYTHONUSERBASE=${REECE_EXTERNAL_DIR}
 
 PATH=$PYTHONUSERBASE/bin:$PATH
 
-if [ -f $PYTHONUSERBASE/bin/virtualenvwrapper.sh ]; then
-	#export WORKON_HOME=$HOME/virtualenvs
-	source virtualenvwrapper.sh
-else
-	:
-	# Install virtualenv components like this:
-	# pip install --user virtualenv
-	# pip install --user virtualenvwrapper --upgrade
-	# warn $WORKON_HOME/virtualenvwrapper.sh
-fi
+# if [ -f $PYTHONUSERBASE/bin/virtualenvwrapper.sh ]; then
+# 	#export WORKON_HOME=$HOME/virtualenvs
+# 	source virtualenvwrapper.sh
+# else
+# 	:
+# 	# Install virtualenv components like this:
+# 	# pip install --user virtualenv
+# 	# pip install --user virtualenvwrapper --upgrade
+# 	# warn $WORKON_HOME/virtualenvwrapper.sh
+# fi

@@ -40,7 +40,7 @@ def parse_args(argv):
     parser.add_argument('--username', '-U',
                         default = 'reece@harts.net')
     parser.add_argument('--destination-directory', '-d',
-                        default = os.path.expanduser('~/Insync/reece@harts.net/papers'),
+                        default = os.path.expanduser('~/Dropbox/papers/'),
                         help = 'destination directory')
     opts = parser.parse_args()
 
