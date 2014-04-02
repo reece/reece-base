@@ -1,0 +1,126 @@
+#!/usr/bin/env python
+# attempt to infer a table DDL from a tsv file
+
+# perl -p0e 's/&gt;/>/g; s/\t-\t/\t\t/g; s/&#39;/\x27/g' variant_results.tsv >|variant_results2.tsv
+# tsv-to-sql -l10000000 -N - variant_results2.tsv 
+# psql <variant_results2.sql
+# psql -c "\\copy variant_results2 from 'variant_results2.tsv' csv delimiter '$t' null '-' header;" 
+
+
+import argparse
+import collections
+import csv
+import logging
+import os
+import re
+import recordtype
+import sys
+
+
+class TypeSniffer(object):
+    regexps = {
+        'date': re.compile('^\d{4}-\d{2}-\d{2}$'),
+        'int': re.compile('^\d+$'),
+        }
+    type_tests = {
+        # everything can be text 'text': lambda e: True,
+        'int':  lambda v: TypeSniffer.regexps['int'].match(v),
+        'date': lambda v: TypeSniffer.regexps['date'].match(v),
+        }
+    types = type_tests.keys()
+
+    @classmethod
+    def atypify(cls,v,to_try=types):
+        "return types that v is not from the list of to_try types"
+        assert isinstance(v,str), "string expected"
+        return [ t for t in to_try if not cls.type_tests[t](v) ]
+
+
+class ColDef(recordtype.recordtype('ColDef',['name','possible_types','has_nulls','sample_values'])):
+    def __init__(self,
+                 name=None,
+                 possible_types=None,
+                 has_nulls=False,
+                 sample_values=None):
+        if possible_types is None:
+            possible_types = set(TypeSniffer.types)
+        if sample_values is None:
+            sample_values = set()
+        super(ColDef,self).__init__(name,possible_types,has_nulls,sample_values)
+
+    def update(self,v):
+        if v is None:
+            self.has_nulls = True
+            return
+        assert isinstance(v,str), "string expected"
+        for t in TypeSniffer.atypify(v,to_try=self.possible_types):
+            self.possible_types.remove(t)
+        self.sample_values.add(v)
+
+    @property
+    def sql_column_name(self):
+        return sql_tokenify(self.name)
+
+    def as_column_ddl(self):
+        return "\t".join([self.sql_column_name,self.inferred_type]+self.opts)
+
+    @property
+    def inferred_type(self):
+        if len(self.possible_types) == 0:
+            return 'text'
+        if len(self.possible_types) > 1:
+            logging.warn("column '{self.name}' has {np} possible types ({self.possible_types}); returning first".format(
+                self=self,np=len(self.possible_types)))
+        return sorted(list(self.possible_types))[0]
+
+    @property
+    def opts(self):
+        o = []
+        if not self.has_nulls:
+            o.append('NOT NULL')
+        return o
+
+
+
+def sql_tokenify(s):
+    return s.lower().replace(' ','_')
+
+def parse_args(argv):
+    ap = argparse.ArgumentParser(
+        description = __doc__
+        )
+    ap.add_argument('FILE')
+    ap.add_argument('--max-lines', '-l',
+                    help='number of lines to sniff',
+                    type=int,
+                    default=100,
+                    )
+    ap.add_argument('--null-string','-N')
+    opts = ap.parse_args(argv)
+    return opts
+
+def infer_column_definitions(fn,opts):
+    "returns a list of SQL column definitions based on file header and reading rows"
+
+    tsv_in = csv.DictReader( open(fn,'r'), delimiter = '\t' )
+
+    coldefs = collections.OrderedDict( (fld,ColDef(name=fld)) for fld in tsv_in.fieldnames )
+
+    for i,rec in enumerate(tsv_in):
+        if i > opts.max_lines:
+            break
+        for fld,val in rec.iteritems():
+            coldefs[fld].update(None if val == opts.null_string else val)
+
+    return coldefs
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.WARN)
+
+    opts = parse_args(sys.argv[1:])
+    coldefs = infer_column_definitions(opts.FILE,opts)
+    
+    print( "CREATE TABLE " + sql_tokenify(os.path.basename(opts.FILE).rsplit('.',1)[0]) + " (\n")
+    print( "  " + ",\n  ".join([cd.as_column_ddl() for cd in coldefs.values()]) + "\n" )
+    print( ");\n" )
