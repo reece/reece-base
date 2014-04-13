@@ -1,0 +1,7 @@
+#!/usr/bin/perl
+
+my $freq = shift;
+
+while(<>) {
+	print if rand() < $freq;
+}

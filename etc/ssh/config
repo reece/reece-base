@@ -45,9 +45,9 @@ Host ec2-*.amazonaws.com
 	 UserKnownHostsFile=/dev/null
 Host fsdb
 	HostName fs.locusdev.net
-Host otto
-	 Hostname 10.10.3.250
 
+Host g
+	 HostName g.458.locusdev.net
 
 Host anvil
 	 HostName anvil.locusdev.net

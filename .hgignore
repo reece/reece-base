@@ -18,3 +18,4 @@ etc/emacs.d/session.*
 etc/ssh/known_hosts
 lib/emacs/pkgs
 tmp
+.idea

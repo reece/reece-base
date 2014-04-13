@@ -20,6 +20,7 @@ import itertools
 import json
 import prettytable
 import requests
+import os
 import sys
 
 fields = ['name','ssh','owner','is_private','is_fork','utc_last_updated']
@@ -64,5 +65,9 @@ if __name__ == '__main__':
             repo['url'] = 'https://bitbucket.org/{repo[owner]}/{repo[slug]}'.format(repo=repo)
             repo['ssh'] = 'ssh://hg@bitbucket.org/{repo[owner]}/{repo[slug]}'.format(repo=repo)
             pt.add_row([ repo[k] for k in fields ])
-            
     print(pt)
+
+
+    for repo in repos:
+        if not os.path.exists(repo['name']):
+            print('hg clone ssh://hg@bitbucket.org/{repo[owner]}/{repo[slug]}'.format(repo=repo))
