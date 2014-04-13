@@ -1,0 +1,309 @@
+#!/usr/bin/env python
+
+"""extract issues from JIRA and export to a bitbucket archive
+
+See:
+https://confluence.atlassian.com/pages/viewpage.action?pageId=330796872
+https://confluence.atlassian.com/display/BITBUCKET/Mark+up+comments
+https://bitbucket.org/tutorials/markdowndemo/overview
+
+2014-04-12 08:26 Reece Hart <reecehart@gmail.com>
+"""
+
+import argparse
+import collections
+import configparser
+import glob
+import itertools
+import json
+import logging
+import os
+import pprint
+import re
+import sys
+import zipfile
+
+from jira.client import JIRA
+
+
+priority_map = {
+    'Critical (P1)': 'critical',
+    'Major (P2)': 'major',
+    'Minor (P3)': 'minor',
+    'Nice (P4)': 'trivial',
+    }
+person_map = {
+    'reece.hart': 'reece',
+    'rudy.rico': 'rrico',
+    'vincent.fusaro': 'vfusaro',
+    'alex.gottschalk': 'alex_gottschalk',
+    'tim.chiu': 'tim_chiu',
+    }
+issuetype_map = {
+    'Improvement': 'enhancement',
+    'New Feature': 'enhancement',
+    'Bug': 'bug',
+    'Technical task': 'task',
+    'Task': 'task',
+    }
+status_map = {
+    'Open': 'new',
+    'Closed': 'resolved',
+    'Resolved': 'resolved',
+    'In Progress': 'open',
+    }
+
+
+def parse_args(argv):
+    def sep_and_flatten(l):
+        # split comma-sep elements and flatten list
+        # e.g., ['a','b','c,d'] -> set('a','b','c','d')
+        return None if len(l) == 0 else list( itertools.chain.from_iterable( e.split(',') for e in l ) )
+
+    cf = configparser.ConfigParser()
+    cf.readfp(open(os.path.expanduser('~/.config/jira-issues-move-to-bitbucket.conf'),'r'))
+
+    ap = argparse.ArgumentParser(
+        description = __doc__
+        )
+
+    ap.add_argument(
+        '--jira-hostname', '-H',
+        default = cf.get('default','jira-hostname',fallback=None),
+        help = 'host name of Jira instances (used for url like https://hostname/, e.g., "instancename.jira.com")',
+        )
+    ap.add_argument(
+        '--jira-username', '-u',
+        default = cf.get('default','jira-username',fallback=None),
+        )
+    ap.add_argument(
+        '--jira-password', '-p',
+        default = cf.get('default','jira-password',fallback=None),
+        )
+    ap.add_argument(
+        '--jira-project', '-j',
+        required = True,
+        help = 'project key (e.g., JRA)',
+        )
+    ap.add_argument(
+        '--jira-issues', '-i',
+        action = 'append',
+        default = [],
+        help = 'issue id (e.g., JRA-9); multiple and comma-separated okay; default = all in project',
+        )
+    ap.add_argument(
+        '--jira-components', '-c',
+        action = 'append',
+        default = [],
+        help = 'components criterion; multiple and comma-separated okay; default = all in project',
+        )
+
+    opts = ap.parse_args(argv)
+
+    opts.jira_components = sep_and_flatten(opts.jira_components)
+    opts.jira_issues = sep_and_flatten(opts.jira_issues)
+
+    return opts
+
+
+def link(url,text=None):
+    return "[{text}]({url})".format(url=url,text=url if text is None else text)
+
+def reformat_to_markdown(desc):
+    def _indent4(mo):
+        i = "    "
+        return i + mo.group(1).replace("\n",i)
+    def _repl_mention(mo):
+        return "@" + person_map[mo.group(1)]
+    #desc = desc.replace("\r","")
+    desc = re.sub("{noformat}(.+?){noformat}",_indent4,desc,flags=re.DOTALL+re.MULTILINE)
+    desc = re.sub(opts.jira_project+r"-(\d+)",r"issue #\1",desc)
+    desc = re.sub(r"\[~([^]]+)\]",_repl_mention,desc)
+    return desc
+
+def fetch_issues(opts,jira):
+    jql = [ 'project = ' + opts.jira_project ]
+    if opts.jira_issues:
+        jql += [ ' OR '.join([ 'issue = '+i for i in opts.jira_issues ]) ]
+    if opts.jira_components:
+        jql += [ ' OR '.join([ 'component = '+c for c in opts.jira_components ]) ]
+    jql_str = ' AND '.join(jql)
+    logging.info('executing query ' + jql_str)
+    return jira.search_issues(jql_str)
+
+
+def jira_issue_to_bb_issue(opts,jira,ji):
+    """convert a jira issue to a dictionary with values appropriate for
+    POSTing as a bitbucket issue"""
+    logger = logging.getLogger(__name__)
+
+    content = reformat_to_markdown(ji.fields.description) if ji.fields.description else ''
+
+    if ji.fields.assignee is None:
+        resp = None
+    else:
+        resp = person_map[ji.fields.assignee.name]
+
+    reporter = person_map[ji.fields.reporter.name]
+
+    jiw = jira.watchers(ji.key)
+    watchers = [ person_map[u.name] for u in jiw.watchers ] if jiw else []
+
+    milestone = None
+    if ji.fields.fixVersions:
+        vnames = [ v.name for v in ji.fields.fixVersions ]
+        milestone = vnames[0]
+        if len(vnames) > 1:
+            logger.warn("{ji.key}: bitbucket issues may have only 1 milestone (JIRA fixVersion); using only first ({f}) and ignoring rest ({r})".format(
+                ji=ji, f=milestone, r=",".join(vnames[1:])))
+
+    issue_id = int(ji.key.replace(opts.jira_project + '-',''))
+
+    bbi = {
+        'status': status_map[ji.fields.status.name],
+        'priority': priority_map[ji.fields.priority.name],
+        'kind': issuetype_map[ji.fields.issuetype.name],
+        'content_updated_on': ji.fields.created,
+        'voters': [],
+        'title': ji.fields.summary,
+        'reporter': reporter,
+        'component': None,
+        'watchers': watchers,
+        'content': content,
+        'assignee': resp,
+        'created_on': ji.fields.created,
+        'version': None,                  # ?
+        'edited_on': None,
+        'milestone': milestone,
+        'updated_on': ji.fields.updated,
+        'id': issue_id,
+        }
+
+    return bbi
+
+
+def jira_comment_to_bb_comment(opts,jira,jc):
+    bbc = {
+        'content': reformat_to_markdown(jc.body),
+        'created_on': jc.created,
+        'id': int(jc.id),
+        'updated_on': jc.updated,
+        'user': person_map[jc.author.name],
+        }
+    return bbc
+
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    opts = parse_args(sys.argv[1:])
+
+    dir_name = opts.jira_project
+    if opts.jira_components:
+        dir_name += '-' + ','.join(opts.jira_components)
+
+    opts.dir = os.path.join('/','tmp',dir_name)
+    opts.att_rel_dir = 'attachments'
+    opts.att_abs_dir = os.path.join(opts.dir,opts.att_rel_dir)
+    if not os.path.isdir(opts.att_abs_dir):
+        os.makedirs(opts.att_abs_dir)
+
+    jira = JIRA({'server': 'https://{opts.jira_hostname}/'.format(opts=opts)},
+        basic_auth=(opts.jira_username,opts.jira_password))
+
+    issues_db = dict()
+    
+    issues_db['meta'] = {
+        'default_milestone': None,
+        'default_assignee': None,
+        'default_kind': "bug",
+        'default_component': None,
+        'default_version': None,
+        }
+    issues_db['components'] = [ {'name':v.name} for v in jira.project_components(opts.jira_project) ]
+    issues_db['milestones'] = [ {'name':v.name} for v in jira.project_versions(opts.jira_project) ]
+    issues_db['versions'] = issues_db['milestones']
+
+    issues_db['attachments'] = []
+    issues_db['comments'] = []
+    issues_db['issues'] = []
+    issues_db['logs'] = []
+
+
+    issue_map = {}
+
+    # links is a dict of dicts of lists, using JIRA keys
+    # e.g., links['CORE-135']['depends on'] = ['CORE-137']
+    links = collections.defaultdict(lambda: collections.defaultdict(lambda: []))
+
+    for ji in fetch_issues(opts,jira):
+        # Pfft. Need to fetch the issue again due to bug in JIRA.
+        # See https://bitbucket.org/bspeakmon/jira-python/issue/47/, comment on 2013-10-01 by ssonic
+        ji = jira.issue(ji.key,expand="attachments,comments")
+
+        # create the issue
+        bbi = jira_issue_to_bb_issue(opts,jira,ji)
+        issues_db['issues'] += [bbi]
+        issue_map[ji.key] = bbi
+
+        # add comments
+        for jc in ji.fields.comment.comments:
+            bbc = jira_comment_to_bb_comment(opts,jira,jc)
+            bbc['issue'] = bbi['id']
+            issues_db['comments'] += [bbc]
+
+        # add attachments
+        for ja in ji.fields.attachment:
+            att_rel_path = os.path.join(opts.att_rel_dir,ja.id)
+            att_abs_path = os.path.join(opts.att_abs_dir,ja.id)
+            if not os.path.exists(att_abs_path):
+                open(att_abs_path,'w').write(ja.get())
+                logger.info("Wrote {att_abs_path}".format(att_abs_path=att_abs_path))
+            bba = {
+                "path": att_rel_path,
+                "issue": bbi['id'],
+                "user": person_map[ja.author.name],
+                "filename": ja.filename,
+                }
+            issues_db['attachments'] += [bba]
+
+        # parent-child is task-subtask
+        if hasattr(ji.fields,'parent'):
+            links[ji.fields.parent.key]['subtasks'].append(ji.key)
+            links[ji.key]['parent task'].append(ji.fields.parent.key)
+
+        # add links
+        for il in ji.fields.issuelinks:
+            if hasattr(il,'outwardIssue'):
+                links[ji.key][il.type.outward].append(il.outwardIssue.key)
+            elif hasattr(il,'inwardIssue'):
+                links[ji.key][il.type.inward].append(il.inwardIssue.key)
+
+        logger.info("migrated issue {ji.key}".format(ji=ji))
+
+
+    # append links section to content
+    # this section shows both task-subtask and "issue link" relationships
+    issue_dlinks = [("imported from: ",link("https://invitae.jira.com/browse/"+ji.key,ji.key) + " (Invitae access required)")]
+    for src,dstlinks in links.iteritems():
+        for desc,dsts in sorted(dstlinks.iteritems()):
+            issue_dlinks += [(desc,", ".join("issue #"+d.replace(opts.jira_project+"-","") for d in dsts))]
+    links_block = "Links\n=====\n" + ''.join([ "* **"+d+":** "+l+"  \n" for d,l in issue_dlinks ])
+    if issue_map[src]['content']:
+        issue_map[src]['content'] += "\n\n" + links_block
+    else:
+        issue_map[src]['content'] = links_block
+
+
+    json.dump(issues_db,
+              open(os.path.join(opts.dir,'db-1.0.json'),'w'))
+
+
+    # write zipfile
+    os.chdir(opts.dir)
+    with zipfile.ZipFile(opts.dir + '.zip','w') as zf:
+        for fn in ['db-1.0.json']+glob.glob('attachments/*'):
+            zf.write(fn)
+            logger.info("added {fn} to archive".format(fn=fn))
