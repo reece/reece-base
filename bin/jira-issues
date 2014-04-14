@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-__doc__ = """list Jira issues"""
+"""list Jira issues"""
 
 
 import argparse
@@ -79,7 +79,17 @@ def parse_args(argv):
     return opts
 
 def fetch_issues(opts,jira):
-    return jira.search_issues('project = {opts.projects[0]}'.format(opts=opts))
+    jql = []
+    if opts.projects:
+        jql += [ ' OR '.join([ 'project = '+i for i in opts.projects ]) ]
+    if opts.components:
+        jql += [ ' OR '.join([ 'component = '+c for c in opts.components ]) ]
+    if opts.issues:
+        jql += [ ' OR '.join([ 'issue = '+i for i in opts.issues ]) ]
+    jql_str = ' AND '.join(jql)
+    return jira.search_issues(jql_str,maxResults=500)
+
+
 
 if __name__ == '__main__':
     opts = parse_args(sys.argv[1:])
@@ -88,8 +98,6 @@ if __name__ == '__main__':
 
     pt = prettytable.PrettyTable(field_names = fields.keys())
 
-    import IPython; IPython.embed()
-
     for i in fetch_issues(opts,jira):
-        pt.add_row([ fx(opts,i) or '' for fx in fields.itervalues() ])
+        pt.add_row([ fx(opts,i) or '' for fx in fields.values() ])
     print(pt)
