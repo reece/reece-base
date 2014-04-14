@@ -33,11 +33,18 @@ priority_map = {
     'Nice (P4)': 'trivial',
     }
 person_map = {
+    'alex.gottschalk': 'alex_gottschalk',
+    'emily.hare': None,
+    'jody.westbrook': 'Jody_Westbrook',
     'reece.hart': 'reece',
     'rudy.rico': 'rrico',
-    'vincent.fusaro': 'vfusaro',
-    'alex.gottschalk': 'alex_gottschalk',
+    'scott.topper': None,
     'tim.chiu': 'tim_chiu',
+    'vincent.fusaro': 'vfusaro',
+    'geoffrey.nilsen': 'gnilsen',
+    'kevin.jacobs': 'bioinfomed',
+    'eric.olivares': None,
+    'sarah.mccalmon': None,
     }
 issuetype_map = {
     'Improvement': 'enhancement',
@@ -47,10 +54,12 @@ issuetype_map = {
     'Task': 'task',
     }
 status_map = {
-    'Open': 'new',
     'Closed': 'resolved',
-    'Resolved': 'resolved',
+    'Duplicate': 'duplicate',
     'In Progress': 'open',
+    'Open': 'new',
+    'Reopened': 'open',
+    'Resolved': 'resolved',
     }
 
 
@@ -157,7 +166,7 @@ def jira_issue_to_bb_issue(opts,jira,ji):
             logger.warn("{ji.key}: bitbucket issues may have only 1 milestone (JIRA fixVersion); using only first ({f}) and ignoring rest ({r})".format(
                 ji=ji, f=milestone, r=",".join(vnames[1:])))
 
-    issue_id = int(ji.key.replace(opts.jira_project + '-',''))
+    issue_id = extract_issue_number(ji.key)
 
     bbi = {
         'status': status_map[ji.fields.status.name],
@@ -192,7 +201,10 @@ def jira_comment_to_bb_comment(opts,jira,jc):
         }
     return bbc
 
-
+def extract_issue_number(jira_issue_key):
+    return int(jira_issue_key.split('-')[-1])
+def jira_key_to_bb_issue_tag(jira_issue_key):
+    return 'issue #' + str(extract_issue_number(jira_issue_key))
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
@@ -210,10 +222,15 @@ if __name__ == '__main__':
     if not os.path.isdir(opts.att_abs_dir):
         os.makedirs(opts.att_abs_dir)
 
+    opts.json_fn = os.path.join(opts.dir,'db-1.0.json')
+
     jira = JIRA({'server': 'https://{opts.jira_hostname}/'.format(opts=opts)},
         basic_auth=(opts.jira_username,opts.jira_password))
 
     issues_db = dict()
+    if os.path.isfile(opts.json_fn):
+        issues_db = json.load(open(opts.json_fn,'r'))
+
     
     issues_db['meta'] = {
         'default_milestone': None,
@@ -231,12 +248,10 @@ if __name__ == '__main__':
     issues_db['issues'] = []
     issues_db['logs'] = []
 
-
     issue_map = {}
-
-    # links is a dict of dicts of lists, using JIRA keys
+    # issue_links is a dict of dicts of lists, using JIRA keys
     # e.g., links['CORE-135']['depends on'] = ['CORE-137']
-    links = collections.defaultdict(lambda: collections.defaultdict(lambda: []))
+    issue_links = collections.defaultdict(lambda: collections.defaultdict(lambda: []))
 
     for ji in fetch_issues(opts,jira):
         # Pfft. Need to fetch the issue again due to bug in JIRA.
@@ -246,7 +261,9 @@ if __name__ == '__main__':
         # create the issue
         bbi = jira_issue_to_bb_issue(opts,jira,ji)
         issues_db['issues'] += [bbi]
+
         issue_map[ji.key] = bbi
+        issue_links[ji.key]['imported from'] = [link("https://invitae.jira.com/browse/"+ji.key,ji.key) + " (Invitae access required)"]
 
         # add comments
         for jc in ji.fields.comment.comments:
@@ -271,34 +288,39 @@ if __name__ == '__main__':
 
         # parent-child is task-subtask
         if hasattr(ji.fields,'parent'):
-            links[ji.fields.parent.key]['subtasks'].append(ji.key)
-            links[ji.key]['parent task'].append(ji.fields.parent.key)
+            issue_links[ji.fields.parent.key]['subtasks'].append(jira_key_to_bb_issue_tag(ji.key))
+            issue_links[ji.key]['parent task'].append(jira_key_to_bb_issue_tag(ji.fields.parent.key))
 
         # add links
         for il in ji.fields.issuelinks:
             if hasattr(il,'outwardIssue'):
-                links[ji.key][il.type.outward].append(il.outwardIssue.key)
+                issue_links[ji.key][il.type.outward].append(jira_key_to_bb_issue_tag(il.outwardIssue.key))
             elif hasattr(il,'inwardIssue'):
-                links[ji.key][il.type.inward].append(il.inwardIssue.key)
+                issue_links[ji.key][il.type.inward].append(jira_key_to_bb_issue_tag(il.inwardIssue.key))
 
-        logger.info("migrated issue {ji.key}".format(ji=ji))
+
+        logger.info("migrated issue {ji.key}: {ji.fields.summary} ({components})".format(
+            ji=ji,components=','.join(c.name for c in ji.fields.components)))
 
 
     # append links section to content
     # this section shows both task-subtask and "issue link" relationships
-    issue_dlinks = [("imported from: ",link("https://invitae.jira.com/browse/"+ji.key,ji.key) + " (Invitae access required)")]
-    for src,dstlinks in links.iteritems():
+    for src,dstlinks in issue_links.iteritems():
+        if src not in issue_map:
+            logger.warn("issue {src}, with issue_links, not in issue_map; skipping".format(src=src))
+            continue
+
+        links_block = "Links\n=====\n"
         for desc,dsts in sorted(dstlinks.iteritems()):
-            issue_dlinks += [(desc,", ".join("issue #"+d.replace(opts.jira_project+"-","") for d in dsts))]
-    links_block = "Links\n=====\n" + ''.join([ "* **"+d+":** "+l+"  \n" for d,l in issue_dlinks ])
-    if issue_map[src]['content']:
-        issue_map[src]['content'] += "\n\n" + links_block
-    else:
-        issue_map[src]['content'] = links_block
+            links_block += "* **{desc}**: {links}  \n".format(desc=desc,links=", ".join(dsts))
+
+        if issue_map[src]['content']:
+            issue_map[src]['content'] += "\n\n" + links_block
+        else:
+            issue_map[src]['content'] = links_block
 
 
-    json.dump(issues_db,
-              open(os.path.join(opts.dir,'db-1.0.json'),'w'))
+    json.dump(issues_db,open(opts.json_fn,'w'))
 
 
     # write zipfile
