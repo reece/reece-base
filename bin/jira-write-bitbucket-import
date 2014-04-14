@@ -35,6 +35,7 @@ priority_map = {
 person_map = {
     'alex.gottschalk': 'alex_gottschalk',
     'emily.hare': None,
+    'harley.gorrell': 'harley_gorrell',
     'jody.westbrook': 'Jody_Westbrook',
     'reece.hart': 'reece',
     'rudy.rico': 'rrico',
@@ -67,7 +68,7 @@ def parse_args(argv):
     def sep_and_flatten(l):
         # split comma-sep elements and flatten list
         # e.g., ['a','b','c,d'] -> set('a','b','c','d')
-        return None if len(l) == 0 else list( itertools.chain.from_iterable( e.split(',') for e in l ) )
+        return list( itertools.chain.from_iterable(e.split(',') for e in l) )
 
     cf = configparser.ConfigParser()
     cf.readfp(open(os.path.expanduser('~/.config/jira-issues-move-to-bitbucket.conf'),'r'))
@@ -101,6 +102,10 @@ def parse_args(argv):
         help = 'issue id (e.g., JRA-9); multiple and comma-separated okay; default = all in project',
         )
     ap.add_argument(
+        '--jira-issues-file', '-I',
+        help = 'file containing issue ids (e.g., JRA-9)'
+        )
+    ap.add_argument(
         '--jira-components', '-c',
         action = 'append',
         default = [],
@@ -111,7 +116,7 @@ def parse_args(argv):
 
     opts.jira_components = sep_and_flatten(opts.jira_components)
     opts.jira_issues = sep_and_flatten(opts.jira_issues)
-
+    
     return opts
 
 
@@ -130,18 +135,18 @@ def reformat_to_markdown(desc):
     desc = re.sub(r"\[~([^]]+)\]",_repl_mention,desc)
     return desc
 
-def fetch_issues(opts,jira):
+def fetch_issues(opts,jcl):
     jql = [ 'project = ' + opts.jira_project ]
-    if opts.jira_issues:
-        jql += [ ' OR '.join([ 'issue = '+i for i in opts.jira_issues ]) ]
     if opts.jira_components:
         jql += [ ' OR '.join([ 'component = '+c for c in opts.jira_components ]) ]
-    jql_str = ' AND '.join(jql)
+    if opts.jira_issues:
+        jql += [ ' OR '.join([ 'issue = '+i for i in opts.jira_issues ]) ]
+    jql_str = ' AND '.join(["("+q+")" for q in jql])
     logging.info('executing query ' + jql_str)
-    return jira.search_issues(jql_str)
+    return jcl.search_issues(jql_str,maxResults=500)
 
 
-def jira_issue_to_bb_issue(opts,jira,ji):
+def jira_issue_to_bb_issue(opts,jcl,ji):
     """convert a jira issue to a dictionary with values appropriate for
     POSTing as a bitbucket issue"""
     logger = logging.getLogger(__name__)
@@ -155,7 +160,7 @@ def jira_issue_to_bb_issue(opts,jira,ji):
 
     reporter = person_map[ji.fields.reporter.name]
 
-    jiw = jira.watchers(ji.key)
+    jiw = jcl.watchers(ji.key)
     watchers = [ person_map[u.name] for u in jiw.watchers ] if jiw else []
 
     milestone = None
@@ -191,7 +196,7 @@ def jira_issue_to_bb_issue(opts,jira,ji):
     return bbi
 
 
-def jira_comment_to_bb_comment(opts,jira,jc):
+def jira_comment_to_bb_comment(opts,jcl,jc):
     bbc = {
         'content': reformat_to_markdown(jc.body),
         'created_on': jc.created,
@@ -206,6 +211,10 @@ def extract_issue_number(jira_issue_key):
 def jira_key_to_bb_issue_tag(jira_issue_key):
     return 'issue #' + str(extract_issue_number(jira_issue_key))
 
+def jira_link_text(jk):
+    return link("https://invitae.jira.com/browse/"+jk,jk) + " (Invitae access required)"
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
@@ -216,6 +225,11 @@ if __name__ == '__main__':
     if opts.jira_components:
         dir_name += '-' + ','.join(opts.jira_components)
 
+    if opts.jira_issues_file:
+        issues = [i.strip() for i in open(opts.jira_issues_file,'r')]
+        logger.info("added {n} issues from {opts.jira_issues_file} to issues list".format(n=len(issues),opts=opts))
+        opts.jira_issues += issues
+
     opts.dir = os.path.join('/','tmp',dir_name)
     opts.att_rel_dir = 'attachments'
     opts.att_abs_dir = os.path.join(opts.dir,opts.att_rel_dir)
@@ -224,13 +238,16 @@ if __name__ == '__main__':
 
     opts.json_fn = os.path.join(opts.dir,'db-1.0.json')
 
-    jira = JIRA({'server': 'https://{opts.jira_hostname}/'.format(opts=opts)},
+    
+    opts.jira_issues = list(set(opts.jira_issues))   # distinctify
+
+
+    jcl = JIRA({'server': 'https://{opts.jira_hostname}/'.format(opts=opts)},
         basic_auth=(opts.jira_username,opts.jira_password))
 
     issues_db = dict()
     if os.path.isfile(opts.json_fn):
         issues_db = json.load(open(opts.json_fn,'r'))
-
     
     issues_db['meta'] = {
         'default_milestone': None,
@@ -239,8 +256,8 @@ if __name__ == '__main__':
         'default_component': None,
         'default_version': None,
         }
-    issues_db['components'] = [ {'name':v.name} for v in jira.project_components(opts.jira_project) ]
-    issues_db['milestones'] = [ {'name':v.name} for v in jira.project_versions(opts.jira_project) ]
+    issues_db['components'] = [ {'name':v.name} for v in jcl.project_components(opts.jira_project) ]
+    issues_db['milestones'] = [ {'name':v.name} for v in jcl.project_versions(opts.jira_project) ]
     issues_db['versions'] = issues_db['milestones']
 
     issues_db['attachments'] = []
@@ -253,21 +270,21 @@ if __name__ == '__main__':
     # e.g., links['CORE-135']['depends on'] = ['CORE-137']
     issue_links = collections.defaultdict(lambda: collections.defaultdict(lambda: []))
 
-    for ji in fetch_issues(opts,jira):
+    for ji in fetch_issues(opts,jcl):
         # Pfft. Need to fetch the issue again due to bug in JIRA.
         # See https://bitbucket.org/bspeakmon/jira-python/issue/47/, comment on 2013-10-01 by ssonic
-        ji = jira.issue(ji.key,expand="attachments,comments")
+        ji = jcl.issue(ji.key,expand="attachments,comments")
 
         # create the issue
-        bbi = jira_issue_to_bb_issue(opts,jira,ji)
+        bbi = jira_issue_to_bb_issue(opts,jcl,ji)
         issues_db['issues'] += [bbi]
 
         issue_map[ji.key] = bbi
-        issue_links[ji.key]['imported from'] = [link("https://invitae.jira.com/browse/"+ji.key,ji.key) + " (Invitae access required)"]
+        issue_links[ji.key]['imported from'] = [jira_link_text(ji.key)]
 
         # add comments
         for jc in ji.fields.comment.comments:
-            bbc = jira_comment_to_bb_comment(opts,jira,jc)
+            bbc = jira_comment_to_bb_comment(opts,jcl,jc)
             bbc['issue'] = bbi['id']
             issues_db['comments'] += [bbc]
 
@@ -275,6 +292,7 @@ if __name__ == '__main__':
         for ja in ji.fields.attachment:
             att_rel_path = os.path.join(opts.att_rel_dir,ja.id)
             att_abs_path = os.path.join(opts.att_abs_dir,ja.id)
+
             if not os.path.exists(att_abs_path):
                 open(att_abs_path,'w').write(ja.get())
                 logger.info("Wrote {att_abs_path}".format(att_abs_path=att_abs_path))
