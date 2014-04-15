@@ -25,6 +25,8 @@ import zipfile
 
 from jira.client import JIRA
 
+from rcore.types.immutabledict import ImmutableDict
+
 
 priority_map = {
     'Critical (P1)': 'critical',
@@ -62,6 +64,7 @@ status_map = {
     'Reopened': 'open',
     'Resolved': 'resolved',
     }
+
 
 
 def parse_args(argv):
@@ -110,6 +113,12 @@ def parse_args(argv):
         action = 'append',
         default = [],
         help = 'components criterion; multiple and comma-separated okay; default = all in project',
+        )
+    ap.add_argument(
+        '--existing', '-e',
+        action = 'store_true',
+        default = False,
+        help = 'read existing archive (from export) and merge new issues'
         )
 
     opts = ap.parse_args(argv)
@@ -219,6 +228,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
+
     opts = parse_args(sys.argv[1:])
 
     dir_name = opts.jira_project
@@ -233,44 +243,54 @@ if __name__ == '__main__':
     opts.dir = os.path.join('/','tmp',dir_name)
     opts.att_rel_dir = 'attachments'
     opts.att_abs_dir = os.path.join(opts.dir,opts.att_rel_dir)
+    opts.json_fn = os.path.join(opts.dir,'db-1.0.json')
     if not os.path.isdir(opts.att_abs_dir):
         os.makedirs(opts.att_abs_dir)
-
-    opts.json_fn = os.path.join(opts.dir,'db-1.0.json')
-
     
     opts.jira_issues = list(set(opts.jira_issues))   # distinctify
-
 
     jcl = JIRA({'server': 'https://{opts.jira_hostname}/'.format(opts=opts)},
         basic_auth=(opts.jira_username,opts.jira_password))
 
-    issues_db = dict()
-    if os.path.isfile(opts.json_fn):
+
+    if opts.existing:
         issues_db = json.load(open(opts.json_fn,'r'))
-    
-    issues_db['meta'] = {
-        'default_milestone': None,
-        'default_assignee': None,
-        'default_kind': "bug",
-        'default_component': None,
-        'default_version': None,
-        }
+        existing_ids = [ i['id'] for i in issues_db['issues'] ]
+        logger.info("read {n} issues from {fn}".format(n=len(existing_ids),fn=opts.json_fn))
+    else:
+        issues_db = dict()
+        issues_db['meta'] = {
+            'default_milestone': None,
+            'default_assignee': None,
+            'default_kind': "bug",
+            'default_component': None,
+            'default_version': None,
+            }
+        issues_db['attachments'] = []
+        issues_db['comments'] = []
+        issues_db['issues'] = []
+        issues_db['logs'] = []
+
     issues_db['components'] = [ {'name':v.name} for v in jcl.project_components(opts.jira_project) ]
     issues_db['milestones'] = [ {'name':v.name} for v in jcl.project_versions(opts.jira_project) ]
     issues_db['versions'] = issues_db['milestones']
 
-    issues_db['attachments'] = []
-    issues_db['comments'] = []
-    issues_db['issues'] = []
-    issues_db['logs'] = []
 
-    issue_map = {}
+    # bb_issue_map: bb issue # -> bitbucket issue
+    bb_issue_map = ImmutableDict( (i['id'],i) for i in issues_db['issues'] )
+
+    # jk_issue_map: jira key -> bitbucket issue
+    # contains only items migrated from JIRA (i.e., not preexisting issues with --existing)
+    jk_issue_map = ImmutableDict()
+
     # issue_links is a dict of dicts of lists, using JIRA keys
     # e.g., links['CORE-135']['depends on'] = ['CORE-137']
     issue_links = collections.defaultdict(lambda: collections.defaultdict(lambda: []))
 
-    for ji in fetch_issues(opts,jcl):
+
+    issues = fetch_issues(opts,jcl)
+    logger.info("fetch {n} issues from JIRA".format(n=len(issues)))
+    for ji in issues:
         # Pfft. Need to fetch the issue again due to bug in JIRA.
         # See https://bitbucket.org/bspeakmon/jira-python/issue/47/, comment on 2013-10-01 by ssonic
         ji = jcl.issue(ji.key,expand="attachments,comments")
@@ -279,7 +299,8 @@ if __name__ == '__main__':
         bbi = jira_issue_to_bb_issue(opts,jcl,ji)
         issues_db['issues'] += [bbi]
 
-        issue_map[ji.key] = bbi
+        bb_issue_map[bbi['id']] = bbi
+        jk_issue_map[ji.key] = bbi
         issue_links[ji.key]['imported from'] = [jira_link_text(ji.key)]
 
         # add comments
@@ -324,21 +345,28 @@ if __name__ == '__main__':
     # append links section to content
     # this section shows both task-subtask and "issue link" relationships
     for src,dstlinks in issue_links.iteritems():
-        if src not in issue_map:
-            logger.warn("issue {src}, with issue_links, not in issue_map; skipping".format(src=src))
+        if src not in jk_issue_map:
+            logger.warn("issue {src}, with issue_links, not in jk_issue_map; skipping".format(src=src))
             continue
 
         links_block = "Links\n=====\n"
         for desc,dsts in sorted(dstlinks.iteritems()):
             links_block += "* **{desc}**: {links}  \n".format(desc=desc,links=", ".join(dsts))
 
-        if issue_map[src]['content']:
-            issue_map[src]['content'] += "\n\n" + links_block
+        if jk_issue_map[src]['content']:
+            jk_issue_map[src]['content'] += "\n\n" + links_block
         else:
-            issue_map[src]['content'] = links_block
+            jk_issue_map[src]['content'] = links_block
 
+
+    id_counts = collections.Counter(i['id'] for i in issues_db['issues'])
+    dupes = [ k for k,cnt in id_counts.iteritems() if cnt>1 ]
+    if dupes:
+        raise RuntimeError("{n} issue ids appear more than once from existing {opts.json_fn}".format(
+            n=len(dupes),opts=opts))
 
     json.dump(issues_db,open(opts.json_fn,'w'))
+    logger.info("wrote {n} issues to {opts.json_fn}".format(n=len(id_counts),opts=opts))
 
 
     # write zipfile
