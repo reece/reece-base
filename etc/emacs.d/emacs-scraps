@@ -1,0 +1,105 @@
+;; hack to fix ac-sources after pycomplete.el breaks it
+(add-hook 'python-mode-hook
+          '(lambda ()
+             (setq ac-sources '(ac-source-pycomplete
+                                ac-source-abbrev
+                                ac-source-dictionary
+                                ac-source-words-in-same-mode-buffers))))
+
+
+;; Set up python-mode
+;(setq py-install-directory (concat esk-user-dir "/python-mode.el-6.0.12/"))
+(add-to-list 'load-path py-install-directory)
+
+;; this will show method signatures while typing
+(setq py-set-complete-keymap-p t)
+(require 'python-mode)
+;; activate the virtualenv where Pymacs is located
+(virtualenv-workon "default2.7/")
+
+(defun load-pycomplete ()
+  "Load and initialize pycomplete."
+  (interactive)
+  (let* ((pyshell (py-choose-shell))
+         (path (getenv "PYTHONPATH")))
+    (setenv "PYTHONPATH" (concat
+                          (expand-file-name py-install-directory) "completion"
+                          (if path (concat path-separator path))))
+    (if (py-install-directory-check)
+        (progn
+          (setenv "PYMACS_PYTHON" (if (string-match "IP" pyshell)
+                                      "python"
+                                    pyshell))
+          (autoload 'pymacs-apply "pymacs")
+          (autoload 'pymacs-call "pymacs")
+          (autoload 'pymacs-eval "pymacs")
+          (autoload 'pymacs-exec "pymacs")
+          (autoload 'pymacs-load "pymacs")
+          (load (concat py-install-directory "completion/pycomplete.el") nil t)
+          (add-hook 'python-mode-hook 'py-complete-initialize))
+      (error "`py-install-directory' not set, see INSTALL"))))
+(eval-after-load 'pymacs '(load-pycomplete))
+
+
+
+
+
+
+;===============================================================================
+; http://www.emacswiki.org/emacs/PythonProgrammingInEmacs
+; https://bitbucket.org/jonwaltman/pydoc-info/
+; http://stackoverflow.com/questions/1054903/how-do-you-get-python-documentation-in-texinfo-info-format
+
+;(autoload 'python-mode "python-mode" "" t)
+
+(defun reece-python-mode-setup ()
+  (local-set-key (kbd "C-h f") 'hohe2-lookup-pydoc)
+  ; (local-set-key (kbd "C-h f") 'nikokrock_pydoc))
+  (linum-mode)
+  (setq
+   indent-tabs-mode		nil)
+  )
+(add-hook 'python-mode-hook 'reece-python-mode-setup)
+
+(add-to-list 'load-path (concat emacs-home-dir "/pydoc-info"))
+(require 'pydoc-info)
+
+;===============================================================================
+
+
+;;----pydoc lookup----
+(defun hohe2-lookup-pydoc ()
+  (interactive)
+  (let ((curpoint (point)) (prepoint) (postpoint) (cmd))
+    (save-excursion
+      (beginning-of-line)
+      (setq prepoint (buffer-substring (point) curpoint)))
+    (save-excursion
+      (end-of-line)
+      (setq postpoint (buffer-substring (point) curpoint)))
+    (if (string-match "[_a-z][_\\.0-9a-z]*$" prepoint)
+        (setq cmd (substring prepoint (match-beginning 0) (match-end 0))))
+    (if (string-match "^[_0-9a-z]*" postpoint)
+        (setq cmd (concat cmd (substring postpoint (match-beginning 0) (match-end 0)))))
+    (if (string= cmd "") nil
+      (let ((max-mini-window-height 0))
+        (shell-command (concat "pydoc " cmd))))))
+
+;; 
+;; (defun nikokrock_pydoc (&optional arg)
+;;   (interactive)
+;;   (when (not (stringp arg))
+;;     (setq arg (thing-at-point 'word)))
+;; 
+;;   (setq cmd (concat "pydoc " arg))
+;;   (ad-activate-regexp "auto-compile-yes-or-no-p-always-yes")
+;;   (shell-command cmd)
+;;   (setq pydoc-buf (get-buffer "*Shell Command Output*"))
+;;   (switch-to-buffer-other-window pydoc-buf)
+;;   (python-mode)
+;;   (ad-deactivate-regexp "auto-compile-yes-or-no-p-always-yes")
+;; )
+
+
+
+
