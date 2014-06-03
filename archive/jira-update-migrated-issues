@@ -1,0 +1,91 @@
+#!/usr/bin/env python
+
+"""mark migrated JIRA issues as closed"""
+
+import argparse
+import collections
+import configparser
+import itertools
+import json
+import logging
+import os
+import pprint
+import re
+import sys
+
+from jira.client import JIRA
+
+def parse_args(argv):
+    def sep_and_flatten(l):
+        # split comma-sep elements and flatten list
+        # e.g., ['a','b','c,d'] -> set('a','b','c','d')
+        return None if len(l) == 0 else list( itertools.chain.from_iterable( e.split(',') for e in l ) )
+
+    cf = configparser.ConfigParser()
+    cf.readfp(open(os.path.expanduser('~/.config/jira-issues-move-to-bitbucket.conf'),'r'))
+
+    ap = argparse.ArgumentParser(
+        description = __doc__
+        )
+
+    ap.add_argument(
+        '--jira-hostname', '-H',
+        default = cf.get('default','jira-hostname',fallback=None),
+        help = 'host name of Jira instances (used for url like https://hostname/, e.g., "instancename.jira.com")',
+        )
+    ap.add_argument(
+        '--jira-username', '-u',
+        default = cf.get('default','jira-username',fallback=None),
+        )
+    ap.add_argument(
+        '--jira-password', '-p',
+        default = cf.get('default','jira-password',fallback=None),
+        )
+    ap.add_argument(
+        '--jira-project', '-j',
+        help = 'project key (e.g., JRA); multiple and comma-separated okay',
+        required=True,
+        )
+    ap.add_argument(
+        '--jira-component', '-c',
+        help = 'project component',
+        required=True,
+        )
+    ap.add_argument(
+        '--issues-file', '-i',
+        required=True,
+        )
+
+    opts = ap.parse_args(argv)
+
+    return opts
+
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    opts = parse_args(sys.argv[1:])
+    
+    jira = JIRA({'server': 'https://{opts.jira_hostname}/'.format(opts=opts)},
+        basic_auth=(opts.jira_username,opts.jira_password))
+
+    for issue_key in (i.strip() for i in open(opts.issues_file,'r')):
+        ji = jira.issue(issue_key)
+
+        if ji.fields.status.name == 'Closed':
+            continue
+
+        avail_tx = jira.transitions(issue_key)
+        close_tx = [ tx['id'] for tx in avail_tx if tx['name'] == 'Close Issue' ][0]
+
+        i = int(issue_key.split('-')[-1])
+        comment = "Issue migrated to BitBucket repo; see https://bitbucket.org/invitae/{c}/issue/{i}/".format(i=i,c=opts.jira_component)
+        logger.info("About to close {issue_key} with transition {tx} and comment {comment}".format(
+            issue_key=issue_key,comment=comment,tx=close_tx))
+
+        try:
+            jira.transition_issue(issue_key,close_tx,comment=comment)
+        except Exception as e:
+            logger.exception(e)

@@ -2,8 +2,23 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("projects"
- (filename . "/scpc:1-compute:/locus/home/reece/projects/")
+(("HVP2014"
+ (filename . "~/Insync/reece.hart@invitae.com/HVP 2014 Clinical Significance of Transcript Discrepancies/")
+ (front-context-string . "Clinical Signifi")
+ (rear-context-string . "84 Feb  9 11:22 ")
+ (position . 310))
+("collab"
+ (filename . "~/projects/collab/")
+ (front-context-string . "lims-shell*\n  -r")
+ (rear-context-string . "92 Apr 23 10:39 ")
+ (position . 2223))
+("collaborations"
+ (filename . "/scpc:fsdb:/locus/data/collaborations/")
+ (front-context-string . ".hg-old/\n  drwxr")
+ (rear-context-string . "96 Aug 12  2013 ")
+ (position . 216))
+("projects"
+ (filename . "/scpc:fsdb:/locus/home/reece/projects/")
  (front-context-string)
  (rear-context-string . "96 Oct  6 20:38 ")
  (position . 200))

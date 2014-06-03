@@ -15,3 +15,6 @@ PATH=$PYTHONUSERBASE/bin:$PATH
 # 	# pip install --user virtualenvwrapper --upgrade
 # 	# warn $WORKON_HOME/virtualenvwrapper.sh
 # fi
+
+# with hg-prompt extension:
+# export PS1='\w`hg prompt "[{root|basename}{node|short}{branch}{status|modified}{update}{tags|;}]" 2>/dev/null` $'

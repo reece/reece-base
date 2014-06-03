@@ -31,7 +31,7 @@ parser.add_argument(
     help='source folder')
 parser.add_argument(
     '--library-directory', '-l',
-    default=os.path.expanduser('~/Dropbox/locus corp/library/'),
+    default=os.path.expanduser('~/Documents/locus corp/library/'),
     help='destination directory')
 args = parser.parse_args()
 

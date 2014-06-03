@@ -30,6 +30,9 @@ Host sf
 	 HostName shell.sf.net
 	 User reece
 
+Host pg93
+	 User ubuntu
+	 HostName 10.10.2.19
 
 #1-compute.vpc.locusdev.net
 Host 1-compute
@@ -44,7 +47,7 @@ Host ec2-*.amazonaws.com
 	 User ubuntu
 	 UserKnownHostsFile=/dev/null
 Host fsdb
-	HostName fs.locusdev.net
+	HostName 3-fsdb.vpc.locusdev.net
 
 Host g
 	 HostName g.458.locusdev.net

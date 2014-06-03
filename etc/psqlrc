@@ -2,9 +2,7 @@
 
 \pset pager always
 \setenv LESS -FiMRSXx4
-
-\timing
--- SET statement_timeout = 0;
+\setenv PAGER less
 
 -- colorized prompt, line break before each, with codes to set xtitle
 \set PROMPT1 '%[%033]0;psql %n@%m/%/%007%]\n%[%033[1;33;40m%]%n@%m/%/%R%[%033[0m%]%# '
@@ -15,6 +13,8 @@
 \pset border 2
 \pset null ¤
 
+
+\timing
+-- SET statement_timeout = 0;
+
 -- \set show_slow_queries 'SELECT  (total_time / 1000 / 60) as total_minutes,   (total_time/calls) as average_time, query FROM pg_stat_statements ORDER BY 1 DESC LIMIT 100;'
-
-

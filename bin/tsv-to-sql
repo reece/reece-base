@@ -18,22 +18,27 @@ import sys
 
 
 class TypeSniffer(object):
-    regexps = {
-        'date': re.compile('^\d{4}-\d{2}-\d{2}$'),
-        'int': re.compile('^\d+$'),
-        }
-    type_tests = {
-        # everything can be text 'text': lambda e: True,
-        'int':  lambda v: TypeSniffer.regexps['int'].match(v),
-        'date': lambda v: TypeSniffer.regexps['date'].match(v),
-        }
+    date_re = re.compile('^\d{4}-\d{2}-\d{2}$')
+    type_tests = collections.OrderedDict([
+        ('int',   lambda v: int(v)),
+        ('float', lambda v: float(v)),
+        ('date',  lambda v: TypeSniffer.date_re.match(v)),
+        ('text',  lambda v: True),
+        ])
     types = type_tests.keys()
 
     @classmethod
     def atypify(cls,v,to_try=types):
-        "return types that v is not from the list of to_try types"
+        "return list of types in to_try that v is not (i.e., excludes possible types)"
         assert isinstance(v,str), "string expected"
-        return [ t for t in to_try if not cls.type_tests[t](v) ]
+        def _could_be_a(t,v):
+            try:
+                if cls.type_tests[t](v) is None:
+                    return False
+            except ValueError:
+                return False
+            return True
+        return [ t for t in to_try if not _could_be_a(t,v) ]
 
 
 class ColDef(recordtype.recordtype('ColDef',['name','possible_types','has_nulls','sample_values'])):
@@ -49,7 +54,7 @@ class ColDef(recordtype.recordtype('ColDef',['name','possible_types','has_nulls'
         super(ColDef,self).__init__(name,possible_types,has_nulls,sample_values)
 
     def update(self,v):
-        if v is None:
+        if not v:
             self.has_nulls = True
             return
         assert isinstance(v,str), "string expected"
@@ -59,16 +64,18 @@ class ColDef(recordtype.recordtype('ColDef',['name','possible_types','has_nulls'
 
     @property
     def sql_column_name(self):
-        return sql_tokenify(self.name)
+        return sql_tokenify(self.name.strip())
 
     def as_column_ddl(self):
-        return "\t".join([self.sql_column_name,self.inferred_type]+self.opts)
+        return '{col:15s} {type:15s} {opts}'.format(
+            col='"'+self.sql_column_name+'"',
+            type=self.inferred_type,
+            opts=' '.join(self.opts))
 
     @property
     def inferred_type(self):
-        if len(self.possible_types) == 0:
-            return 'text'
-        if len(self.possible_types) > 1:
+        assert len(self.possible_types)>0, "all possible column types eliminated?!"
+        if len(self.possible_types - set(['text'])) > 1:
             logging.warn("column '{self.name}' has {np} possible types ({self.possible_types}); returning first".format(
                 self=self,np=len(self.possible_types)))
         return sorted(list(self.possible_types))[0]
@@ -83,7 +90,7 @@ class ColDef(recordtype.recordtype('ColDef',['name','possible_types','has_nulls'
 
 
 def sql_tokenify(s):
-    return s.lower().replace(' ','_')
+    return re.sub('[ -]','_',s.lower())
 
 def parse_args(argv):
     ap = argparse.ArgumentParser(
@@ -93,9 +100,10 @@ def parse_args(argv):
     ap.add_argument('--max-lines', '-l',
                     help='number of lines to sniff',
                     type=int,
-                    default=100,
+                    default=None,
                     )
     ap.add_argument('--null-string','-N')
+    ap.add_argument('--table-name','-t')
     opts = ap.parse_args(argv)
     return opts
 
@@ -104,10 +112,11 @@ def infer_column_definitions(fn,opts):
 
     tsv_in = csv.DictReader( open(fn,'r'), delimiter = '\t' )
 
-    coldefs = collections.OrderedDict( (fld,ColDef(name=fld)) for fld in tsv_in.fieldnames )
+    coldefs = collections.OrderedDict( (fld,ColDef(name=fld))
+                                       for fld in tsv_in.fieldnames )
 
     for i,rec in enumerate(tsv_in):
-        if i > opts.max_lines:
+        if opts.max_lines and i > opts.max_lines:
             break
         for fld,val in rec.iteritems():
             coldefs[fld].update(None if val == opts.null_string else val)
@@ -121,6 +130,7 @@ if __name__ == '__main__':
     opts = parse_args(sys.argv[1:])
     coldefs = infer_column_definitions(opts.FILE,opts)
     
-    print( "CREATE TABLE " + sql_tokenify(os.path.basename(opts.FILE).rsplit('.',1)[0]) + " (\n")
+    table_name = opts.table_name or sql_tokenify(os.path.basename(opts.FILE).rsplit('.',1)[0])
+    print( "CREATE TABLE " + table_name + " (\n")
     print( "  " + ",\n  ".join([cd.as_column_ddl() for cd in coldefs.values()]) + "\n" )
     print( ");\n" )

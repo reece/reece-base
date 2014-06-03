@@ -27,6 +27,7 @@ mq=
 pager=
 progress=
 rebase=
+#prompt = ~/opt/hg-prompt/prompt.py
 #>2.8: shelve=
 
 ### local installations:
@@ -44,3 +45,6 @@ cmd.meld =
 
 [alias]
 removed-files = log --template "{rev}: {file_dels}\n"
+
+[tortoisehg]
+editor = gedit

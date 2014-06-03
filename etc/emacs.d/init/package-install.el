@@ -8,7 +8,7 @@
 		   auto-complete
 		   coffee-mode
 		   csv-mode
-		   jedi
+		   ;jedi
 		   yasnippet
 		   fuzzy
 		   ; python-mode
