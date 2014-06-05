@@ -258,12 +258,6 @@ reece@in-machina.com"
 	)
   )
 
-; adapted from http://www.tardis.ed.ac.uk/~skx/win/.emacs
-(defun my-exit-from-emacs()
-  (interactive)
-  (if (yes-or-no-p "Do you want to exit ")
-      (save-buffers-kill-emacs)))
-
 (defun sort-words-in-region ()
   "sort whitespace-separate words in region and replace"
   (interactive)
