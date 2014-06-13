@@ -3,5 +3,4 @@
 # key: ipe
 # binding: direct-keybinding
 # --
-import IPython; IPython.embed()
-$0
+import IPython; IPython.embed()	  ### TODO: Remove IPython.embed()
