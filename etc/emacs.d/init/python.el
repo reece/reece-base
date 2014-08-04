@@ -5,6 +5,22 @@
 (elpy-use-ipython)
 (pyvenv-workon "default-2.7")
 
+(add-to-list 'auto-mode-alist '("\\.wsgi$" . python-mode))
+
+; shebang lines (when suffixes aren't used)
+(add-to-list 'interpreter-mode-alist '("python2.7" . python-mode))
+(add-to-list 'interpreter-mode-alist '("python3"   . python-mode))
+(add-to-list 'interpreter-mode-alist '("python3.1" . python-mode))
+(add-to-list 'interpreter-mode-alist '("python3.2" . python-mode))
+(add-to-list 'interpreter-mode-alist '("python3.3" . python-mode))
+(add-to-list 'interpreter-mode-alist '("python3.4" . python-mode))
+
+(setq-default
+ indent-tabs-mode nil
+ ;tab-width 4
+ )
+
+
 
 ;; (setq
 ;;  py-docstring-style "DJANGO"
@@ -13,12 +29,6 @@
 ;; (add-to-list 'load-path py-install-directory)
 ;; (require 'python-mode)
 ;; 
-;; ; shebang lines (when suffixes aren't used)
-;; (add-to-list 'interpreter-mode-alist '("python2.7" . python-mode))
-;; (add-to-list 'interpreter-mode-alist '("python3"   . python-mode))
-;; (add-to-list 'interpreter-mode-alist '("python3.1" . python-mode))
-;; (add-to-list 'interpreter-mode-alist '("python3.2" . python-mode))
-;; (add-to-list 'interpreter-mode-alist '("python3.3" . python-mode))
 ;; 
 ;; ; jedi
 ;; (autoload 'jedi:setup "jedi" nil t)

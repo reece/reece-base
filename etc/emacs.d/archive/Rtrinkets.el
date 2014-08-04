@@ -65,15 +65,6 @@ actual file being modified after chasing links."
   (interactive)
   (insert-file-contents "~reece/notes/scissors"))
 
-(defun delete-frame-or-kill-emacs (&optional prefix-arg)
-  "Deletes the current frame.  Also kills Emacs if there's only one
-   frame left.  Optional prefix PREFIX-ARG is passed to save-buffers-kill-emacs
-   if that function is called, otherwise PREFIX-ARG is ignored."
-  (interactive "P")
-  (if (= 1 (length (frame-list)))
-      (save-buffers-kill-emacs prefix-arg)
-    (delete-frame)))
-
 (defun dir-read-write-p (path)
   "return t if path exists, is an accessible directory, and is
 writable; otherwise nil"
@@ -190,10 +181,6 @@ Tue,  5 Dec 95 17:21:44 -600          -> 1995 Dec 05 (Tue) 17:21:44 -0600
 ;				  "Tue,  5 Dec 95 17:21:44 -600"))
 ;(insert (mapcar (function (lambda (d) (insert (format "\n;%-37s -> %s" d (sc-rewrite-date d))))) dates))
 
-(defun revert-buffer-noconfirm ()
-  "Revert a buffer without confirmation"
-  (interactive)
-  (revert-buffer t t))
 
 (defun tab-width-8-local ()
   "make current buffer only tab width 8"

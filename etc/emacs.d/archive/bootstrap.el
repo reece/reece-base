@@ -75,6 +75,8 @@
                '("\\.py\\'" flymake-pyflakes-init)))
 (add-hook 'python-mode-hook 'flymake-mode)
 
+
+
 ;; menu bar is useful when getting started
 (menu-bar-mode)
 (setq-default default-tab-width 4)
