@@ -20,8 +20,11 @@ join Documents D on DFO.documentId=D.id
 join DocumentFiles DFI on D.id=DFI.documentId
 join Files FI on DFI.hash=FI.hash
 """
-select_documents_by_folder_sql = select_documents_sql + 'where FO.name=:folder'
-select_documents_by_bn_sql = select_documents_sql + "where localUrl like :like_bn"
+
+preds = ["D.deduplicated = 'false'"]
+
+select_documents_by_folder_sql = select_documents_sql + "where " + " AND ".join(preds + ["FO.name=:folder"])
+select_documents_by_bn_sql     = select_documents_sql + "where " + " AND ".join(preds + ["localUrl like :like_bn"])
 
 
 def parse_args(argv):

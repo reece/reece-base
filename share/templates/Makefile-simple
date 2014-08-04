@@ -1,8 +1,13 @@
-.SUFFIXES :
-.PRECIOUS :
+.DELETE_ON_ERROR:
 .PHONY : FORCE
+.PRECIOUS :
+.SUFFIXES :
 
-SHELL:=/bin/bash -o pipefail
+SHELL:=/bin/bash -e -o pipefail
+
+
+default:
+	echo "There ain't no $@ target, homey" 1>&2; exit 1
 
 
 

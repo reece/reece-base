@@ -48,3 +48,6 @@ removed-files = log --template "{rev}: {file_dels}\n"
 
 [tortoisehg]
 editor = gedit
+
+[hooks]
+changegroup = hg diff --stat -r $HG_NODE -r tip

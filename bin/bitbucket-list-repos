@@ -50,24 +50,34 @@ def parse_args(argv):
 
 if __name__ == '__main__':
     opts = parse_args(sys.argv[1:])
-    
-    repos = json.loads(requests.get(
-        url='https://bitbucket.org/api/1.0/user/repositories',
-        auth=(opts.user, opts.password),
-        ).content.decode('utf-8'))
-    
+
     # split owners elements on commas, and flatten to a set
     owners = set( itertools.chain.from_iterable( oe.split(',') for oe in opts.owners ) )
     
-    pt = prettytable.PrettyTable(field_names=fields)
-    for repo in repos:
-        if repo['owner'] in owners:
-            repo['url'] = 'https://bitbucket.org/{repo[owner]}/{repo[slug]}'.format(repo=repo)
-            repo['ssh'] = 'ssh://hg@bitbucket.org/{repo[owner]}/{repo[slug]}'.format(repo=repo)
-            pt.add_row([ repo[k] for k in fields ])
-    print(pt)
 
+    r = requests.get(
+        url='https://bitbucket.org/api/1.0/user/repositories',
+        auth=(opts.user, opts.password)
+    )
+    r.raise_for_status()
+    repos = json.loads(r.content.decode('utf-8'))
+    
+    if opts.owners:
+        repos = [repo for repo in repos if repo['owner'] in owners]
+    
+    for repo in repos:
+        repo['url'] = 'https://bitbucket.org/{repo[owner]}/{repo[slug]}'.format(repo=repo)
+        if repo['scm'] == 'hg':
+            repo['cmd'] = 'hg clone ssh://hg@bitbucket.org/{repo[owner]}/{repo[slug]}'.format(repo=repo)
+        elif repo['scm'] == 'git':
+            repo['cmd'] = 'git clone ssh://git@bitbucket.org/{repo[owner]}/{repo[slug]}'.format(repo=repo)
+
+
+    #pt = prettytable.PrettyTable(field_names=fields)
+    #for repo in repos:
+    #    pt.add_row([ repo[k] for k in fields ])
+    #print(pt)
 
     for repo in repos:
         if not os.path.exists(repo['name']):
-            print('hg clone ssh://hg@bitbucket.org/{repo[owner]}/{repo[slug]}'.format(repo=repo))
+            print(repo['cmd'])

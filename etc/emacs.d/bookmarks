@@ -8,7 +8,7 @@
  (rear-context-string . "84 Feb  9 11:22 ")
  (position . 310))
 ("collab"
- (filename . "~/projects/collab/")
+ (filename . "/fsdb:/locus/home/reece/projects/collab/")
  (front-context-string . "lims-shell*\n  -r")
  (rear-context-string . "92 Apr 23 10:39 ")
  (position . 2223))

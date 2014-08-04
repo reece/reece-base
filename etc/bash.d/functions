@@ -227,15 +227,3 @@ swap-names () {
 }
 
 
-hg-update () (
-    # update mercurial projects from sources
-    cd "$1"
-    find .  -maxdepth 2 -name .hg | sort | while read dir; do (
-            dir=$(dirname $dir)
-            cd "$dir"
-            hr
-            pwd
-            hg pull
-            if [ -z "$(hg st -admrn)" ]; then  hg up; echo "$dir: updated"; else echo "$dir: local changes"; fi
-        ) done
-)

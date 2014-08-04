@@ -10,12 +10,6 @@
 
 
 (defun sort-words-in-region ()
+  "sort whitespace-separate words in region and replace"
   (interactive)
-  (insert (mapconcat
-		   'identity
-		   (sort (split-string (delete-and-extract-region (point) (mark)))
-				 'string<
-				 )
-		   " ")
-          "\n")
-  ) 
+  (insert (mapconcat 'identity (sort (split-string (delete-and-extract-region (point) (mark))) 'string<) " ") "\n")) 
