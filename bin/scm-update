@@ -1,0 +1,20 @@
+#!/bin/bash
+
+process1 () {
+  dir="$1";
+  if [ -e "$dir/.hg" ]; then
+      (cd $dir; hg pull -u)
+  elif [ -e "$dir/.git" ]; then
+      (cd $dir; git pull)
+  else
+      echo "$dir: no .hg or .scm!" 1>&2
+      exit 1
+  fi
+}
+
+
+for dir in "$@"; do
+    echo ============================================================================
+    echo == "$dir"
+    process1 "$dir" | cat
+done

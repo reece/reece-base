@@ -21,3 +21,7 @@ tmp
 .idea
 etc/emacs.d/old
 etc/emacs.d/url
+etc/emacs.d/.python-environments
+etc/emacs.d/.cask
+etc/emacs.d/tramp
+etc/ssh/known_hosts.old

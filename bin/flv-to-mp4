@@ -1,0 +1,4 @@
+#!/bin/sh
+dst=${2:-${1%.flv}.mp4}
+set -x
+exec avconv -i "$1" -qscale 0 -ar 22050 -vcodec libx264 -acodec ac3 "$dst"
