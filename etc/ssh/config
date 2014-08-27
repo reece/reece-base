@@ -47,6 +47,7 @@ Host ec2-*.amazonaws.com
 	 User ubuntu
 	 UserKnownHostsFile=/dev/null
 Host fsdb 3-fsdb.vpc.locusdev.net
+	#HostName 10.10.2.154   
 	HostName 3-fsdb.vpc.locusdev.net
 	ControlMaster auto
 	ControlPath ~/.ssh/controlmaster-%r@%h:%p
@@ -60,6 +61,13 @@ Host anvil
 	 HostName anvil.locusdev.net
 Host oink
 	 HostName oink.458.locusdev.net
+
+Host x
+     Hostname 10.10.2.65
+     User ubuntu
+     IdentityFile ~/.ssh/keys/reece_pwl
+
+    
 
 
 #BEGIN_EC2_SSH_CONFIG_BLOCK

@@ -1,18 +1,9 @@
-[web]
-cacerts = /etc/ssl/certs/ca-certificates.crt
+# Reece's .hgrc
 
-[ui]
-username = Reece Hart <reecehart@gmail.com>
-#merge = emacs
-merge = emacsclient-merge
-
-[merge-tools]
-#emacs.args = -q --eval "(ediff-merge-with-ancestor \"$local\" \"$other\" \"$base\" nil \"$output\")"
-emacs.args = -q --eval "(emerge-files-with-ancestor nil \"$local\" \"$other\" \"$base\" \"$output\" nil 'kill-emacs)"
-
-
-[trusted]
-users = locusadm
+[alias]
+removed-files = log --template "{rev}: {file_dels}\n"
+qdiff = diff -r qparent
+qmeld = meld -r qparent
 
 [extensions]
 bookmarks=
@@ -23,31 +14,49 @@ extdiff=
 fetch=
 git=
 graphlog=
+inotify=
 mq=
 pager=
 progress=
 rebase=
-#prompt = ~/opt/hg-prompt/prompt.py
-#>2.8: shelve=
+record=
+transplant=
 
-### local installations:
-## hgsubversion=~/opt/reece-external/lib/hgext/hgsubversion/hgsubversion
+
+[extdiff]
+cmd.meld = 
+
+
+[hooks]
+# show stats of incoming changes
+changegroup = hg diff --stat -r $HG_NODE -r tip
+
+
+[merge-tools]
+#emacs.args = -q --eval "(ediff-merge-with-ancestor \"$local\" \"$other\" \"$base\" nil \"$output\")"
+emacs.args = -q --eval "(emerge-files-with-ancestor nil \"$local\" \"$other\" \"$base\" \"$output\" nil 'kill-emacs)"
+
 
 [pager]
 pager = LESS='FSRX' less
 ignore = version, help, update, serve, record
 
-[extdiff]
-cmd.diffrw = diff
-opts.diffrw = -rw
-cmd.meld = 
-
-
-[alias]
-removed-files = log --template "{rev}: {file_dels}\n"
 
 [tortoisehg]
 editor = gedit
 
-[hooks]
-changegroup = hg diff --stat -r $HG_NODE -r tip
+
+[trusted]
+users = locusadm
+
+
+[ui]
+username = Reece Hart <reecehart@gmail.com>
+#merge = emacs
+merge = emacsclient-merge
+
+
+[web]
+cacerts = /etc/ssl/certs/ca-certificates.crt
+
+
