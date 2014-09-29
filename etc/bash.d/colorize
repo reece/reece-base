@@ -10,38 +10,18 @@ if [ -n "$COLORTERM" ]; then
 
 elif [ -n "$SSH_CLIENT" -o -n "$SSH2_CLIENT" ]; then
 
-        # ssh => /probably/ a color term
-		COLORIZE=1
+    # ssh => /probably/ a color term
+    COLORIZE=1
 
 else
 
-	# not ssh => guess based on TERM
-	case "$TERM" in
+    # not ssh => guess based on TERM
+    case "$TERM" in
+	
+	xterm-color|xterm-256color|color-xterm|linux)
+	    COLORIZE=1
+	    ;;
+	
+    esac
 
-	xterm-color|color-xterm|linux)
-		COLORIZE=1
-		;;
-
-	xterm)
-		case "$HOSTNAME" in
-		# my boxen:
-		linux|snafu*|tux*|whoville*|sanitas*|tallac*|dhcp*)
-			COLORIZE=1
-			;;
-		# thunderdome nodes:
-		csb|td-*|sprog*|entity*|goose*|interceptor*|comp*|csb-dev)
-			COLORIZE=1
-			;;
-		# geneland nodes:
-		geneland*|ruby*|leu*|ala*|trp*|met*|cys*|cytosine*|thymine*|guanine*)
-			COLORIZE=1
-			;;
-		# miscellaneous others:
-		leavenworth*)
-			COLORIZE=1
-			;;
-		esac
-		;;
-
-	esac
 fi

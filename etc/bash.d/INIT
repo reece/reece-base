@@ -6,6 +6,7 @@ source_dot_bash opt
 source_dot_bash python
 
 if [ -n "$PS1" ]; then	# interactive
+
    source_dot_bash colorize
    source_dot_bash term
    source_dot_bash shell-setup
@@ -20,8 +21,10 @@ if [ -n "$PS1" ]; then	# interactive
    source_dot_bash status-line
 
    source_dot_bash scala
-   source_dot_bash locus
    source_dot_bash invitae
+
+   source_dot_bash host.d/"$HOSTNAME"
+
 fi
 
 source_dot_bash FINALIZE

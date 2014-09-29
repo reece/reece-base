@@ -26,12 +26,13 @@
 (elpy-enable)
 (elpy-use-ipython)
 
-(add-hook 'elpy-mode-hook 'jedi:setup)
-(add-hook 'python-mode-hook 'pyvenv-mode)
-(add-hook 'jedi-mode-hook 'jedi-direx:setup)
+;; disabled 2014-09-26 because jedi's not up on my mac yet
+;(add-hook 'elpy-mode-hook 'jedi:setup)
+;(add-hook 'python-mode-hook 'pyvenv-mode)
+;(add-hook 'jedi-mode-hook 'jedi-direx:setup)
 
-(eval-after-load "python"
-  '(define-key python-mode-map "\C-cx" 'jedi-direx:pop-to-buffer))
+;(eval-after-load "python"
+;  '(define-key python-mode-map "\C-cx" 'jedi-direx:pop-to-buffer))
 
 
 

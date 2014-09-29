@@ -10,9 +10,9 @@ case "$TERM" in
 xterm*|linux|vt220|screen)
 	if [ "$COLORIZE" = 1 ]; then
 		if [ "$UID" = 0 ]; then
-			fi='\033[1;41;33m'
+			fi='\033[1;41;37m'
 		else
-			fi='\033[1;42;33m'
+			fi='\033[1;42;37m'
 		fi
 		ff='\033[0m'
 	else
