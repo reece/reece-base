@@ -1,0 +1,12 @@
+#PATH="/usr/local/bin:/usr/local/anaconda/bin:/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+PATH="/usr/local/bin:/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+
+MANPATH="/usr/local/opt/coreutils/libexec/gnuman:$MANPATH"
+
+export PYENV_ROOT=/usr/local/opt/pyenv
+if which pyenv > /dev/null; then eval "$(pyenv init -)"; fi
+eval "$(pyenv-sh-virtualenvwrapper)"
+
+export RBENV_ROOT=/usr/local/var/rbenv
+if which rbenv > /dev/null; then eval "$(rbenv init -)"; fi
+

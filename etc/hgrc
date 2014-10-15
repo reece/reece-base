@@ -56,7 +56,7 @@ username = Reece Hart <reecehart@gmail.com>
 merge = emacsclient-merge
 
 
-[web]
-cacerts = /etc/ssl/certs/ca-certificates.crt
+#[web]
+#cacerts = /etc/ssl/certs/ca-certificates.crt
 
 
