@@ -79,5 +79,5 @@ if __name__ == '__main__':
     #print(pt)
 
     for repo in repos:
-        if not os.path.exists(repo['name']):
+        if not os.path.exists(repo['slug']):
             print(repo['cmd'])

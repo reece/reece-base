@@ -31,8 +31,12 @@
 ;(add-hook 'python-mode-hook 'pyvenv-mode)
 ;(add-hook 'jedi-mode-hook 'jedi-direx:setup)
 
-;(eval-after-load "python"
-;  '(define-key python-mode-map "\C-cx" 'jedi-direx:pop-to-buffer))
+(eval-after-load "python"
+  '(define-key python-mode-map "\C-cx" 'jedi-direx:pop-to-buffer)
+
+  ;; make underscore a word delimiter
+  ;;'(modify-syntax-entry ?_ "_" python-mode-syntax-table)
+)
 
 
 

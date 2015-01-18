@@ -55,3 +55,7 @@ alias DT='date +%Y-%m-%d-%H:%M:%S'
 # uniqpath -- rewrite :-delim path uniquely, preserving order
 # eg. export PATH="`echo $PATH | uniqpath`"
 alias uniq-path="perl -lpe '\$_=join(\":\",grep {not \$seen{\$_}++} split(\":\",\$_));'"
+
+
+alias docker-delete-stopped-containers='docker ps -a -q | xargs -r docker rm'
+alias docker-delete-dangling-images='docker images -q -f dangling=true | xargs -r docker rmi'

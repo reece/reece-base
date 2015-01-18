@@ -4,6 +4,8 @@
 removed-files = log --template "{rev}: {file_dels}\n"
 qdiff = diff -r qparent
 qmeld = meld -r qparent
+qapplied = qapplied -s
+
 
 [extensions]
 bookmarks=
@@ -14,13 +16,18 @@ extdiff=
 fetch=
 #git=
 graphlog=
-inotify=
+#inotify=
 mq=
 pager=
 progress=
 rebase=
 record=
 transplant=
+
+# pip install hg-github
+#hggithub=
+
+#hggit = /home/reece/opt/hg-git/hggit
 
 
 [extdiff]
@@ -34,7 +41,7 @@ changegroup = hg diff --stat -r $HG_NODE -r tip
 
 [merge-tools]
 #emacs.args = -q --eval "(ediff-merge-with-ancestor \"$local\" \"$other\" \"$base\" nil \"$output\")"
-emacs.args = -q --eval "(emerge-files-with-ancestor nil \"$local\" \"$other\" \"$base\" \"$output\" nil 'kill-emacs)"
+#emacs.args = -q --eval "(emerge-files-with-ancestor nil \"$local\" \"$other\" \"$base\" \"$output\" nil 'kill-emacs)"
 
 
 [pager]
@@ -44,6 +51,8 @@ ignore = version, help, update, serve, record
 
 [tortoisehg]
 editor = gedit
+vdiff = meld
+monitorrepo = always
 
 
 [trusted]
@@ -53,7 +62,7 @@ users = locusadm
 [ui]
 username = Reece Hart <reecehart@gmail.com>
 #merge = emacs
-merge = emacsclient-merge
+#merge = emacsclient-merge
 
 
 #[web]

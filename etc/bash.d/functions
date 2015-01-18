@@ -208,16 +208,6 @@ find-rsync-orphans () {
 ef () { $EDITOR "$@"; }
 ee () { ef `type -p "$@"`; }
 
-# svn-grep: grep, but exclude the .svn dirs
-svn-grep () { 
-	egrep -r --exclude-dir=.svn "$@"
-# above only works with egrep >=2.5.3
-#	local re; re="$1"; shift;
-#	set -x;
-#	find "$@" -name .svn -prune -o -type f \! -name \*\~ -print0 \
-#		| xargs -0r egrep "$re" ;
-}
-
 # swap-names -- exchange file/directory names for given name pairs
 swap-names () {
 	local id=$RANDOM;
@@ -227,3 +217,9 @@ swap-names () {
 }
 
 
+############################################################################
+## Python functions/aliases
+
+py-mod-verison () {
+    python -c "import $1; print $1.__version__"
+}

@@ -15,10 +15,10 @@
 (load-library "init/variables.el")
 
 
+(define-coding-system-alias 'UTF-8 'utf-8) ; http://stackoverflow.com/questions/14031724/
 (fset 'yes-or-no-p 'y-or-n-p)		; perm. replace yes-or-no-p
 (yas-global-mode 1)
 (server-start)
-
 
 
 (custom-set-variables
