@@ -43,7 +43,6 @@
  '(global-nlinum-mode t)
  '(inhibit-startup-screen t)
  '(jedi:complete-on-dot t)
- '(line-number-mode t)
  '(linum-format " %7d ")
  '(main-line-color1 "#1E1E1E")
  '(main-line-color2 "#111111")
@@ -62,4 +61,4 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- )
+ '(default ((t (:family "Ubuntu Mono" :foundry "unknown" :slant normal :weight normal :height 113 :width normal)))))

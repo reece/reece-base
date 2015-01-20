@@ -55,9 +55,6 @@ commd () {
 
 
 
-# cvsrm -- rm specified files and remove them from cvs control
-cvsrm () { for f in "$@"; do /bin/mv "$f" "$f".bak && cvs rm "$f"; done; }
-
 # diff files common to two directories given as args
 diffd () {
     commd "$1" "$2" -12 \
@@ -133,23 +130,6 @@ perl-locate () {
 	-e '}' "$@"
 }
 
-# palm backup
-pilot-backup () {
-    D=`date "+$HOME/palm/backups/%Y%m%d"`;
-    echo backup to $D;
-    /bin/mkdir -p $D;
-    pilot-xfer -p usb: -b $D;
-}
-
-# ps+pgrep
-psp () { ps -f `pgrep -f "$1"`; }
-
-# rcschanged: filter files which have changed wrt ,v
-rcschanged ()
-{ for f in "$@"; do 
-	if [ -f $f,v -o -f RCS/$f,v ]; then	rcsdiff $f >/dev/null 2>/dev/null || echo $f
-	else echo "$f" ": noarchive?"; fi; done; }
-
 # unzip files into a directory with the same root name as the file
 uz () { (set -x; unzip "$1" -d "${1%.zip}";) }
 
@@ -217,6 +197,12 @@ swap-names () {
 }
 
 
+############################################################################
+## Python functions/aliases
+
+py-mod-verison () {
+    python -c "import $1; print $1.__version__"
+}
 ############################################################################
 ## Python functions/aliases
 

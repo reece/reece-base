@@ -5,7 +5,7 @@ removed-files = log --template "{rev}: {file_dels}\n"
 qdiff = diff -r qparent
 qmeld = meld -r qparent
 qapplied = qapplied -s
-
+contributors = !hg log --template "{author|person}\n" | sort | uniq -c | sort -nrs
 
 [extensions]
 bookmarks=
@@ -28,6 +28,11 @@ transplant=
 #hggithub=
 
 #hggit = /home/reece/opt/hg-git/hggit
+
+# pip install hg-github
+#hggithub=
+
+hggit = /home/reece/opt/hg-git/hggit
 
 
 [extdiff]

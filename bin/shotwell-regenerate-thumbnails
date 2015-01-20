@@ -1,23 +1,20 @@
-#!/bin/sh
-# based on response in:
+#!/bin/bash
+# based on responses in:
 # http://askubuntu.com/questions/15020/thumbnails-in-shotwell-are-all-gray
+# http://gagor.pl/2014/01/regenerate-thumbnails-in-shotwell-for-last-month/
 # requires ImageMagick
 
-sqlite3 $HOME/.shotwell/data/photo.db \
-	"select id||' '||filename from PhotoTable order by timestamp desc" \
-| while read id filename; do
-	echo "* $id ($filename):"
-	for sz in 128 360; do
-		tf=$(printf $HOME/.shotwell/thumbs/thumbs$sz/thumb%016x.jpg $id);
-		echo -n "  ${sz}x${sz} "
-		if [ -e "$tf" ]; then
-			echo "exists"
-		else	
-			if convert "$filename" -auto-orient -thumbnail ${sz}x${sz} "$tf"; then
-				echo "created $tf"
-			else
-				echo "failed: convert \"$filename\" -auto-orient -thumbnail ${sz}x${sz} \"$tf\""
-			fi
-		fi
-	done
+THUMB_ROOT=~/.cache/shotwell/thumbs
+
+# Remove " > date('now','start of month','-1 month')" if you want to re-generate everything
+# COND="where date(timestamp,'unixepoch','localtime') > date('now','start of month','-1 month') order by timestamp desc"
+
+sqlite3 ~/.local/share/shotwell/data/photo.db "select id||' '||filename from PhotoTable $COND" |
+while read id filename; do
+  tf1=$(printf $THUMB_ROOT/thumbs128/thumb%016x.jpg $id);
+  tf2=$(printf $THUMB_ROOT/thumbs360/thumb%016x.jpg $id);
+  [ -e "$tf1" ] || (set -x; convert "$filename" -quality 60 -auto-orient -thumbnail 128x128 $tf1)
+  [ -e "$tf2" ] || (set -x; convert "$filename" -quality 60 -auto-orient -thumbnail 360x360 $tf2)
 done
+
+

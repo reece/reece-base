@@ -1,14 +1,11 @@
 /dev/
 /media/
-/var/lib/mysql
-/var/spool
-.dropbox.cache
-/var/run
 /var/cache
 /var/crash
+/var/lib/mysql
 /var/lock
+/var/run
+/var/spool
 /var/tmp
 no-snapper
-no-backup
 /local/home/reece/secure/.exome
-/local/home/reece/secure/exome

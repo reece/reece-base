@@ -59,3 +59,7 @@ alias uniq-path="perl -lpe '\$_=join(\":\",grep {not \$seen{\$_}++} split(\":\",
 
 alias docker-delete-stopped-containers='docker ps -a -q | xargs -r docker rm'
 alias docker-delete-dangling-images='docker images -q -f dangling=true | xargs -r docker rmi'
+
+
+alias docker-delete-stopped-containers='docker ps -a -q | xargs -r docker rm'
+alias docker-delete-dangling-images='docker images -q -f dangling=true | xargs -r docker rmi'
