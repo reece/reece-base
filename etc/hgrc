@@ -14,7 +14,6 @@ color=
 convert=
 extdiff=
 fetch=
-#git=
 graphlog=
 #inotify=
 mq=
@@ -24,15 +23,11 @@ rebase=
 record=
 transplant=
 
+## git support
 # pip install hg-github
+#git=
 #hggithub=
-
 #hggit = /home/reece/opt/hg-git/hggit
-
-# pip install hg-github
-#hggithub=
-
-hggit = /home/reece/opt/hg-git/hggit
 
 
 [extdiff]
