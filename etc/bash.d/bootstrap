@@ -58,8 +58,8 @@ bashlog () {
 
 source_if_exists () {
     if [ -f "$1" ]; then
-		bashlog "source_if_exists: source'd $1"
 		source "$1"
+		bashlog "source_if_exists: source'd $1"
     elif [ "$2" != "nowarn" ]; then
 		notify "$1 not found"
     else

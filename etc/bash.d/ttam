@@ -1,0 +1,5 @@
+export P4PORT=p4.corp.23andme.com:1666
+export P4USER=rhart
+#export P4PASSWD=
+#export P4CLIENT=
+#export P4EDITOR=$EDITOR

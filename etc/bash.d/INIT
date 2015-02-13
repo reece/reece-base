@@ -23,7 +23,7 @@ if [ -n "$PS1" ]; then	# interactive
    source_dot_bash scala
    source_dot_bash invitae
 
-   source_if_exists host.d/"$HOSTNAME"
+   source_if_exists host.d/"$HOSTNAME" nowarn
 
 fi
 
