@@ -6,7 +6,7 @@ StrictHostKeyChecking no
 #ForwardX11 yes
 IdentityFile ~/.ssh/keys/snafu_pwl
 ServerAliveInterval 300
-ControlPath ~/.ssh/controlmaster-%r@%h:%p
+ControlPath ~/.ssh/controlmasters/%r@%h:%p
 
 
 ############################################################################
@@ -46,11 +46,6 @@ Host mbp reeces-mbp
      Hostname 10.2.5.158
      User rhart
 
-Host x
-     Hostname 10.10.2.65
-     User ubuntu
-     IdentityFile ~/.ssh/keys/reece_pwl
-
 host pg1
      HostName pg1.dev.corp.23andme.com
 host pg2
@@ -58,6 +53,10 @@ host pg2
 host pg1 pg2
      IdentityFile ~/.ssh/keys/rhart@reeces-mbp
 
+host login1 *.cl.corp.23andme.com
+     User rhart
+     ControlMaster auto
+     ForwardX11 yes
 
 #BEGIN_EC2_SSH_CONFIG_BLOCK
 #END_EC2_SSH_CONFIG_BLOCK

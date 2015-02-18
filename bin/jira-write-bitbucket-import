@@ -8,6 +8,15 @@ https://confluence.atlassian.com/display/BITBUCKET/Mark+up+comments
 https://bitbucket.org/tutorials/markdowndemo/overview
 
 2014-04-12 08:26 Reece Hart <reecehart@gmail.com>
+
+
+Requires a file ~/.config/jira-issues-move-to-bitbucket.conf
+with content like
+[default]
+jira-username=some.user
+jira-hostname=somewhere.jira.com
+jira-password=ur$pass
+
 """
 
 import argparse
