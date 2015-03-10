@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
 """list Jira issues"""
+# https://23andme.atlassian.net/secure/ViewProfile.jspa
 
 
 import argparse
+import configparser
 import collections
 import itertools
 import prettytable
@@ -25,11 +27,43 @@ fields = collections.OrderedDict([
     ('link',            lambda o,i: 'https://{o.hostname}/browse/{i.key}'.format(o=o,i=i)),
     ])
 
+
 def parse_args(argv):
     def sep_and_flatten(l):
         # split comma-sep elements and flatten list
         # e.g., ['a','b','c,d'] -> set('a','b','c','d')
         return None if len(l) == 0 else list( itertools.chain.from_iterable( e.split(',') for e in l ) )
+
+
+    # 1. get config files
+    ap = argparse.ArgumentParser(
+        description = __doc__,
+        formatter_class = argparse.ArgumentDefaultsHelpFormatter,
+        add_help = False,
+        )
+    ap.add_argument('--conf-files', '-c',
+                    metavar="FILE",
+                    default = [],
+                    action = 'append',
+                    help="config file")
+    args, rem_argv = ap.parse_known_args()
+
+    # 2. read configuration files
+    cp = ConfigParser.SafeConfigParser()
+    cf_read = []
+    if args.conf_file is None:
+        # pkgdefaults < appdefaults < pkglocal < applocal < env
+        args.conf_file = [ os.path.join( root_dir, 'etc', bn )
+                           for bn in [ 'global', os.path.basename(__file__) ] ]
+        cf_read = cp.read(args.conf_file)
+    else:
+        # open file to force errors when specified files don't exist
+        for fn in args.conf_file:
+            cp.readfp(open(fn))
+    logging.info("%d conf_files: %s" % (len(cf_read), ', '.join(cf_read)))
+
+
+
 
     ap = argparse.ArgumentParser(
         description = __doc__

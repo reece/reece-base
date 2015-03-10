@@ -29,10 +29,10 @@ Host hn unison-relay unison-relay-wget
 ############################################################################
 ## 3rd party services
 Host bitbucket.org
-	 IdentityFile ~/.ssh/keys/bitbucket
+	 IdentityFile ~/.ssh/keys/reece@snafu
 
 Host github.com
-	 IdentityFile ~/.ssh/keys/bitbucket
+	 IdentityFile ~/.ssh/keys/reece@snafu
 
 Host sf
 	 HostName shell.sf.net
@@ -42,10 +42,6 @@ Host sf
 ############################################################################
 ## 23andMe
 
-Host mbp reeces-mbp
-     Hostname 10.2.5.158
-     User rhart
-
 host pg1
      HostName pg1.dev.corp.23andme.com
 host pg2
@@ -53,7 +49,8 @@ host pg2
 host pg1 pg2
      IdentityFile ~/.ssh/keys/rhart@reeces-mbp
 
-host login1 *.cl.corp.23andme.com
+host login1 login1.cl.corp.23andme.com
+     HostName login1.cl.corp.23andme.com
      User rhart
      ControlMaster auto
      ForwardX11 yes
