@@ -20,8 +20,11 @@ if [ -n "$PS1" ]; then	# interactive
     
    source_dot_bash status-line
 
+   source_dot_bash javascript
    source_dot_bash scala
-   source_dot_bash invitae
+
+   #source_dot_bash invitae
+   source_dot_bash ttam
 
    source_if_exists host.d/"$HOSTNAME" nowarn
 
