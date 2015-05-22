@@ -209,3 +209,8 @@ py-mod-verison () {
 py-mod-verison () {
     python -c "import $1; print $1.__version__"
 }
+
+
+rm_empty_dirs () {
+    find "$@" -type d -print0 | xargs -0 rmdir -p;
+}

@@ -40,3 +40,10 @@ emacs|dumb)
 	;;
 esac
 
+
+
+
+# add prompt line like "repo/branch/bookmark/f2460e250e9c/22 [!/^/2▾/3▴]"
+PROMPT_COMMAND=$(printf "hg prompt '\033[0;42;38m>> {root|basename} / {branch}{@ {bookmark}} / {node|short}{+{node|merge|short}} / {rev} [{status}/{update}/{incoming|count}▾/{outgoing|count}▴]\033[0m' 2>/dev/null && echo")
+
+

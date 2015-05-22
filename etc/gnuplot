@@ -5,7 +5,7 @@ N0 = 6.02205E23				# Avagadro's number; /mol
 h  = 6.62618E-34			# planck's constant; J*s
 hbar = 1.05459E-34			# planck's constant; J/Hz
 
-set data style lines
+#set data style lines
 
 dH = 20
 dS(T) = R/1000 * log(hbar/kb/T*c*100*100)

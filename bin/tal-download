@@ -15,6 +15,8 @@ import argparse, logging, HTMLParser, os, re, sys, urllib2
 import urlgrabber, urlgrabber.progress
 import IPython
 
+default_path = os.path.expanduser(u'~/Audio/all/This American Life')
+
 class TALDownloader(object):
     """TALDownloader -- class to download and rename episodes of This American Life"""
 
@@ -56,7 +58,7 @@ def main(argv=None):
     parser.add_argument(
         '-d', '--directory', 
         help = u'destination directory',
-        default = os.path.expanduser(u'~/Audio/enc/This American Life')
+        default = default_path,
         )
     parser.add_argument(u'episodes', metavar='N', type=int, nargs='+',
                         help=u'episode numbers')

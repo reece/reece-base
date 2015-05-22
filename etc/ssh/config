@@ -40,20 +40,11 @@ Host sf
 
 
 ############################################################################
-## 23andMe
+## Invitae
 
-host pg1
-     HostName pg1.dev.corp.23andme.com
-host pg2
-     HostName pg2.dev.corp.23andme.com
-host pg1 pg2
-     IdentityFile ~/.ssh/keys/rhart@reeces-mbp
+Host fs
+	HostName 1-compute.vpc.locusdev.net
 
-host login1 login1.cl.corp.23andme.com
-     HostName login1.cl.corp.23andme.com
-     User rhart
-     ControlMaster auto
-     ForwardX11 yes
 
 #BEGIN_EC2_SSH_CONFIG_BLOCK
 #END_EC2_SSH_CONFIG_BLOCK

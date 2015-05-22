@@ -14,7 +14,7 @@ export EMAIL_ADDRESS=reece@harts.net
 export ENSCRIPT="-E -Gj -T4 --color"
 export FULLNAME="Reece Hart"
 export GZIP="-9v"
-export INFOPATH=${REECE_BASE_DIR}/share/info
+#export INFOPATH=${REECE_BASE_DIR}/share/info
 export LATITUDE=37.62 LONGITUDE=-122.38  # 1 Sussex St, 94131
 export LESS='-FiMRSXx4'
 export LOCATE_PATH=$HOME/share/locatedb${LOCATE_PATH:+:$LOCATE_PATH}

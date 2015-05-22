@@ -28,7 +28,7 @@ transplant=
 #git=
 #hggithub=
 #hggit = /home/reece/opt/hg-git/hggit
-
+prompt = ~/opt/reece-external/lib/hg/hg-prompt/prompt.py
 
 [extdiff]
 cmd.meld = 
@@ -53,6 +53,7 @@ ignore = version, help, update, serve, record
 editor = gedit
 vdiff = meld
 monitorrepo = always
+authorcolor = True
 
 
 [trusted]
