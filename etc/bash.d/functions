@@ -4,7 +4,7 @@
 # addprefix/addsuffix: add *fix to items from command line or stdin
 # e.g.1, addprefix fix pre1 pre2 pre3
 # e.g.2, /bin/echo "pre1\npre2\npre3" | addsuffix fix
-addprefix () {
+add-prefix () {
     fix="$1"; shift;
     if [ -n "$1" ]; then
 	while [ "$#" -gt "0" ]; do echo "$fix$1"; shift; done;
@@ -12,7 +12,7 @@ addprefix () {
 	while read x;           do echo "$fix$x"; shift; done;
     fi;
 }
-addsuffix () {
+add-suffix () {
     fix="$1"; shift;
     if [ -n "$1" ]; then
 	while [ "$#" -gt "0" ]; do echo "$1$fix"; shift; done;
@@ -33,7 +33,7 @@ sfxsub () {
 
 # diff .bak files against their new versions
 # I use this after a bulk replacement with 'perl -i.bak -p0e ...'
-bakdiff () { for f in "$@"; do diff -u "$f" "${f%.bak}"; done; }
+bak-diff () { for f in "$@"; do diff -u "$f" "${f%.bak}"; done; }
 
 # abbreviated and relative working directory
 # don't collapse $HOME|$HOME/* to $HOME* -- consider user rk cd'ing to /home/rkh
@@ -211,6 +211,6 @@ py-mod-verison () {
 }
 
 
-rm_empty_dirs () {
+rm-empty-dirs () {
     find "$@" -type d -print0 | xargs -0 rmdir -p;
 }

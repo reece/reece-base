@@ -1,0 +1,9 @@
+#!/usr/bin/perl
+
+# convert single quotes to double quotes
+# intended for python source that uses single quotes
+
+while (<>) {
+    s/'([^"]*?)'/"\1"/g;
+    print;
+}

@@ -1,8 +1,6 @@
 # -*-sh-*-
 
-LS_FLAGS=
 if [ "$COLORIZE" = 1 ]; then
-	LS_FLAGS=--color=auto;
 	if [ -f "$HOME/.dir_colors" ] && type dircolors >/dev/null 2>&1; then
 		# `TERM=xterm' forces dircolors to think we're on a color terminal
 		# even when we're not. I can't remember why on earth that's a good

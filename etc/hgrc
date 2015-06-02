@@ -15,20 +15,15 @@ convert=
 extdiff=
 fetch=
 graphlog=
+git = 
 #inotify=
 mq=
 pager=
 progress=
+prompt = ~/opt/reece-external/lib/hg/hg-prompt/prompt.py
 rebase=
 record=
 transplant=
-
-## git support
-# pip install hg-github
-#git=
-#hggithub=
-#hggit = /home/reece/opt/hg-git/hggit
-prompt = ~/opt/reece-external/lib/hg/hg-prompt/prompt.py
 
 [extdiff]
 cmd.meld = 
