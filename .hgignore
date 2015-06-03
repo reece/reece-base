@@ -1,6 +1,5 @@
 syntax: glob
 
-.ssh/keys
 *.bak
 *.elc
 *.orig
@@ -9,20 +8,22 @@ syntax: glob
 *~
 .git
 .gitignore
+.idea
+.ssh/keys
 .svn
 \#_ascpc_*\#
 archive
+etc/emacs.d/.cask
+etc/emacs.d/.python-environments
 etc/emacs.d/ac-comphist.dat
 etc/emacs.d/elpa
-etc/emacs.d/pkgs
+etc/emacs.d/image-dired
+etc/emacs.d/my/pkgs/emacs-avro
+etc/emacs.d/old
 etc/emacs.d/session.*
+etc/emacs.d/tramp
+etc/emacs.d/url
 etc/ssh/known_hosts
+etc/ssh/known_hosts.old
 lib/emacs/pkgs
 tmp
-.idea
-etc/emacs.d/old
-etc/emacs.d/url
-etc/emacs.d/.python-environments
-etc/emacs.d/.cask
-etc/emacs.d/tramp
-etc/ssh/known_hosts.old
