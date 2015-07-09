@@ -10,10 +10,6 @@ echo "e.g.,  printf '\033[$cc%s\033[0m\n'" '"Some text"'
 printf "generates \033[$cc%s\033[0m\n" "Some text"
 
 
-#echo 'printf "\033[0;40;31m%s\033[0m\n" "Some text"' prints 
-
-
-
 printf "%${cw}s" 'bg\fg'
 fc=30;
 while [ $fc -le 38 ]; do
@@ -21,6 +17,21 @@ while [ $fc -le 38 ]; do
 	fc=$(( $fc + 1 ))
 done
 echo
+
+
+i=0
+while [ $i -le 1 ]; do
+	printf "%${cw}s" "$i;"
+	fc=30;
+	while [ $fc -le 38 ]; do
+		cc="$i;${fc}m"
+		printf " \\033[$cc%${cw}s\\033[0m" "$fc"
+		fc=$(( $fc + 1 ))
+	done
+	echo
+	i=$(( $i + 1 ))
+done
+
 
 bc=40
 while [ $bc -le 48 ]; do

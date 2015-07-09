@@ -168,17 +168,6 @@ logo-png () { seqlogo $SEQLOGO -t"$1" -f"$1" -Fpng; }
 logo-ps  () { seqlogo $SEQLOGO -t"$1" -f"$1";       }
 
 
-# sync Photo directory and f-spot database to whoville
-photo-sync () {
-    (
-	cd ~;
-	set -x;
-	ssh-config-update-location;
-	rsync -HRav ${1+"$@"} Photos .gnome2/f-spot/ w:;
-	)
-}
-
-
 # find files that look like leftovers from failed rsync transfers
 find-rsync-orphans () {
     find "$@" -name .*.[a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9][a-zA-Z0-9];
@@ -188,29 +177,27 @@ find-rsync-orphans () {
 ef () { $EDITOR "$@"; }
 ee () { ef `type -p "$@"`; }
 
-# swap-names -- exchange file/directory names for given name pairs
-swap-names () {
-	local id=$RANDOM;
-	/bin/mv -v "$1" "$1-$id" \
-		&& /bin/mv -v "$2" "$1" \
-		&& /bin/mv -v "$1-$id" "$2"; 
-}
-
-
-############################################################################
-## Python functions/aliases
-
-py-mod-verison () {
-    python -c "import $1; print $1.__version__"
-}
-############################################################################
-## Python functions/aliases
-
-py-mod-verison () {
-    python -c "import $1; print $1.__version__"
-}
-
-
+# rm-empty-dirs -- remove all empty directories below a path
 rm-empty-dirs () {
     find "$@" -type d -print0 | xargs -0 rmdir -p;
+}
+
+# swap-names -- exchange file/directory names for given name pairs
+swap-names () {
+    local id=$RANDOM;
+    /bin/mv -v "$1" "$1-$id" \
+	&& /bin/mv -v "$2" "$1" \
+	&& /bin/mv -v "$1-$id" "$2"; 
+}
+
+swap-cols () {
+    perl -lane 'print "$F[1]\t$F[0]"';
+    }
+
+
+############################################################################
+## Python functions/aliases
+
+py-mod-verison () {
+    python -c "import $1; print $1.__version__ + ' @ ' + $1.__file__"
 }
