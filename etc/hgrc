@@ -16,6 +16,7 @@ extdiff=
 fetch=
 graphlog=
 git = 
+histedit=
 #inotify=
 mq=
 pager=
@@ -37,7 +38,7 @@ changegroup = hg diff --stat -r $HG_NODE -r tip
 [merge-tools]
 #emacs.args = -q --eval "(ediff-merge-with-ancestor \"$local\" \"$other\" \"$base\" nil \"$output\")"
 #emacs.args = -q --eval "(emerge-files-with-ancestor nil \"$local\" \"$other\" \"$base\" \"$output\" nil 'kill-emacs)"
-
+#meld.args = $local $base $other $output
 
 [pager]
 pager = LESS='FSRX' less

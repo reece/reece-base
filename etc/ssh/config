@@ -45,6 +45,10 @@ Host sf
 Host fs
 	HostName 1-compute.vpc.locusdev.net
 
+Host ens
+     IdentityFile ~/.ssh/keys/reece@snafu
+     User ubuntu
+     HostName ec2-54-189-72-11.us-west-2.compute.amazonaws.com
 
 #BEGIN_EC2_SSH_CONFIG_BLOCK
 #END_EC2_SSH_CONFIG_BLOCK
