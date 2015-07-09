@@ -45,9 +45,10 @@ esac
 
 # add prompt line like "repo/branch/bookmark/f2460e250e9c/22 [!/^/2▾/3▴]"
 _hg_cs1=$(printf '\033[0;32;38m')
-_hg_cs2=$(printf '\033[1;33;38m')
+_hg_cs2=$(printf '\033[1;31;38m')
+_hg_cs3=$(printf '\033[1;33;38m')
 _hg_ce=$(printf '\033[0m')
 _hg_prompt() {
-    hg prompt "$_hg_cs1>> {root|basename} / {branch}{@{bookmark}}{$_hg_cs2<<{patches|hide_unapplied|join(<<)}$_hg_cs1} / {node|short}{+{node|merge|short}} / {rev} [{status}/{update}/{incoming|count}▾/{outgoing|count}▴]$_hg_ce" 2>/dev/null && echo
+    hg prompt "$_hg_cs1>> {root|basename} / {branch}{$_hg_cs3@{bookmark}}{$_hg_cs2>{patches|hide_unapplied|join(<<)}}$_hg_cs1 / {node|short}{+{node|merge|short}} / {rev} [{status}/{update}/{incoming|count}▾/{outgoing|count}▴]$_hg_ce" 2>/dev/null && echo
     }
 PROMPT_COMMAND=_hg_prompt
