@@ -40,10 +40,10 @@
 ;;                                                      (cons " iso" minor-mode-alist)
 ;;                                                      (delete " iso" minor-mode-alist)))
 ;;                                         (force-mode-line-update)))
-;; (global-set-key [f3]                 '(lambda ()             ; toggle line truncation
-;;                                         (interactive)
-;;                                         (setq truncate-lines (not truncate-lines))
-;;                                         (redraw-display)))
+(global-set-key [\M-f3]                 '(lambda ()             ; toggle line truncation
+                                        (interactive)
+                                        (setq truncate-lines (not truncate-lines))
+                                        (redraw-display)))
 
 
 ; mouse bindings

@@ -9,7 +9,7 @@ alias dp='less "+/^[0-9][0-9,]*[acd].*|^diff .+|^Only in .+|^Common subd.+|^Bina
 alias h=head
 alias hr='echo ============================================================================'
 alias j='jobs -l'
-alias ls='ls -FL --color=auto --si'
+alias ls='ls -F --color=auto --si'
 alias ll='ls -lh'
 alias llt='ll -t'
 alias llz='ll --sort=size'
