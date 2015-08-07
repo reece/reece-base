@@ -1,8 +1,8 @@
 ## shell-setup -- bash shell settings -*-sh-*-
 
-umask 022												# 644/755 (rw-r--r--) default
-#ulimit -c 0											# no core dumps
-set -C													# no overwrite with > (>| overrides)
+umask 022			# 644/755 (rw-r--r--) default
+#ulimit -c 0			# no core dumps
+set -C				# no overwrite with > (>| overrides)
 
 shopt -s histappend histreedit histverify 
 HISTCONTROL=ignoredups:ignorespace
@@ -13,7 +13,7 @@ shopt -s no_empty_cmd_completion xpg_echo
 
 # cd $HOME when I'm not already there, but not within subshells
 if [ "$PWD" != "$HOME" -a "$SHLVL" -eq 1 ]; then
-	cd "$HOME"
+    cd "$HOME"
 fi
 
 if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
