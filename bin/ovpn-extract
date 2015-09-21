@@ -1,0 +1,25 @@
+#!/usr/bin/env python
+"""extract keys and certs from .ovpn files
+
+This script facilitates using ovpn files with NetworkManager in Ubuntu.
+
+For more, see:
+https://naveensnayak.wordpress.com/2013/03/04/ubuntu-openvpn-with-ovpn-file/
+
+"""
+
+import re
+import sys
+
+sections = [
+    ('ca','ca.crt'),
+    ('cert', 'client.crt'),
+    ('key', 'client.key'),
+    ('tls-auth', 'tls-auth.key')
+    ]
+
+if __name__ == "__main__":
+    ovpn_content = open(sys.argv[1],'r').read()
+    for s, fn in sections:
+        open(fn,'w').write(re.search('<{s}>(.+?)</{s}>'.format(s=s), ovpn_content, re.DOTALL).group(1))
+    

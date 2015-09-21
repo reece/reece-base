@@ -4,8 +4,8 @@ syntax: glob
 *.elc
 *.orig
 *.pyc
-*.sqlite3
 *.sqlite
+*.sqlite3
 *~
 .git
 .gitignore
@@ -24,8 +24,14 @@ etc/emacs.d/old
 etc/emacs.d/session.*
 etc/emacs.d/tramp
 etc/emacs.d/url
+etc/ipython/README
+etc/ipython/profile_default/db/dhist
+etc/ipython/profile_default/db/rootmodules_cache
+etc/ipython/profile_default/security
+etc/ipython/profile_default/startup/README
+etc/ipython/profile_default/static/custom/custom.css
+etc/ipython/profile_default/static/custom/custom.js
 etc/ssh/known_hosts
 etc/ssh/known_hosts.old
 lib/emacs/pkgs
 tmp
-etc/ipython/profile_default/security

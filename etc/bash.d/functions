@@ -199,5 +199,6 @@ swap-cols () {
 ## Python functions/aliases
 
 py-mod-verison () {
-    python -c "import $1; print $1.__version__ + ' @ ' + $1.__file__"
+    m="${1//-/_}";
+    python -c "import $m; print $m.__version__ + ' @ ' + $m.__file__"
 }

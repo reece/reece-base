@@ -1,11 +1,13 @@
 # Reece's .hgrc
 
 [alias]
-removed-files = log --template "{rev}: {file_dels}\n"
+authors = !hg log --template "{author}\n" | sort -u
+qapplied = qapplied -s
 qdiff = diff -r qparent
 qmeld = meld -r qparent
-qapplied = qapplied -s
-authors = !hg log --template "{author}\n" | sort -u
+qst = qapplied -s
+qunapplied = qunapplied -s
+removed-files = log --template "{rev}: {file_dels}\n"
 
 [extensions]
 bookmarks=
@@ -53,11 +55,11 @@ authorcolor = True
 
 
 [trusted]
-users = locusadm
 
 
 [ui]
 username = Reece Hart <reecehart@gmail.com>
+portablefilenames = ignore
 #merge = emacs
 #merge = emacsclient-merge
 
@@ -66,3 +68,7 @@ username = Reece Hart <reecehart@gmail.com>
 #cacerts = /etc/ssl/certs/ca-certificates.crt
 
 
+[revsetalias]
+# revisions between [$1,$2), $1 a descendent (newer than) $2
+# This is different from $1:$2, which is not ancestry-aware
+btw($1, $2) = $1:$2 & ancestors($1) - $2

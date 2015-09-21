@@ -42,13 +42,13 @@ Host sf
 ############################################################################
 ## Invitae
 
-Host fs
+Host fs 1-compute
 	HostName 1-compute.vpc.locusdev.net
 
-Host ens
+Host minion
      IdentityFile ~/.ssh/keys/reece@snafu
      User reece
-     HostName ec2-54-189-72-11.us-west-2.compute.amazonaws.com
+     HostName ec2-54-185-75-215.us-west-2.compute.amazonaws.com
      ControlMaster auto
 
 #BEGIN_EC2_SSH_CONFIG_BLOCK
