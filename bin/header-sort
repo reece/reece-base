@@ -3,10 +3,76 @@
 """sort files (or stdin), preserving headers
 
 This script sorts input file(s) or standard input, preserving file
-headers. The actual sorting is performed by unix sort.  Arguments not
-recognized by this script are passed to sort unchanged.
+headers. The actual sorting is performed by unix sort.  Arguments
+after '--' are passed to sort unchanged.
 
 header-sort [opts] files [-- sort_opts]
+
+Options are:
+
+--header-lines=<int> -- max number of lines in header
+--header-prefix=<str> -- string with header prefix; terminates header when not matching
+--header-done-regexp=<str> -- terminate header when this matches
+
+Mixing options is possible.
+
+Examples:
+
+$ ./bin/header-sort --header-done-regexp='^c\s+float\s+int' tests/data/sort[123]
+
+# sort file 1
+# a comment about file 1
+c	float	int
+# sort file 2
+# a comment about file 2
+# sort file 3
+# a comment about file 3
+B	0.144856	 15
+B	0.728884	 648
+B	0.938594	 227
+E	0.377770	 524
+F	0.501935	 852
+F	0.768102	 709
+G	0.921511	 243
+M	0.212061	 65
+N	0.971062	 580
+Q	0.934387	 663
+R	0.503774	 236
+S	0.486532	 902
+S	0.960485	 55
+X	0.232765	 810
+Y	0.447418	 282
+Y	0.557946	 413
+Z	0.462722	 701
+
+snafu$ ./bin/header-sort --header-done-regexp='^c\s+float\s+int' tests/data/sort[123] -- -k1,1r -k3,3n
+# sort file 1
+# a comment about file 1
+c	float	int
+# sort file 2
+# a comment about file 2
+# sort file 3
+# a comment about file 3
+Z	0.462722	 701
+Y	0.447418	 282
+Y	0.557946	 413
+X	0.232765	 810
+S	0.960485	 55
+S	0.486532	 902
+R	0.503774	 236
+Q	0.934387	 663
+N	0.971062	 580
+M	0.212061	 65
+G	0.921511	 243
+F	0.768102	 709
+F	0.501935	 852
+E	0.377770	 524
+B	0.144856	 15
+B	0.938594	 227
+
+The three files all had "c float int" lines, but only one was printed.
+The resulting header is a concatenation of unique header lines, in
+order of appearance.
 
 """
 
@@ -18,7 +84,7 @@ import subprocess
 import re
 import sys
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
 
 
@@ -109,7 +175,7 @@ if __name__ == "__main__":
         # output line as appropriate
         if is_header:
             if line not in headers:
-                print line,
+                sys.stdout.write(line)
                 headers.add(line)
                 logger.debug("header: "+line.strip())
         else:
@@ -121,7 +187,7 @@ if __name__ == "__main__":
             logger.debug("header_done: "+line.strip())
             in_header = False
 
-
+    sys.stdout.flush()          # ensure header is flushed before sorting
     sorter.communicate()
     sorter.wait()
     
