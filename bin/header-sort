@@ -1,0 +1,127 @@
+#!/usr/bin/env python
+
+"""sort files (or stdin), preserving headers
+
+This script sorts input file(s) or standard input, preserving file
+headers. The actual sorting is performed by unix sort.  Arguments not
+recognized by this script are passed to sort unchanged.
+
+header-sort [opts] files [-- sort_opts]
+
+"""
+
+import argparse
+import fileinput
+import io
+import logging
+import subprocess
+import re
+import sys
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+
+def parse_arguments(argv):
+    ap = argparse.ArgumentParser(
+        description = __doc__
+        )
+    
+    ap.add_argument('--header-lines',
+                    type=int)
+    ap.add_argument('--header-prefix',
+                    type=str)
+    ap.add_argument('--header-done-regexp',
+                    type=str)
+
+    args = argv[1:]
+    try:
+        ddi = args.index('--')
+        my_args, sort_args = args[:ddi], args[ddi+1:]
+    except ValueError:
+        my_args, sort_args = args, []
+
+    opts, files = ap.parse_known_args(my_args)
+    opts.sort_args = sort_args
+    if opts.header_done_regexp is not None:
+        opts.header_done_regexp = re.compile(opts.header_done_regexp)
+
+    return opts, files
+
+def _is_header(opts, line):
+    if opts.header_prefix is not None and not line.startswith(opts.header_prefix):
+        return False
+    return True
+
+def _header_done(opts, line):
+    if opts.header_lines is not None and fileinput.filelineno() == opts.header_lines:
+        logger.debug("line # == header_lines: "+line.strip())
+        return True
+    if opts.header_done_regexp is not None and opts.header_done_regexp.match(line):
+        logger.debug("match header_done_regexp: "+line.strip())
+        return True
+    return False
+        
+
+if __name__ == "__main__":
+    """
+    Loop over files, shunting each line to stdout immediate if it's a header line,
+    or through a sort pipe if it's part of the body.
+
+    Each file goes through two states: in_header=True (start), and
+    in_header=False
+
+    When in_header is False (i.e., in body), all lines go to the sort process
+
+    When in header, there are three cases:
+    1) line is header; no state change. e.g., header_prefix defined and matches line
+    2) line is header; state change. e.g., header_done_regexp def'd and matches
+    3) line is body; state change. e.g., line # > header_lines or header_prefix doesn't match
+    """
+
+    opts, files = parse_arguments(sys.argv)
+    sorter = subprocess.Popen(['sort']+opts.sort_args, stdin=subprocess.PIPE)
+    headers = set()
+
+    for line in fileinput.input(files=files):
+        if fileinput.isfirstline():
+            logger.debug("new file: "+fileinput.filename())
+            in_header = True
+    
+        # is_header determines whether the line is output immediately
+        # (to stdout) or sent to the sorter
+
+        if in_header:
+            is_header = _is_header(opts, line)
+            if not is_header:
+                # state change
+                logger.debug("exit header: "+line.strip())
+                in_header = False
+        else:
+            is_header = False
+
+        logger.debug("fl:{fl} inh:{inh} ish:{ish} line:{line}".format(
+            fl=fileinput.isfirstline(),
+            inh=in_header,
+            ish=is_header,
+            line=line.strip()))
+
+        # output line as appropriate
+        if is_header:
+            if line not in headers:
+                print line,
+                headers.add(line)
+                logger.debug("header: "+line.strip())
+        else:
+            sorter.stdin.write(line)
+            logger.debug("body: "+line.strip())
+
+        # check whether this line should terminate the header
+        if in_header and _header_done(opts, line):
+            logger.debug("header_done: "+line.strip())
+            in_header = False
+
+
+    sorter.communicate()
+    sorter.wait()
+    
