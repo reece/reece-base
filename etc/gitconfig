@@ -1,0 +1,62 @@
+[branch]
+    autosetuprebase = always
+
+
+[color]
+	ui = auto
+	decorate = short
+
+
+[core]
+    excludesfile = ~/.gitignore_global
+
+
+[alias]
+    ci = commit
+    co = checkout
+    com = commit -a
+    ls = ls-tree --full-tree -r HEAD
+    pdiff = diff ^HEAD
+    pt = !git push && git push --tags
+    st = status -s
+    tags = tag --list
+    tree = log --graph --decorate --pretty=oneline --abbrev-commit --all
+    up = checkout
+
+    # compact git log graph
+    lol = log --oneline --decorate --graph --all
+ 
+    # reset HEAD --hard leaving a dangling commit for current changes to enhance safety
+    wipe = !git add -A && git commit -qm 'WIPE SAVEPOINT' && git reset HEAD~1 --hard
+ 
+    # git commit all with message
+    ca = !git add -A && git commit -m
+ 
+    # instead of git stash and git stash pop, use git save and git undo when switching branches
+    save = !git add -A && git commit -m 'SAVEPOINT'
+    popsave = reset HEAD~1 --mixed
+ 
+    # aliases from http://haacked.com/archive/2014/07/28/github-flow-aliases/
+    # git bdone will clean up any merged branches and put you back on the develop branch
+    up = !git pull --rebase --prune $@ && git submodule update --init --recursive
+    bclean = "!f() { git branch --merged ${1-develop} | grep -v " ${1-develop}$" | xargs git branch -d; }; f"
+    bdone = "!f() { git checkout ${1-develop} && git up && git bclean ${1-develop}; }; f"
+
+
+[merge]
+    # make --no-ff the default behavior
+    ff = false
+
+
+[push]
+	default = simple
+
+
+[pull]
+	rebase = true
+
+
+[user]
+	name = Reece Hart
+	email = reecehart@gmail.com
+
