@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+"""dump jsonschema as table for documentation
+
+  $ jsonschema-to-table <germline_mutation_report_schema.json
+  dateApproved	string	True	Date report was signed off
+  copyNumberAlterations	array[object]	False	
+  └╴approximateGenomicStopPosition	array	False	For imprecise assays; Stop position range
+  └╴chromosome	enum	True	The chromosome where the alteration exists
+  └╴acmgEvidenceClassification	enum	False	ACMG evidence category supporting the alteration's classification
+  └╴frequencyInPopulation	string	False	ESP, 1000genomes
+  ...
+
+"""
+
+import json
+import sys
+
+def process_node(n, level=0):
+    required = n.get("required", [])
+    for pname,pdef in n["properties"].items():
+        ptype = type_ = "enum" if "enum" in pdef else pdef["type"]
+
+        if type_ == "array":
+            items = pdef["items"]
+            if isinstance(items, dict):
+                ptype += "[" + pdef["items"]["type"] + "]"
+
+        yield dict(
+            level=level,
+            name=pname,
+            type=ptype,
+            description=pdef.get("description", None),
+            required=pname in required,
+            )
+
+        if type_ == "object":
+            for d in process_node(pdef, level=level+1):
+                yield d
+        elif type_ == "array":
+            items = pdef["items"]
+            if isinstance(items, dict) and items["type"] == "object":
+                for d in process_node(items, level=level+1):
+                    yield d
+            elif isinstance(items, list):
+                pass            # unhandled for now
+                
+
+def _indent_str(l):
+    return "" if l==0 else "  "*(l-1) + "└╴"
+
+if __name__ == "__main__":
+    schema = json.loads(sys.stdin.read())
+    
+    for d in process_node(schema):
+        print("\t".join([
+            _indent_str(d["level"]) + d["name"],
+            d["type"],
+            str(d["required"]),
+            d["description"] or "",
+            ]))

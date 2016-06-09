@@ -3,6 +3,7 @@
 #alias pst='ps --forest -u$USER -fw'
 alias ..='cd ..; awd'
 #alias .=awd
+alias bo='google-chrome'
 alias bp='less "+/^(>.*|Query.*)"'
 alias cp='cp -bi'
 alias dp='less "+/^[0-9][0-9,]*[acd].*|^diff .+|^Only in .+|^Common subd.+|^Binary files|^--- .+|^@@ .+"'
@@ -15,6 +16,7 @@ alias ll='ls -lh'
 alias llt='ll -t'
 alias llz='ll --sort=size'
 alias mv='mv -bi'
+alias o='xdg-open'
 alias p='${PAGER:-cat}'
 alias pcd='pushd'
 alias pd='popd'
@@ -60,12 +62,9 @@ alias uniq-path="perl -lpe '\$_=join(\":\",grep {not \$seen{\$_}++} split(\":\",
 
 alias docker-delete-stopped-containers='docker ps -a -q | xargs -r docker rm'
 alias docker-delete-dangling-images='docker images -q -f dangling=true | xargs -r docker rmi'
+alias docker-images-tree='docker run --rm -v /var/run/docker.sock:/var/run/docker.sock nate/dockviz images -t'
 
 
-alias docker-delete-stopped-containers='docker ps -a -q | xargs -r docker rm'
-alias docker-delete-dangling-images='docker images -q -f dangling=true | xargs -r docker rmi'
-
-
-
-## sudo-using aliases
-alias run-snapper="sudo `w snapper` / /home /local"
+# sudo-using aliases
+alias run-snapper="sudo `w snapper` /"
+alias wifi-reset="sudo sh -xc 'rmmod iwlmvm iwlwifi; modprobe iwlwifi'"

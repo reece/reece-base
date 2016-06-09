@@ -3,14 +3,18 @@
 import requests
 import webbrowser
 
-url = 'http://www.google.com/'
+url = 'http://www.ibm.com/'
 
 r = requests.get(url)
 r.raise_for_status()
 
+while "Location" in r.headers:
+    r = requests.get(r.headers["Location"])
+    r.raise_for_status()
+
 print(url + " -> " + r.url)
+
 if not r.url.startswith(url):
-    print("chasing link...")
     webbrowser.open(r.url)
 else:
     print("looks like you're already connected")

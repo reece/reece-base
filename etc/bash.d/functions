@@ -21,6 +21,12 @@ add-suffix () {
     fi; 
 }
 
+# count number of files in named directories
+count-files () {
+    for d in "$@"; do
+	printf "%8d\t$d\n" $(find "$d" -type f 2>/dev/null | wc -l);
+    done;
+}
 
 # sfxsub -- replace suffixes
 # eg$ make $(sfxsub .vcf -vus.xml P4*.vcf)
@@ -195,6 +201,10 @@ swap-cols () {
     }
 
 
+xml-prettify () {
+    xmllint --format --output "${1:--}" "${1:--}"
+    }
+
 ############################################################################
 ## Python functions/aliases
 
@@ -202,3 +212,4 @@ py-mod-verison () {
     m="${1//-/_}";
     python -c "import $m; print $m.__version__ + ' @ ' + $m.__file__"
 }
+

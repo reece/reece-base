@@ -4,7 +4,7 @@ umask 022			# 644/755 (rw-r--r--) default
 #ulimit -c 0			# no core dumps
 set -C				# no overwrite with > (>| overrides)
 
-shopt -s histappend histreedit histverify 
+shopt -s histappend histreedit histverify
 HISTCONTROL=ignoredups:ignorespace
 HISTSIZE=2000
 

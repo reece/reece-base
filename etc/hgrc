@@ -8,6 +8,7 @@ qmeld = meld -r qparent
 qst = qapplied -s
 qunapplied = qunapplied -s
 removed-files = log --template "{rev}: {file_dels}\n"
+branch-heads = log -r 'sort(head() and not closed(),"-date")' --template '{pad(branches,40)}{rev}:{node|short}\t{date|shortdate} ({date|age})\t{desc|firstline}\n'
 
 [extensions]
 bookmarks=
@@ -34,13 +35,14 @@ cmd.meld =
 
 [hooks]
 # show stats of incoming changes
-changegroup = hg diff --stat -r $HG_NODE -r tip
+# changegroup = hg diff --stat -r $HG_NODE -r tip
 
 
 [merge-tools]
 #emacs.args = -q --eval "(ediff-merge-with-ancestor \"$local\" \"$other\" \"$base\" nil \"$output\")"
 #emacs.args = -q --eval "(emerge-files-with-ancestor nil \"$local\" \"$other\" \"$base\" \"$output\" nil 'kill-emacs)"
-#meld.args = $local $base $other $output
+meld.args = $base $local $other
+#  -o $output
 
 [pager]
 pager = LESS='FSRX' less
@@ -62,6 +64,7 @@ username = Reece Hart <reecehart@gmail.com>
 portablefilenames = ignore
 #merge = emacs
 #merge = emacsclient-merge
+#ignore = ~/.hgignore
 
 
 #[web]

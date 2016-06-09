@@ -7,7 +7,7 @@ StrictHostKeyChecking no
 IdentityFile ~/.ssh/keys/snafu_pwl
 ServerAliveInterval 300
 ControlPath ~/.ssh/controlmasters/%r@%h:%p
-
+UseRoaming no 
 
 ############################################################################
 ## Home/personal
@@ -45,11 +45,18 @@ Host sf
 Host fs 1-compute
 	HostName 1-compute.vpc.locusdev.net
 
-Host minion
-     IdentityFile ~/.ssh/keys/reece@snafu
+Host clvr
+     Hostname adenine.clvr.locusdev.net
+
+# xenial 16.04 ami-c17895a1 us-west-2
+# vpc-613e0a08 subnet-7b3e0a12 sg-5a756d36 YES
+
+Host rm*
      User reece
-     HostName ec2-54-185-75-215.us-west-2.compute.amazonaws.com
-     ControlMaster auto
+     IdentityFile ~/.ssh/keys/snafu_pwl
+     #ControlMaster auto
+Host rm4
+     Hostname 52.39.189.248
 
 #BEGIN_EC2_SSH_CONFIG_BLOCK
 #END_EC2_SSH_CONFIG_BLOCK

@@ -1,0 +1,173 @@
+#!/usr/bin/env python
+"""Generate example rows for a postgresql database"""
+
+
+import argparse
+import sys
+
+import prettytable
+import psycopg2
+import psycopg2.extras
+
+
+def parse_args(argv):
+    ap = argparse.ArgumentParser(
+        description=__doc__.splitlines()[0],
+        add_help=False,
+        )
+    # RESERVED:
+    # ap.add_argument(
+    #     "--count", "-c",
+    #     action="store_true",
+    #     default=False
+    #     )            
+    ap.add_argument(
+        "--column-width", "-w",
+        default=30,
+        )            
+    ap.add_argument(
+        "--database", "--dbname", "-d",
+        default=None
+        )            
+    # RESERVED:
+    # ap.add_argument(
+    #     "--extended", "-x",
+    #     action="store_true",
+    #     default=False,
+    #     )            
+    ap.add_argument(
+        "--host", "-h",
+        default="/tmp/",
+        )            
+    ap.add_argument(
+        "--limit", "-l",
+        default=10
+        )            
+    # RESERVED:
+    # ap.add_argument(
+    #     "--schema", "-n",
+    #     default="PUBLIC"
+    #     )            
+    ap.add_argument(
+        "--port", "-p",
+        default=None,
+        )            
+    ap.add_argument(
+        "--user", "-U",
+        default=None,
+        )            
+    opts = ap.parse_args(argv[1:])
+    return opts
+
+
+def fetch_relations(conn):
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    # lifted from PG 9.5.3 using \set ECHO_HIDDEN, then \d+
+    cur.execute("""
+SELECT c.oid, n.nspname as "Schema",
+  c.relname as "Name",
+  CASE c.relkind
+    WHEN 'r' THEN 'table'
+    WHEN 'v' THEN 'view'
+    WHEN 'm' THEN 'materialized view'
+    WHEN 'i' THEN 'index'
+    WHEN 'S' THEN 'sequence'
+    WHEN 's' THEN 'special'
+    WHEN 'f' THEN 'foreign table'
+  END as "Type",
+  pg_catalog.pg_get_userbyid(c.relowner) as "Owner",
+  pg_catalog.pg_size_pretty(pg_catalog.pg_table_size(c.oid)) as "Size",
+  pg_catalog.obj_description(c.oid, 'pg_class') as "Description"
+FROM pg_catalog.pg_class c
+LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE c.relkind IN ('r','v','m','S','f','')
+      AND n.nspname <> 'pg_catalog'
+      AND n.nspname <> 'information_schema'
+      AND n.nspname !~ '^pg_toast'
+  AND pg_catalog.pg_table_is_visible(c.oid)
+ORDER BY 1,2;
+""")
+    return cur.fetchall()
+
+
+def fetch_table_def(conn, oid):
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    # lifted from PG 9.5.3 using \set ECHO_HIDDEN, then \d+
+    cur.execute("""
+SELECT a.attname,
+  pg_catalog.format_type(a.atttypid, a.atttypmod),
+  (SELECT substring(pg_catalog.pg_get_expr(d.adbin, d.adrelid) for 128)
+   FROM pg_catalog.pg_attrdef d
+   WHERE d.adrelid = a.attrelid AND d.adnum = a.attnum AND a.atthasdef) as "modifiers",
+  a.attnotnull, a.attnum,
+  (SELECT c.collname FROM pg_catalog.pg_collation c, pg_catalog.pg_type t
+   WHERE c.oid = a.attcollation AND t.oid = a.atttypid AND a.attcollation <> t.typcollation) AS attcollation,
+  NULL AS indexdef,
+  NULL AS attfdwoptions,
+  a.attstorage,
+  CASE WHEN a.attstattarget=-1 THEN NULL ELSE a.attstattarget END AS attstattarget, pg_catalog.col_description(a.attrelid, a.attnum)
+FROM pg_catalog.pg_attribute a
+WHERE a.attrelid = %(oid)s AND a.attnum > 0 AND NOT a.attisdropped
+ORDER BY a.attnum;
+    """, dict(oid=oid))
+    return cur.fetchall()
+
+def build_table_def_pt(table_def):
+    src_names = "attname format_type attnotnull col_description".split()
+    dst_names = "column type not_null comment".split()
+    assert(len(src_names) == len(dst_names))
+    pt = prettytable.PrettyTable(field_names=dst_names)
+    for td_row in table_def:
+        pt.add_row([td_row[k] for k in src_names])
+    return pt
+
+def fetch_example_rows(conn, fqtn, limit=10):
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("""select * from {fqtn} limit {l}""".format(fqtn=fqtn, l=limit))
+    return cur.fetchall()
+
+
+def build_example_rows(rows, col_width):
+    def crop_value(v, cw):
+        d = " … "
+        v = str(v)
+        lw = int((cw - len(d)) / 2)
+        rw = cw - len(d) - lw
+        if len(v) > cw:
+            v = v[:lw+1] + d + v[-rw:]
+        return v
+
+    if len(rows) == 0:
+        return "No example rows selected"
+    r0 = rows[0]
+    cols = list(r0.keys())
+    pt = prettytable.PrettyTable(field_names=cols)
+    for row in rows:
+        pt.add_row([crop_value(row[k], col_width) for k in cols])
+    return pt
+
+def main(argv):
+    opts = parse_args(argv)
+    conn_args = {k:opts.__dict__[k] for k in "host port database user".split()}
+    conn = psycopg2.connect(**conn_args)
+    for table in fetch_relations(conn):
+        conn.reset()            # in case of prior failure
+        if table["Type"] == "table":
+            try:
+                rows = fetch_example_rows(conn,
+                                        "{table[Schema]}.{table[Name]}".format(table=table),
+                                        limit=opts.limit)
+            except psycopg2.ProgrammingError as e:
+                print(e)
+                continue
+            if len(rows) == 0:
+                continue
+            print("* Table: {t[Schema]}.{t[Name]}\nDescription: {t[Description]}".format(t=table))
+            table_def = fetch_table_def(conn, table["oid"])
+            print(build_table_def_pt(table_def))
+            print(build_example_rows(rows, col_width=opts.column_width))
+            print("\n\n")
+
+
+if __name__ == "__main__":
+    main(sys.argv)

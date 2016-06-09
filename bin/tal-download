@@ -21,7 +21,8 @@ class TALDownloader(object):
     """TALDownloader -- class to download and rename episodes of This American Life"""
 
     ep_url_fmt = u'http://www.thisamericanlife.org/radio-archives/episode/{epno}/'
-    mp3_url_fmt = u'http://audio.thisamericanlife.org/jomamashouse/ismymamashouse/{epno}.mp3'
+    #mp3_url_fmt = u'http://audio.thisamericanlife.org/jomamashouse/ismymamashouse/{epno}.mp3'
+    mp3_url_fmt = u'http://www.podtrac.com/pts/redirect.mp3/podcast.thisamericanlife.org/extended/577.mp3'
     title_re = re.compile(u'<title>(.+) \| This American Life</title>')
     html_parser = HTMLParser.HTMLParser()
 
@@ -49,7 +50,7 @@ class TALDownloader(object):
 
 
 def main(argv=None):
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.WARN)
 
     parser = argparse.ArgumentParser(
         description = u'Download This American Life episodes',

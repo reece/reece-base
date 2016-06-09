@@ -23,13 +23,6 @@ export PSQL_EDITOR='emacs -nw'
 export PYCHARM_JDK=~/opt/java/jdk1.7.0_21
 export VERSION_CONTROL=simple
 
-# Perl setup
-PERL_PREFIX="${REECE_EXTERNAL_DIR}/perl"
-PERL5LIB=$PERL_PREFIX/lib/perl5:${PERL5LIB:+:$PERL5LIB}
-PATH=$PERL_PREFIX/bin:$PATH
-export PERL5LIB
-unset PERL_PREFIX
-
 # R setup
 export R_LIBS_USER="${REECE_EXTERNAL_DIR}/lib/R"
 

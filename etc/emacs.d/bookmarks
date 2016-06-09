@@ -2,7 +2,14 @@
 ;;; This format is meant to be slightly human-readable;
 ;;; nevertheless, you probably don't want to edit it.
 ;;; -*- End Of Bookmark File Format Version Stamp -*-
-(("HVP2014"
+(("mirrors-ncbi"
+ (filename .
+	   #("/scp:rm4:/home/reece/projects/biocommons/mirrors-ncbi/" 1 4
+	     (tramp-default t)))
+ (front-context-string . "2015\n  drwxr-xr-")
+ (rear-context-string . "96 Dec  8 23:49 ")
+ (position . 115))
+("HVP2014"
  (filename . "~/Insync/reece.hart@invitae.com/HVP 2014 Clinical Significance of Transcript Discrepancies/")
  (front-context-string . "Clinical Signifi")
  (rear-context-string . "84 Feb  9 11:22 ")

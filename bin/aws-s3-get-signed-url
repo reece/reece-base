@@ -1,0 +1,64 @@
+#!/usr/bin/env python
+
+"""generate a time-limited, pre-signed for an existing S3 object"""
+
+
+import argparse
+import os
+import configparser
+
+import boto
+
+
+
+if __name__ == "__main__":
+
+    ap = argparse.ArgumentParser(
+        description = __doc__,
+        )
+    ap.add_argument(
+        '--credentials-file', '-C',
+        help="path to credentials file",
+        default="~/.aws/credentials",
+        )
+    ap.add_argument(
+        '--profile', '-p',
+        required=True,
+        help="profile to use from credentials file"
+        )
+    ap.add_argument(
+        '--bucket', '-b',
+        required=True,
+        help="name of bucket"
+        )
+    ap.add_argument(
+        '--key', '-k',
+        required=True,
+        help="S3 key within bucket"
+        )
+    ap.add_argument(
+        '--expires-in', '-e',
+        required=True,
+        help="TTL in seconds"
+        )
+    opts = ap.parse_args()
+    
+    opts.method = 'GET'
+
+    
+    creds_cf = configparser.ConfigParser()
+    creds_cf.read_file(open(os.path.expanduser(opts.credentials_file),"r"))
+
+    conn = boto.connect_s3(
+        aws_access_key_id=creds_cf[opts.profile]['aws_access_key_id'],
+        aws_secret_access_key=creds_cf[opts.profile]['aws_secret_access_key'],
+        )
+
+    b = conn.get_bucket(opts.bucket)
+    k = b.get_key(opts.key)
+    url = k.generate_url(
+        expires_in=int(opts.expires_in),
+        method=opts.method,
+        )
+
+    print("{b.name}/{k.name}: {u}".format(b=b, k=k, u=url))

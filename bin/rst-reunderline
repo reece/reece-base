@@ -1,0 +1,29 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""replace rst underline characters from pandoc with ordered characters in !@#$%"""
+
+from __future__ import absolute_import, division, print_function, unicode_literals
+
+import re
+import sys
+
+in_chars = "-=~^'"
+out_chars = "@!#$%"
+charpairs = zip(in_chars, out_chars)
+charmap = dict(charpairs)
+
+hdg_re = r"^([" + in_chars + r"])(\1{3,})"
+in_char_re = re.compile(hdg_re)
+
+def replacer(m):
+    return charmap[m.group(1)] * len(m.group(0))
+
+def sub_heading(l):
+    return re.sub(in_char_re, replacer, l)
+
+for line in sys.stdin:
+    line = line.strip()
+    if line and line[0] in in_chars:
+        line = sub_heading(line)
+    print(line)

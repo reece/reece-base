@@ -1,0 +1,27 @@
+# -*- mode: snippet -*-
+# name: def parse_args
+# key: def_parse_args
+# binding: direct-keybinding
+# --
+def parse_args():
+    ap = argparse.ArgumentParser(
+        description=__doc__.split("\n\n")[0],
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        )
+    ap.add_argument(
+        "--sample",
+        default=False,
+        action="store_true",
+        help="generates a file using just a few products and order groups",
+        )
+    ap.add_argument(
+        "--input-file", "-i"
+        )
+    ap.add_argument(
+        "--verbose", "-v",
+	action="count",
+	default=0,
+	help="be increasingly chatty"
+        )
+    opts = ap.parse_args()
+    return opts

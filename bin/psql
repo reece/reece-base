@@ -1,3 +1,0 @@
-#!/bin/sh
-export LESS=-FiMRSXx4
-exec /home/reece/opt/postgresql/current/${PLATFORM:-x86_64-linux-3.19}/bin/psql ${1+"$@"}
