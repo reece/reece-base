@@ -1,6 +1,0 @@
-# -*- mode: snippet -*-
-# name: embed IPython
-# key: ipe
-# binding: direct-keybinding
-# --
-import IPython; IPython.embed()	  ### TODO: Remove IPython.embed()

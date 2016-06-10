@@ -1,2 +1,0 @@
-## ~/.bash_profile -- initialization script for bash
-[ "$TERM" != "dumb" ] && source ${HOME}/.bashrc

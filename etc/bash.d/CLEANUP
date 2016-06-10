@@ -1,7 +1,0 @@
-# .bash/CLEANUP -- clean up after .bashrc loading
-
-# ideally, all .bash/ scripts will cleanup after themselves
-
-# don't want these polluting my variable space under any circumstances
-unset BOOT_FILE BOOT_IMAGE RUNLEVEL INIT_VERSION PREVLEVEL AUTOBOOT
-unset source_dot_bash

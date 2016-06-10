@@ -1,5 +1,0 @@
-SVM_DIR=$HOME/opt/scala-version-manager
-if [ -d $SVM_DIR ]; then
-   source $SVM_DIR/svm.sh
-   #svm use 2.8.1.final
-fi

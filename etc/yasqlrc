@@ -1,6 +1,0 @@
-connection_timeout = 5
-auto_complete = 1
-complete_tables = 1
-complete_columns = 1
-prompt = %U%H
-pager = less
