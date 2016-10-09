@@ -5,7 +5,7 @@ use warnings;
 use IO::Pipe;
 use Data::Dumper;
 
-my @scan_cmd = qw(sudo iwlist wlan0 scanning);
+my @scan_cmd = qw(sudo iwlist wlp2s0 scanning);
 my $in = new IO::Pipe;
 $in->reader( @scan_cmd )
   || die("@scan_cmd: ", $!, "\n");
