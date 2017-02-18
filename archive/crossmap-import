@@ -1,0 +1,33 @@
+#!/bin/bash -e
+
+rm -fr crossmap
+hg clone git@github.com:reece/crossmap.git
+cd crossmap
+
+for v in 0.1.{4,5,6,7,8,9} 0.2 0.2.{1,2,3,4,5}; do
+    rm -fr *
+
+    echo "========================================================================="
+    echo "== $v"
+
+    url="https://svwh.dl.sourceforge.net/project/crossmap/CrossMap-$v.tar.gz"
+    bn=$(basename "$url")
+    cp="/tmp/$bn"
+    if [ ! -e "$cp" ]; then
+	wget -O "$cp.tmp" -nd "$url"
+	mv "$cp.tmp" "$cp"
+    fi
+
+    tar -xzf "$cp"
+
+    mv CrossMap-$v/* .
+    rmdir CrossMap-$v 
+
+    d=$(stat -c "%y" "$cp" | cut -f1 -d.)
+
+    (
+	set -x;
+	hg com -A --date "$d" -m "imported $url"
+	hg tag --date "$d" $v
+    )
+done
