@@ -2,7 +2,7 @@
 # print colored text examples to stdout
 # also try with 4, 7, or '4;7' args
 
-cw=7
+cw=10
 
 echo "termcolors -- color samples and codes for color terminals"
 cc="0;40;31m"
@@ -25,7 +25,7 @@ while [ $i -le 1 ]; do
 	fc=30;
 	while [ $fc -le 38 ]; do
 		cc="$i;${fc}m"
-		printf " \\033[$cc%${cw}s\\033[0m" "$fc"
+		printf " \\033[$cc%${cw}s\\033[0m" "$cc"
 		fc=$(( $fc + 1 ))
 	done
 	echo
@@ -41,7 +41,7 @@ while [ $i -le 1 ]; do
 	fc=30;
 	while [ $fc -le 38 ]; do
 		cc="$i;$bc;${fc}m"
-		printf " \\033[$cc%${cw}s\\033[0m" "$fc"
+		printf " \\033[$cc%${cw}s\\033[0m" "$cc"
 		fc=$(( $fc + 1 ))
 	done
 	echo
