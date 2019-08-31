@@ -24,3 +24,4 @@ gvfs
 mnt
 no-backup
 tmp
+venv

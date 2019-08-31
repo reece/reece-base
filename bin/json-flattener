@@ -1,0 +1,23 @@
+#!/usr/bin/env python
+"""recursively walk json document, reporting paths and characterized values"""
+
+import io
+import json
+import sys
+
+
+def walk(i, keys=None):
+   """given dict i, return generator of [keys]"""
+    if keys is None:
+        keys = []
+    for k in i:
+        # 2 cases: dict, other
+        yield keys + [k]
+        if isinstance(i[k], dict):
+            for kp in walk(i[k], keys + [k]):
+                yield kp
+
+
+if __name__ == "__main__":
+   doc = json.load(io.open(sys.argv[1], "r"))
+

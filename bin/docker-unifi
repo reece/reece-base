@@ -1,0 +1,51 @@
+#!/bin/sh
+
+# Sources and inspiration:
+# https://hub.docker.com/r/jacobalberty/unifi/
+# https://www.reddit.com/r/Ubiquiti/comments/7po0jr/installing_unifi_controller_on_ubuntu_with_docker/
+# https://letsencrypt.org/docs/certificates-for-localhost/
+
+
+UNIFI_DIR=$HOME/var/unifi-controller
+
+echo "unifi starting at http://localhost:8080/"
+
+cd /tmp
+mkdir -p $UNIFI_DIR/unifi/data $UNIFI_DIR/unifi/log
+exec docker run \
+       -d \
+       -e RUNAS_UID0=false \
+       -e UNIFI_UID=$(id -u unifi) \
+       -e UNIFI_GID=$(id -g unifi) \
+       -e TZ='America/Los_Angeles' \
+       -v $UNIFI_DIR/unifi:/unifi \
+       -v $UNIFI_DIR/certs:/var/cert/unifi \
+       --init \
+       --net=host \
+       --name=unifi-controller \
+       jacobalberty/unifi:stable
+
+
+# TODO: consider two modes: "discovery" (w/--net=host) and "monitoring" (with ports)
+
+# explicit ports (irrelevant with --net=host)
+# -p 443:443/tcp -p 443:443/udp -p 1900:1900/udp -p 3478:3478/udp -p 6789:9789/tcp -p 8080:8080/tcp -p 8443:8443/tcp -p 8843:8843/tcp -p 8880:8880/tcp -p 8883:8883/tcp -p 10001:10001/udp \
+# -p 3478:3478/udp -p 8080:8080 -p 8443:8443 -p 10001:10001/udp \
+
+
+# from https://community.ubnt.com/t5/UniFi-Wireless/Controler-unable-to-see-Unifi-devices/m-p/2738653/highlight/true#M383321
+# docker run -d --name=unifi-controller --network unifi --volume=/home/"user"/docker/ubiquiti/persistant-storage/jacobalbertyContainer:/var/lib/unifi -p 443:443/tcp -p 443:443/udp -p 1900:1900/udp -p 3478:3478/udp -p 6789:9789/tcp -p 8080:8080/tcp -p 8443:8443/tcp -p 8843:8843/tcp -p 8880:8880/tcp -p 8883:8883/tcp -p 10001:10001/udp --restart=always -e RUNAS_UID0='false' -e TZ='America/Chicago' -e BIND_PRIV='false' jacobalberty/unifi:stable
+
+
+
+
+
+# docker run -it unifi-controller bash
+# Then, in container:
+# apt update
+# apt install software-properties-common
+# add-apt-repository universe
+# add-apt-repository ppa:certbot/certbot
+# apt update
+# apt install certbot
+# apt upgrade -y

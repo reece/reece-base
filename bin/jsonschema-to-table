@@ -18,12 +18,14 @@ import sys
 def process_node(n, level=0):
     required = n.get("required", [])
     for pname,pdef in n["properties"].items():
-        ptype = type_ = "enum" if "enum" in pdef else pdef["type"]
+        ptype = "enum" if ("enum" in pdef) else pdef["type"]
+        type_ = ptype
 
         if type_ == "array":
             items = pdef["items"]
             if isinstance(items, dict):
-                ptype += "[" + pdef["items"]["type"] + "]"
+                t = items["$ref"] if "$ref" in items else items["type"]
+                ptype += "[" + t + "]"
 
         yield dict(
             level=level,
@@ -38,9 +40,10 @@ def process_node(n, level=0):
                 yield d
         elif type_ == "array":
             items = pdef["items"]
-            if isinstance(items, dict) and items["type"] == "object":
-                for d in process_node(items, level=level+1):
-                    yield d
+            if isinstance(items, dict):
+                if "type" in items and items["type"] == "object":
+                    for d in process_node(items, level=level+1):
+                        yield d
             elif isinstance(items, list):
                 pass            # unhandled for now
                 
@@ -48,13 +51,31 @@ def process_node(n, level=0):
 def _indent_str(l):
     return "" if l==0 else "  "*(l-1) + "└╴"
 
-if __name__ == "__main__":
-    schema = json.loads(sys.stdin.read())
-    
-    for d in process_node(schema):
+
+def dump_node(node, name):
+    print("## " + name)
+
+    if "properties" not in node:
+        print("(empty)")
+        return
+
+    for d in process_node(node):
         print("\t".join([
             _indent_str(d["level"]) + d["name"],
             d["type"],
             str(d["required"]),
             d["description"] or "",
             ]))
+
+
+
+if __name__ == "__main__":
+    fh = open(sys.argv[1]) if len(sys.argv) > 1 else sys.stdin
+    schema = json.loads(fh.read())
+    
+    dump_node(schema, "root schema")
+    
+    if "definitions" in schema:
+        for key, node in schema["definitions"].items():
+            dump_node(node, key)
+    

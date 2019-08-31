@@ -8,6 +8,8 @@ url = 'http://www.ibm.com/'
 r = requests.get(url)
 r.raise_for_status()
 
+
+
 while "Location" in r.headers:
     r = requests.get(r.headers["Location"])
     r.raise_for_status()

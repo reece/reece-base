@@ -6,6 +6,7 @@
 import argparse
 import configparser
 import collections
+import csv
 import itertools
 import logging
 import prettytable
@@ -16,7 +17,7 @@ from jira.client import JIRA
 
 logger = logging.getLogger(__name__)
 
-fields = collections.OrderedDict([
+fields1 = collections.OrderedDict([
     ('project key',     lambda o,i: i.fields.project.key ),
     ('components',      lambda o,i: ','.join([ c.name for c in i.fields.components ]) ),
     ('priority',		lambda o,i: i.fields.priority.name if i.fields.priority else '' ),
@@ -30,6 +31,16 @@ fields = collections.OrderedDict([
     ('link',            lambda o,i: 'https://{o.hostname}/browse/{i.key}'.format(o=o,i=i)),
     ])
 
+fields2 = collections.OrderedDict([
+    ('assignee',        lambda o,i: i.fields.assignee.name if i.fields.assignee else '' ),
+    ('issue key',       lambda o,i: i.key ),
+    ('status',          lambda o,i: i.fields.status.name ),
+    ('summary',         lambda o,i: i.fields.summary ),
+    ('updated',         lambda o,i: i.fields.updated if i.fields.updated else '' ),
+    ('link',            lambda o,i: 'https://{o.hostname}/browse/{i.key}'.format(o=o,i=i)),
+    ])
+
+fields = fields2
 
 def parse_args(argv):
     def sep_and_flatten(l):
@@ -97,7 +108,18 @@ def parse_args(argv):
         default = [],
         help = 'components (e.g., frobonicator); multiple and comma-separated okay; default = all in project',
         )
-
+    ap.add_argument(
+        "--format", "-f",
+        choices = ["table", "tsv"],
+        default = "table",
+        help = "output format (table, tsv)",
+        )
+    ap.add_argument(
+        '--resolved',
+        default = None,
+        help = "show only issues that were resolved with period (e.g., 2017-10-01,2017-10-31)"
+        )
+        
     opts = ap.parse_args(argv)
 
     opts.projects = sep_and_flatten(opts.projects)
@@ -117,6 +139,9 @@ def parse_args(argv):
     return opts
 
 def fetch_issues(opts,jira):
+
+    #JQL project = PAT AND resolution changed during (2017-10-01,2017-10-31)
+
     jql = []
     if opts.projects:
         jql += [ ' OR '.join([ 'project = '+i for i in opts.projects ]) ]
@@ -124,7 +149,14 @@ def fetch_issues(opts,jira):
         jql += [ ' OR '.join([ 'component = '+c for c in opts.components ]) ]
     if opts.issues:
         jql += [ ' OR '.join([ 'issue = '+i for i in opts.issues ]) ]
+    if opts.resolved:
+        assert "," in opts.resolved, "date must be comma separated, like 2017-10-01,2017-10-31"
+        start, end = opts.resolved.split(",")
+        jql += [ "resolution changed during ({start},{end})".format(start=start, end=end) ]
+
     jql_str = ' AND '.join(jql)
+    jql_str += " ORDER BY assignee"
+
     return jira.search_issues(jql_str,maxResults=500)
 
 
@@ -137,8 +169,21 @@ if __name__ == '__main__':
     jira = JIRA({'server': 'https://{opts.hostname}/'.format(opts=opts)},
                 basic_auth=(opts.username,opts.password))
 
-    pt = prettytable.PrettyTable(field_names = fields.keys())
+    issue_gen = (
+        collections.OrderedDict([(f, fx(opts, i) or '') for f, fx in fields.items()])
+        for i in fetch_issues(opts, jira)
+        )
 
-    for i in fetch_issues(opts,jira):
-        pt.add_row([ fx(opts,i) or '' for fx in fields.values() ])
-    print(pt)
+    if opts.format == "table":
+        pt = prettytable.PrettyTable(field_names = fields.keys())
+        for iss in issue_gen:
+            pt.add_row(iss.values())
+        print(pt)
+
+    if opts.format == "tsv":
+        ofh = csv.DictWriter(sys.stdout, fieldnames = fields.keys(), delimiter = "\t")
+        ofh.writeheader()
+        for iss in issue_gen:
+            ofh.writerow(iss)
+
+            

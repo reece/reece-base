@@ -77,7 +77,7 @@ class ColDef(namedlist('ColDef',['name','possible_types','has_nulls','sample_val
     def inferred_type(self):
         assert len(self.possible_types)>0, "all possible column types eliminated?!"
         if len(self.possible_types - set(['text'])) > 1:
-            logging.warn("column '{self.name}' has {np} possible types ({self.possible_types}); returning first".format(
+            logging.warning("column '{self.name}' has {np} possible types ({self.possible_types}); returning first".format(
                 self=self,np=len(self.possible_types)))
         return sorted(list(self.possible_types))[0]
 

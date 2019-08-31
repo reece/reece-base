@@ -11,3 +11,4 @@ no-snapper
 /local/home/reece/secure/.exome
 shared-recovery
 /var/lib/docker/volumes
+venv*

@@ -1,0 +1,12 @@
+#!/bin/sh
+
+convert1 () {
+    in="$1";
+    out=${in%.mov}.mp4;
+    HandBrakeCLI -i "$in" -o "$out.tmp" -e x264 -q 22 -r 30 -B 64 -X 1920 -O
+    mv "$out.tmp" "$out"
+}
+
+for fn in "$@"; do
+    convert1 "$fn"
+done

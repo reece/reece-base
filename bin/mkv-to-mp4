@@ -1,0 +1,15 @@
+#!/bin/bash
+
+if [ $# -lt 1 ]; then
+    cat <<EOF 1>&2
+Usage:
+$0 <mkv_filename>
+EOF
+    exit 1
+fi
+ 
+in="$1"
+out="${1%.mkv}.mp4"
+
+set -x
+ffmpeg -i "$in" -codec copy "$out"

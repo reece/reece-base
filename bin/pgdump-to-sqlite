@@ -1,0 +1,8 @@
+#!/usr/bin/env perl
+
+while(<>) {
+    s/^(SET |SELECT pg_catalog.set_config|CREATE SCHEMA)/-- $&/;
+    s/uta_\d+\.//;
+    s/::(text|integer)//;
+    print;
+}
