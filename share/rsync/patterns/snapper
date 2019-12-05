@@ -1,14 +1,15 @@
 /dev/
+/local/home/reece/secure/.exome
 /media/
 /var/cache
 /var/crash
+/var/lib/docker/volumes
 /var/lib/mysql
 /var/lock
 /var/run
 /var/spool
 /var/tmp
+Downloads
 no-snapper
-/local/home/reece/secure/.exome
 shared-recovery
-/var/lib/docker/volumes
 venv*

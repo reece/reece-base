@@ -15,6 +15,7 @@
 /proc
 /sys
 Cache
+CacheStorage
 TMP_BACKUP
 Trash
 __pycache__
