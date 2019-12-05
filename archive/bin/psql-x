@@ -1,0 +1,6 @@
+#!/bin/bash
+export LESS=-FiMRSXx4
+PLATFORM=$( $(dirname $0)/platform )
+exe=/home/reece/opt/postgresql/current/${PLATFORM}/bin/psql
+#exe=/usr/bin/psql
+exec $exe -h /tmp ${1+"$@"}

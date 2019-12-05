@@ -1,0 +1,51 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import prettytable
+
+def read_set(fn):
+    return set(l.strip() for l in open(fn,'r'))
+
+def set_eg_str(s,n):
+    eg = sorted(list(s))[:min(len(s),n)]
+    if len(s) > n:
+        eg += ["..."]
+    return ', '.join(eg)
+
+
+if __name__ == "__main__":
+    fns = sys.argv[1:]
+    pts = prettytable.PrettyTable(field_names=["i","fn"]+[str(i) for i in range(len(fns))])
+    pt = prettytable.PrettyTable(field_names=["afn","bfn",
+                                              "a-b","a & b","b-a",
+                                              "a-b e.g.","a&b e.g.","b-a e.g."])
+    for ai,afn in enumerate(fns):
+        a = read_set(afn)
+        s = [None]*(ai+1)
+        for bi,bfn in enumerate(fns[ai+1:]):
+            b = read_set(bfn)
+            a_not_b = a-b
+            a_and_b = a&b
+            b_not_a = b-a
+            pt.add_row([afn,bfn,
+                        len(a_not_b),len(a_and_b),len(b_not_a),
+                        set_eg_str(a_not_b,3),set_eg_str(a_and_b,3),set_eg_str(b_not_a,3),
+                        ])
+            s += [ "%d/%d/%d" % (len(a_not_b),len(a_and_b),len(b_not_a)) ]
+        pts.add_row([ai,afn]+s)
+
+    print("""
+    <html>
+    <head>
+    <style type="text/css">
+    table {border: thin black solid; border-collapse: collapse; }
+    td, th {text-wrap: normal; width:20%; text-align:center; border: thin black solid;}
+    </style>
+    </head>
+    <body>
+    """)
+    
+    print(pts.get_html_string(attributes={"class":"tbl"}))
+    print(pt.get_html_string(attributes={"class":"tbl"}))
+    print("</body></html>")

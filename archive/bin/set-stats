@@ -1,0 +1,147 @@
+#!/usr/bin/env python
+
+"""set overlaps among streams of sorted data
+
+Example:
+$ find dir1 -size +1 -print0 | xargs -0r md5sum >1.md5s
+$ find dir2 -size +1 -print0 | xargs -0r md5sum >2.md5s
+$ find dir3 -size +1 -print0 | xargs -0r md5sum >3.md5s
+$ set-stats 1.md5s 2.md5s 3.md5s
+
+
+
+* sample data genereated like this:
+In [1]: import io, random
+In [2]: letters = "a b c d".split() 
+In [3]: files = {l: io.open(l, "w") for l in letters}
+In [4]: lsets = sorted(tuple(sorted(random.sample(letters, k=random.randint(1, len(letters))))) for _ in range(20))
+In [5]: for i, lset in enumerate(lsets): 
+   ...:     label = "".join(lset) + str(i) 
+   ...:     for l in lset: 
+   ...:         files[l].write(label + "\n") 
+In [6]: del files
+
+"""
+
+
+import argparse
+import collections
+import io
+import itertools
+import os
+import pprint
+import re
+import sys
+
+
+def parse_args(argv):
+    ap = argparse.ArgumentParser(
+        description = __doc__)
+    ap.add_argument("FILES", nargs="*")
+    opts = ap.parse_args(argv)
+    return opts
+
+class IteratorQueue:
+    """iterator-backed queue that maintains a `first` property
+    Sets first to None when reading beyond end of stream
+    """
+
+    def __init__(self, itr):
+        self._itr = itr
+        self.advance()
+
+    def __next__(self):
+        first = self._first
+        self.advance()
+        return first
+
+    def advance(self):
+        if self._itr is None:
+            return
+        try:
+            self._first = next(self._itr)
+        except StopIteration:
+            self._itr = None
+            self._first = None
+
+    @property
+    def first(self):
+        return self._first
+
+
+
+def process_queues(queues):
+    if len(queues) < 2:
+        raise RuntimeError("Need at least two queues")
+
+    while True:
+        firsts = [q.first for q in queues]
+        if all(f is None for f in firsts):
+            break
+        min_first = min(firsts, key=lambda e: (e is None, e))
+        matches = tuple(i for i, q in enumerate(queues) if q.first == min_first)
+        yield min_first, matches
+        for m in matches:
+            queues[m].advance()
+        
+def compute_sets(queues):
+    sets = collections.defaultdict(lambda: set())
+    for item, matches in process_queues(queues):
+        sets[matches].add(item)
+    return sets
+
+def compute_set_stats(queues):
+    set_stats = collections.Counter(matches for _, matches in process_queues(queues))
+    return set_stats
+
+
+def open_stream(fn):
+    """returns iterator of newline-delimited items from fn"""
+    return (l.rstrip() for l in io.open(fn))
+
+def open_md5sum_stream(fn):
+    """returns iterator of newline-delimited items from fn"""
+    for l in io.open(fn):
+        l = l.rstrip()
+        md5, path = l[:32], l[34:]
+        yield md5
+
+
+if __name__ == "__main__":
+    opts = parse_args(sys.argv[1:])
+
+    queues = [IteratorQueue(open_md5sum_stream(fn)) for fn in opts.FILES]
+    sets = compute_sets(queues)
+
+    queues = [IteratorQueue(open_md5sum_stream(fn)) for fn in opts.FILES]
+    set_stats = compute_set_stats(queues)
+
+    print("* All counts")
+    pprint.pprint(set_stats)
+
+    print("* Unique")
+    unique = {k: set_stats[k] for k in sorted(set_stats) if len(k) == 1}
+    for k in unique:
+        f = opts.FILES[k[0]]
+        items = sets[k]
+        abbr_items = [str(i[:10]) for i in list(items)[:5]]
+        print(f"  {k} {f} ({len(items)}): {' /// '.join(abbr_items)}")
+
+    print("* Pairs")
+    fnos = range(len(queues))
+    pair_counts = {
+        (f1,f2): sum(v for k, v in set_stats.items() if f1 in k and f2 in k)
+        for f1 in fnos
+        for f2 in fnos if f2>f1
+        }
+    pprint.pprint(pair_counts)
+
+
+    if True:
+        combs = sorted(set_stats.keys(), key=lambda e: len(e))
+    else:
+        combs = itertools.chain.from_iterable(
+            itertools.combinations(fnos, r=r)
+            for r in range(len(fnos)))
+    
+    import IPython; IPython.embed()	  ### TODO: Remove IPython.embed()

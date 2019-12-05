@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -o pipefail
+
+for f in "$@"; do
+    fp=$(openssl pkey -in "$f" -pubout -outform DER 2>/dev/null | openssl md5 -c)
+    if [ "$?" = "0" ]; then
+        echo "$fp $f"
+    else
+        echo "$f: Not a PEM private key?" 1>&2
+    fi
+done

@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+
+## Emoji from https://bitbucket.org/DACOFFEY/wiki/wiki/edit/BITBUCKET/EMOJI/Emoji2 as one list.
+
+from itertools import zip_longest
+
+n_cols = 4
+indent = ""
+
+emoji = """
+1 2 3 4 5 6 7 8 9 109 8ball a ab airplane alien ambulance angel anger
+angry apple aquarius aries art astonished atm b baby balloon bamboo
+bank barber baseball basketball bath bear beer beers beginner bell
+bento bike bikini bird birthday blush boar boat bomb book boot bouquet
+bow bowtie boy bread briefcase bug bulb bus busstop cactus cake
+calling camel camera cancer capricorn car cat cd chart chicken church
+cinema clap clapper clock1 clock10 clock11 clock12 clock2 clock3
+clock4 clock5 clock6 clock7 clock8 clock9 cloud clubs cn cocktail
+coffee computer confounded congratulations construction cool cop
+copyright couple couplekiss cow crown cry cupid curry cyclone dancer
+dancers dango dart dash de diamonds disappointed dog dolls dolphin
+dress dvd ear egg eggplant elephant email es exclamation eyes factory
+fax fearful feelsgood feet finnadie fire fireworks fish fist flags
+flushed football fountain fr fries frog fuelpump gb gem gemini ghost
+gift girl goberserk godmode golf grin guardsman guitar gun haircut
+hamburger hammer hamster hand handbag hankey hash headphones heart
+heartbeat heartpulse hearts hibiscus horse hospital hotel hotsprings
+house hurtrealbad icecream id imp iphone it joy jp key kimono kiss
+koala koko kr leaves leo libra lips lipstick lock loop loudspeaker mag
+mahjong mailbox man mask massage mega memo mens metal metro microphone
+minidisc moneybag monkey moon mouse muscle necktie new nose notes o o2
+ocean octocat octopus oden office ok ophiuchus parking pencil penguin
+pensive persevere phone pig pill pisces poop postbox pray princess
+punch question rabbit racehorse radio rage rainbow ramen registered
+relaxed relieved restroom rewind ribbon rice ring rocket rose ru
+runner sa sagittarius sailboat sake sandal santa satellite satisfied
+saxophone school scissors scorpius scream seat secret sheep shell ship
+shipit shirt shit shoe ski skull sleepy smile smiley smirk smoking
+snake snowman sob soccer spades spaghetti sparkler sparkles speaker
+speedboat squirrel star star2 stars station stew strawberry sunflower
+sunny sunrise surfer sushi suspect sweat swimmer syringe tada
+tangerine taurus taxi tea telephone tennis tent thumbsdown thumbsup
+ticket tiger tm toilet tomato tongue top tophat train trident
+trollface trophy truck trumpet tshirt tulip tv umbrella unamused
+underage unlock up us v vhs virgo vs walking warning watermelon wave
+wc wedding whale wheelchair wink wink2 wolf woman womens x zap zzz
+""".split()
+
+cw = max(len(s) for s in emoji) + 1
+
+def emoji_fmt(emoji):
+    return ":{e}: ({e})".format(e=emoji) if emoji else ''
+
+#b_fmt = "{{:{l}s}}".format(l=cw+2)
+#border = "+" + (b_fmt.format('-'*(cw+2)) + "+") * n_cols
+#r_fmt = " {{:{l}s}} ".format(l=cw)
+#print(indent + border)
+
+print("|" + "  |"*n_cols)
+print("|" + ":-|"*n_cols)
+cols = [emoji[c::n_cols] for c in range(n_cols)]
+for row in zip_longest(*cols):
+    print(''.join(["|"]+[emoji_fmt(s)+"|" for s in row]))
+    #print(indent + ''.join(["|"]+[r_fmt.format('' if s is None else ":"+s+":")+"|" for s in row]))
+    #print(indent + border)
