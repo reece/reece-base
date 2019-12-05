@@ -54,11 +54,17 @@ class FreshBooksClient:
         url = f"https://api.freshbooks.com/projects/business/{self.business_id}/services"
         return self._get(url)["services"]
 
+    def get_expenses(self):
+        url = f"https://api.freshbooks.com/accounting/account/{self.account_id}/expenses/expenses"
+        yield from self._get_paginated(url, "expenses")
 
     def post_time_entry(self, time_entry):
         url = f"https://api.freshbooks.com/timetracking/business/{self.business_id}/time_entries"
         return self._post(url, json={"time_entry": time_entry})["time_entry"]
 
+    def put_expense(self, id, expense_data):
+        url = f"https://api.freshbooks.com/accounting/account/{self.account_id}/expenses/expenses/{id}"
+        return self._put(url, json=expense_data)["response"]["result"]["expense"]
 
     def make_client_id_map(self):
         return {c["organization"]: c["id"] for c in fbc.get_clients()}
@@ -72,6 +78,23 @@ class FreshBooksClient:
     def make_service_id_map(self):
         return {s["name"]: s["id"] for s in fbc.get_services()}
 
+    
+    def expenses_include_receipt(self, expenses=None):
+        if not expenses:
+            expenses = [e
+                        for e in self.get_expenses()
+                        if not e["include_receipt"]]
+        for e in expenses:
+            self.put_expense(e["id"], {"expense": {"include_receipt": True}})
+            _logger.info(f"{e['date']} {e['amount']['amount']} @ {e['notes']}: marked include_receipt")
+
+    def find_outstanding_expenses_without_receipt(self, expenses=None):
+            expenses = [e
+                        for e in self.get_expenses()
+                        if (e["status"] == 1  # outsanding
+                            and not e["has_receipt"])]
+            return expenses
+
 
     ############################################################################
     # INTERNAL
@@ -81,8 +104,36 @@ class FreshBooksClient:
         r.raise_for_status()
         return r.json()
 
+    def _get_paginated(self, url, key):
+        """like _get, but assume that return includes structure like
+        "response": {
+          "result": {
+            "page": 1,
+            "pages": 1,
+            ...
+        }}
+        and *yield* items from it
+        """
+
+        pages = None
+        p = 1
+        while True:
+            urlp = url + f"?page={p}"
+            _logger.info(f"Fetching page {p}/{pages} of {url}")
+            r = self._get(urlp)
+            yield from r["response"]["result"][key]
+            pages = int(r["response"]["result"]["pages"])
+            if p >= pages:
+                break
+            p += 1
+
     def _post(self, url, json):
         r = self._session.post(url, json=json)
+        r.raise_for_status()
+        return r.json()
+        
+    def _put(self, url, json):
+        r = self._session.put(url, json=json)
         r.raise_for_status()
         return r.json()
         
@@ -140,22 +191,21 @@ def generate_clingen_time_entries(fbc, fn):
         if not row["date"]:
             continue
 
-        start_str = row["date"][6:] + "T9:00:00Z"
+        start_str = row["date"] + "T9:00:00Z"
         start = maya.parse(start_str)
         duration = int(float(row["time"]) * 3600)
-        
         messages = row["messages"]
+
         time_entry = {
             "is_logged": True,
             "client_id": client_id,
             "project_id": project_id,
             "service_id": service_id,
-            "started_at": start.rfc3339(),
+            "started_at": start.rfc3339(), 
             "duration": duration,
             "note": messages,
         }
         yield time_entry
-
 
 
 
@@ -166,6 +216,25 @@ if __name__ == "__main__":
     fbc = FreshBooksClient(sess)
     self = fbc
 
-    for te in generate_clingen_time_entries(fbc, sys.argv[1]):
-        print(te)
-        import IPython; IPython.embed()	  ### TODO: Remove IPython.embed()
+    # for te in generate_clingen_time_entries(fbc, sys.argv[1]):
+    #     r = fbc.post_time_entry(te)
+    #     _logger.info(f"loaded {r['duration']} @ {r['started_at']}")
+
+    client_id_map = fbc.make_client_id_map()
+    client_project_id_map = fbc.make_client_project_id_map()
+    service_id_map = fbc.make_service_id_map()
+
+    client_id = client_id_map["Broad Institute"]  
+    project_id = client_project_id_map[client_id]["ClinGen"]
+    service_id = service_id_map["Consulting"]
+
+    time_entry = {
+        "is_logged": True,
+        "client_id": client_id,
+        "project_id": project_id,
+        "service_id": service_id,
+        "started_at": None,
+        "duration": None,
+        "note": None,
+    }
+    
