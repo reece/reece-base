@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+
+import gzip
+import sys
+
+import lxml.etree as le
+
+include_attributes = False
+
+for _, e in le.iterparse(gzip.open(sys.argv[1], mode="rb"),
+                         events=("start",)):
+    path_tags = list(reversed([a.tag for a in e.iterancestors()])) + [e.tag]
+    path = "/".join(path_tags)
+    print(path)
+    if include_attributes:
+        for ak in e.attrib.keys():
+            print(path + "/@" + ak)

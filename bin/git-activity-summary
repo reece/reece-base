@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""summarize activity in named repos"""
+"""summarize activity in named repos
+
+pip install coloredlogs maya git-python ipython
+
+"""
 
 import argparse
 import csv
@@ -8,6 +12,7 @@ import itertools
 import logging
 import math
 import os
+import pprint
 import re
 import subprocess
 import sys
@@ -27,19 +32,30 @@ def get_options(argv):
     ap.add_argument("PATHS",
                     nargs="+")
     ap.add_argument(
-        "--from-date", "-F",
+        "--from-timestamp", "-F",
         required=False,
         default=None)
     ap.add_argument(
-        "--to-date", "-T",
+        "--to-timestamp", "-T",
         required=False,
         default=None)
 
     opts = ap.parse_args(argv)
-    if opts.from_date:
-        opts.from_date = maya.when(opts.from_date).date
-    if opts.to_date:
-        opts.to_date = maya.when(opts.to_date).date
+
+    if opts.from_timestamp:
+        m = re.match(r"(?P<n>\d+)(?P<unit>[dhmwy])", opts.from_timestamp)
+        if m:
+            unit_map = {'d': 'days', 'h': 'hours', 'm': 'minutes', 'w': 'weeks', 'y': 'years'}
+            n, unit = m.groups()
+            delta = {unit_map[unit]: -abs(int(n))}
+            opts.from_timestamp = maya.now().add(**delta)
+            _logger.info(f"{m.string} => {opts.from_timestamp}")
+        else:
+            opts.from_timestamp = maya.when(opts.from_timestamp).date
+            
+    if opts.to_timestamp:
+        opts.to_timestamp = maya.when(opts.to_timestamp).date
+
     return opts
 
 
@@ -48,38 +64,61 @@ def estimated_time(cmt):
     i = cmt.stats.total["insertions"]
     d = cmt.stats.total["deletions"]
     f = cmt.stats.total["files"]
-    imd = abs(i - d)
-    if imd == 0:
-        time = 0
+    deltalines = abs(i - d)
+    if deltalines == 0:
+        time = cmt.stats.total["insertions"] / 50
     else:
-        time = imd / 200 + (f-1) ** 0.2
+        time = deltalines / 200 + (f-1) ** 0.2
         if len(cmt.parents) > 1:              # merge
             time = math.log(time)
         time = max(0.5, time) 
     return time
 
 
+def _build_commit_branch_map(repo, branch_names=None):
+    """return map of commit hash: [repo names]"""
+    branches = repo.branches
+    if branch_names:
+        branches = [b for b in branches if b.name in branch_names]
+    cb_pairs = sorted(list((c.hexsha,b.name) for b in branches for c in
+                            repo.iter_commits(b)))
+    cb_map = {c: [cb[1] for cb in cbi]
+              for c, cbi in itertools.groupby(cb_pairs, lambda cb: cb[0])}
+    return cb_map
+
+
 def commit_summaries(path, opts):
+    """yields dictionaries of commit information for given repo path
+
+    """
     repo = git.Repo(path)
     basename = os.path.basename(os.path.abspath(path))
-    for cmt in repo.iter_commits():
-        date = maya.MayaDT(cmt.authored_date).date
-        if opts.from_date and date < opts.from_date:
+    cb_map = _build_commit_branch_map(repo)
+
+    for cmt in repo.iter_commits(rev=repo.branches):
+        cmt_ts = maya.MayaDT(cmt.authored_date)
+        if opts.from_timestamp and cmt_ts < opts.from_timestamp:
             continue
-        if opts.to_date and date >= opts.to_date:
+        if opts.to_timestamp and date >= opts.to_timestamp:
             continue
         if "reece" not in str(cmt.author.author()).lower():
             _logger.warn(f"Skipping commit {cmt.hexsha} by {cmt.author}")
             continue
+
+        # branches related to this commit, master sorted last
+        branches = cb_map[cmt.hexsha]
+        branches.sort(key=lambda e: e == "master")
+
         d = {
-            "date": date,
+            "date": cmt_ts.local_datetime().date(),
             "repo": basename,
-            "commit": f"'{cmt.hexsha[:8]}",
+            "commit": f"{cmt.hexsha[:8]}",
             "nfiles": cmt.stats.total["files"],
             "del": cmt.stats.total["deletions"],
             "ins": cmt.stats.total["insertions"],
             "time": estimated_time(cmt),
             "message": cmt.summary,
+            "branches": branches,
             }
         yield d
 
@@ -91,8 +130,8 @@ def aggregate_commits_daily(commits):
         #if (dc["nfiles"] > 1
         #        and (dc["ins"] >= 4 or dc["del"] >= 4)
         #        and not any(w in dc["message"].lower() for w in ("minor",)))
-        messages = f"{len(dcommits)} commits:\n" + "\n".join(f"• {dc['repo']}: {dc['message']}"
-                                                             for dc in dcommits)
+        commit_messages = [f"• {dc['repo']}/{dc['branches'][0]}: {dc['message']} ({dc['commit']})" for dc in dcommits]
+        messages = f"{len(dcommits)} commits:\n" + "\n".join(commit_messages)
         yield {
             "date": date,
             "tfiles": sum(dc["nfiles"] for dc in dcommits),
@@ -105,12 +144,18 @@ def aggregate_commits_daily(commits):
 
 
 if __name__ == "__main__":
-    coloredlogs.install()
-    _logger.setLevel("DEBUG")
+    coloredlogs.install(level="INFO", logger=_logger)
 
     opts = get_options(sys.argv[1:])
 
-    commits = itertools.chain.from_iterable(commit_summaries(path, opts) for path in opts.PATHS)
+    # commits = itertools.chain.from_iterable(commit_summaries(path, opts) for path in opts.PATHS)
+    commits = []
+    for path in opts.PATHS:
+        try:
+            commits += list(commit_summaries(path, opts))
+        except Exception as e:
+            _logger.critical(f"Failed to fetch commits for {path}")
+            raise e
     daily_commits = aggregate_commits_daily(commits)
 
     #fieldnames = "week date repo commit nfiles del ins message".split()

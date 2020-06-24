@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+"""Convert most single quoted strings to double quoted strings in a
+python file.
+
+This code will foul up some strings that have escaped or nested
+quotes. You've been warned.
+
+The right way to do this is to use a real parser, e.g., ast or parso
+
+"""
+
+import argparse
+import fileinput
+import re
+import sys
+
+# single quoted string, with no internal single quotes,
+# and followed by non-alphanumeric
+# consider a string like "I didn't and wouldn't do it"
+sq_re = re.compile(r"'([^\"']+)'(\W|$)")
+sq_repl = r'"\1"\2'
+
+def parse_args(argv):
+    ap = argparse.ArgumentParser(
+        description = __doc__,
+        )
+    ap.add_argument(
+        "--inplace", "--in-place", "-i",
+        action="store_true",
+        default=False
+        )
+    ap.add_argument(
+        "FILES",
+        nargs="*"
+        )
+    opts = ap.parse_args(argv)
+    return opts
+
+
+if __name__ == "__main__":
+    opts = parse_args(sys.argv[1:])
+
+    for line in fileinput.FileInput(files=opts.FILES, inplace=opts.inplace):
+        if '"' not in line:
+            # skip lines that contain " because might have something like "ain't isn't a word"
+            line = sq_re.sub(sq_repl, line)
+        print(line, end="")
