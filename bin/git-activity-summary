@@ -11,6 +11,7 @@ import datetime
 import itertools
 import logging
 import math
+
 import os
 import pprint
 import re
@@ -48,13 +49,18 @@ def get_options(argv):
             unit_map = {'d': 'days', 'h': 'hours', 'm': 'minutes', 'w': 'weeks', 'y': 'years'}
             n, unit = m.groups()
             delta = {unit_map[unit]: -abs(int(n))}
-            opts.from_timestamp = maya.now().add(**delta)
+            opts.from_timestamp = maya.now().add(**delta).date
             _logger.info(f"{m.string} => {opts.from_timestamp}")
         else:
             opts.from_timestamp = maya.when(opts.from_timestamp).date
             
     if opts.to_timestamp:
         opts.to_timestamp = maya.when(opts.to_timestamp).date
+        
+    if opts.from_timestamp:
+        assert isinstance(opts.from_timestamp, datetime.date)
+    if opts.to_timestamp:
+        assert isinstance(opts.to_timestamp, datetime.date)
 
     return opts
 
@@ -96,13 +102,16 @@ def commit_summaries(path, opts):
     cb_map = _build_commit_branch_map(repo)
 
     for cmt in repo.iter_commits(rev=repo.branches):
-        cmt_ts = maya.MayaDT(cmt.authored_date)
+        # cmt.authored_datetime is local time (with tz)
+        cmt_ts = cmt.authored_datetime.date()
         if opts.from_timestamp and cmt_ts < opts.from_timestamp:
+            _logger.debug(f"Skipping commit {cmt.hexsha} (occurred before {opts.from_timestamp})")
             continue
-        if opts.to_timestamp and date >= opts.to_timestamp:
+        if opts.to_timestamp and cmt_ts >= opts.to_timestamp:
+            _logger.debug(f"Skipping commit {cmt.hexsha} (occurred after {opts.to_timestamp})")
             continue
-        if "reece" not in str(cmt.author.author()).lower():
-            _logger.warn(f"Skipping commit {cmt.hexsha} by {cmt.author}")
+        if "reece" not in str(cmt.author.name).lower():
+            _logger.debug(f"Skipping commit {cmt.hexsha} by {cmt.author}")
             continue
 
         # branches related to this commit, master sorted last
@@ -110,7 +119,7 @@ def commit_summaries(path, opts):
         branches.sort(key=lambda e: e == "master")
 
         d = {
-            "date": cmt_ts.local_datetime().date(),
+            "date": cmt_ts,
             "repo": basename,
             "commit": f"{cmt.hexsha[:8]}",
             "nfiles": cmt.stats.total["files"],
