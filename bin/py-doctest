@@ -1,0 +1,19 @@
+#!/bin/bash
+# run python doctest on any file
+
+# doctest requires a .py suffix. That's annoying for scripts.
+
+ofn="$1"
+
+test_fn="$ofn"
+
+if [ "${ofn:-3}" != ".py" ]; then
+    tmpdir=$(mktemp -d -t "py-doctest-XXXX")
+    tmpfn="$tmpdir/$(basename $ofn).py"
+    /bin/cp "$ofn" "$tmpfn"
+    test_fn="$tmpfn"
+fi
+
+python -m doctest -v "$test_fn"
+
+/bin/rm -fr "$tmpdir"
