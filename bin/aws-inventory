@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+"""list assets in an AWS account
+
+Assets include:
+* EC2 instances
+* EBS volumes
+* S3 buckets
+
+# TODO: Get stats like this:
+# https://blog.jverkamp.com/2018/07/15/counting-and-sizing-s3-buckets/
+
+# Usage:
+# 1. Put creds in ~/.aws/credentials, like so:
+#   [myprofile1]
+#   aws_access_key_id=...
+#   aws_secret_access_key=...
+#   
+#   [myprofile2]
+#   aws_access_key_id=...
+#   aws_secret_access_key=...
+# 2. $ aws-inventory -r us-east-1,us-east-2,us-west-1,us-west-2 -p myprofile1,myprofile2
+
+"""
+
+import argparse
+import csv
+import dataclasses
+import datetime
+import itertools
+import json
+import logging
+import sys
+
+import boto3
+
+
+_logger = logging.getLogger()
+
+
+@dataclasses.dataclass
+class Asset:
+    id: str
+    location: str
+    type: str
+    account: str = None
+    created: datetime.datetime = None
+    extra: dict = None
+    name: str = None
+    state: str = None
+    subtype: str = None
+
+def get_name_from_tags(o):
+    if o.tags is None:
+        return None
+    mtags = [t["Value"] for t in o.tags if t["Key"] == "Name"]
+    return mtags[0] if mtags else None
+
+
+def get_inventory_ec2(opts, session, region):
+    ec2 = session.resource("ec2", region_name=region)
+    for i in ec2.instances.iterator():
+        yield Asset(
+            account=session.profile_name,
+            created=i.launch_time,
+            id=i.id,
+            location=i.placement["AvailabilityZone"],
+            name=get_name_from_tags(i),
+            type="ec2",
+            state=i.state["Name"],
+            subtype=i.instance_type,
+            extra=dict(
+                public_ip_address=i.public_ip_address,
+                private_ip_address=i.private_ip_address,
+                vpc=i.vpc_id,
+            )
+        )
+
+    for v in ec2.volumes.iterator():
+        yield Asset(
+            account=session.profile_name,
+            created=v.create_time,
+            id=v.id,
+            location=v.availability_zone,
+            name=get_name_from_tags(v),
+            type="vol",
+            subtype=v.volume_type,
+            state=v.state,
+            extra=dict(
+                attachments=[a["InstanceId"] for a in v.attachments],
+                iops=v.iops,
+                size=v.size,
+            )
+        )
+
+
+def get_inventory_s3(opts, session):
+    s3 = session.resource("s3")
+    for b in s3.buckets.iterator():
+        extra = {}
+        if opts.count_s3_objects:
+            objs = b.objects.all().limit(opts.count_s3_objects)
+            n_objs = len(list(objs))
+            extra = {
+                "n_objects": n_objs if n_objs < opts.count_s3_objects else f">={opts.count_s3_objects}"
+            }
+        yield Asset(
+            account=session.profile_name,
+            created=b.creation_date,
+            id=b.name,
+            location=None,
+            name=b.name,
+            type="s3",
+            extra=extra
+        )
+
+
+def get_inventory(opts):
+    sessions = [boto3.session.Session(profile_name=pn) for pn in opts.profiles]
+
+    for s in sessions:
+        _logger.info(f"Collecting from {s.profile_name}")
+        yield from get_inventory_s3(opts, s)
+        for r in opts.regions:
+            yield from get_inventory_ec2(opts, s, r)
+
+
+def parse_args(argv=sys.argv[1:]):
+    def flatten_csv_list(l):
+        """for a list with possible csv elements, return flattened list with
+        csv elements split
+
+        """
+        return list(itertools.chain.from_iterable(e.split(",") for e in l))
+
+    ap = argparse.ArgumentParser(
+        description=__doc__,
+    )
+    ap.add_argument("--regions", "-r",
+                    action="append",
+                    default=[])
+    ap.add_argument("--profiles", "-p",
+                    action="append",
+                    default=[])
+    ap.add_argument("--count-s3-objects", "-c",
+                    type=int,
+                    default=None)
+
+    opts = ap.parse_args(argv)
+    opts.regions = flatten_csv_list(opts.regions)
+    opts.profiles = flatten_csv_list(opts.profiles)
+    return opts
+
+
+if __name__ == "__main__":
+    import coloredlogs
+
+    coloredlogs.install(level="INFO")
+
+    opts = parse_args()
+
+    fh_out = sys.stdout
+    out = csv.writer(fh_out, delimiter="\t")
+    out.writerow(["account", "location", "type", "subtype", "id",
+                  "name", "state", "created", "extra"])
+    for a in get_inventory(opts=opts):
+        out.writerow([a.account, a.location, a.type, a.subtype, a.id,
+                      a.name, a.state,
+                      a.created.astimezone(datetime.timezone.utc).isoformat(timespec="minutes"),
+                      "" if a.extra is None else json.dumps(a.extra)])
