@@ -1,0 +1,10 @@
+#!/usr/bin/env python
+
+import csv
+import fileinput
+import sys
+
+with fileinput.input() as f:
+    tsv_out = csv.writer(sys.stdout, delimiter="\t")
+    csv_in = csv.reader(f)
+    tsv_out.writerows(csv_in)
