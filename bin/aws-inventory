@@ -32,7 +32,8 @@ import logging
 import sys
 
 import boto3
-
+import botocore
+import humanize
 
 _logger = logging.getLogger()
 
@@ -97,11 +98,29 @@ def get_inventory_s3(opts, session):
     s3 = session.resource("s3")
     for b in s3.buckets.iterator():
         extra = {}
-        if opts.count_s3_objects:
-            objs = b.objects.all().limit(opts.count_s3_objects)
-            n_objs = len(list(objs))
+        if opts.bucket_stats:
+            # WARNING: counting is expensive for large buckets
+            try:
+                objs = b.objects.all().limit(opts.bucket_stats)
+                objs = list(objs)
+            except botocore.exceptions.ClientError as error:
+                _logger.error(f"s3 bucket {b.name}: {error.response['Error']['Code']}!")
+                continue
+            n_objects = len(objs)
+            if n_objects == 0:
+                last_modified = ""
+                total_size = "0"
+            else:
+                last_modified = str(max(o.last_modified for o in objs))
+                total_size = sum(o.size for o in objs)
+                if n_objects < opts.bucket_stats:
+                    n_objects = n_objects
+                else:
+                    n_objects = ">=" + str(n_objects)
             extra = {
-                "n_objects": n_objs if n_objs < opts.count_s3_objects else f">={opts.count_s3_objects}"
+                "last_modified": str(last_modified),
+                "n_objects": str(n_objects),
+                "total_size": str(total_size),
             }
         yield Asset(
             account=session.profile_name,
@@ -115,9 +134,8 @@ def get_inventory_s3(opts, session):
 
 
 def get_inventory(opts):
-    sessions = [boto3.session.Session(profile_name=pn) for pn in opts.profiles]
-
-    for s in sessions:
+    for pn in opts.profiles:
+        s = boto3.session.Session(profile_name=pn)
         _logger.info(f"Collecting from {s.profile_name}")
         yield from get_inventory_s3(opts, s)
         for r in opts.regions:
@@ -141,7 +159,7 @@ def parse_args(argv=sys.argv[1:]):
     ap.add_argument("--profiles", "-p",
                     action="append",
                     default=[])
-    ap.add_argument("--count-s3-objects", "-c",
+    ap.add_argument("--bucket-stats", "-b",
                     type=int,
                     default=None)
 
