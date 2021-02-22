@@ -1,0 +1,145 @@
+#!/usr/bin/env python
+"""generate examples from json schema using `example` attributes from
+schema
+
+Reece Hart, reece@harts.net
+LICENSE: MIT
+
+"""
+
+
+import argparse
+import collections
+import json
+import logging
+import random
+import sys
+
+import coloredlogs
+from jsonschema import RefResolver
+from smart_open import open
+import yaml
+
+
+_logger = logging.getLogger()
+
+
+def infer_type(path):
+    if path.endswith(".json") or path.endswith(".json.gz"):
+        return "json"
+    if path.endswith(".yaml") or path.endswith(".yaml.gz"):
+        return "yaml"
+    _logger.warning(f"{path}: Couldn't infer type; guessing json. Good luck")
+    return "json"
+
+
+def load_json_or_yaml(path):
+    if infer_type(path) == "json":
+        data = json.load(open(path))
+    elif infer_type(path) == "yaml":
+        data = yaml.load(open(path), Loader=yaml.SafeLoader)
+    return data
+
+
+def parse_args(argv):
+    ap = argparse.ArgumentParser(
+        description=__doc__
+        )
+    ap.add_argument("--schema", "-s",
+                    required=True)
+    ap.add_argument("--output-format", "-f",
+                    default="json",
+                    choices=["json", "yaml"],
+                    required=False)
+    opts = ap.parse_args(argv)
+    return opts
+
+
+class JSONSchemaExampleGenerator:
+    def __init__(self, s):
+        self._schema = s
+        self._resolver = RefResolver.from_schema(s)
+
+    def _format_generator(self, fmt):
+        if fmt == "date-time":
+            return "2018-11-13T20:20:39+00:00"
+        if fmt == "date":
+            return "2018-11-13"
+        if fmt == "time":
+            return "20:20:39+00:00"
+        if fmt == "uri":
+            return "https://fu.bar/"
+        _logger.warning(f"{fmt}: unhandled string format")
+        return "(this is wrong)"
+
+    def generate_by_path(self, path=None):
+        return self.generate(self._resolver.resolve(path)[1])
+
+    def generate(self, schema, name=None):
+        if "example" in schema:
+            return schema["example"]
+        if "examples" in schema:
+            assert isinstance(schema["examples"], collections.abc.Sequence)
+            return random.choice(schema["examples"])
+        
+        if "$ref" in schema:
+            return self.generate_by_path(schema["$ref"])
+
+        combo_kws = [c for c in ("allOf", "oneOf", "anyOf") if c in schema]
+        if combo_kws:
+            assert len(combo_kws) == 1
+            ck = combo_kws[0]
+            subschemas = schema[ck]
+            if ck in ("oneOf", "anyOf"):
+                ss = random.choice(subschemas)
+                return self.generate(ss, f"{name} ({ck})")
+            else:               # allOf
+                subs = (self.generate(s, f"{name}#{i}") for i, s in enumerate(subschemas))
+                return {k: v
+                        for d in subs
+                        for k, v in d.items()}
+
+        t = schema["type"]
+
+        if t == "object":
+            return {pn: self.generate(s, name=pn)
+                    for pn, s in schema.get("properties", {}).items()}
+
+        if t == "array":
+            min_ = schema.get("minItems", 1)
+            max_ = schema.get("maxItems", 3)
+            n = random.randint(int(min_), int(max_))
+            s = schema.get("items", "{}")
+            return [self.generate(s, f"{name} (item)") for _ in range(n)]
+
+        if t == "string":
+            if "enum" in schema:
+                return random.choice(schema["enum"])
+            if "format" in schema:
+                return self._format_generator(schema["format"])
+            return "lorem ipsum"
+
+        _logger.warning(f"{name}: type {t} not yet supported")
+
+
+class NoAliasDumper(yaml.SafeDumper):
+    """don't include yaml anchors for repeated data
+
+    References:
+    - https://github.com/yaml/pyyaml/issues/103
+    - https://ttl255.com/yaml-anchors-and-aliases-and-how-to-disable-them/
+    """
+    def ignore_aliases(self, data):
+        return True
+
+
+if __name__ == "__main__":
+    coloredlogs.install(level="INFO")
+    opts = parse_args(sys.argv[1:])
+    schema = load_json_or_yaml(opts.schema)
+    eg = JSONSchemaExampleGenerator(schema)
+    o = eg.generate(schema)
+    if opts.output_format == "json":
+        print(json.dumps(o, sort_keys=True, indent=2))
+    else:
+        print(yaml.dump(o, sort_keys=True, indent=2, Dumper=NoAliasDumper))
