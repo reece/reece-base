@@ -1,0 +1,48 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:             aws-scratch
+# Required-Start:       
+# Required-Stop:        
+# Default-Start:        2 3 4 5
+# Default-Stop:         
+# Short-Description:    Find and setup scratch volumes, if any
+### END INIT INFO
+
+
+exec &> >(tee /var/log/aws-mk-scratch)
+
+echo "Instance type: $(curl http://169.254.169.254/latest/meta-data/instance-type)"
+
+set -x
+
+DEVICES=$(lsblk -I259 -o Path,Model | grep "Amazon EC2 NVMe Instance Storage" | cut -f1 -d" ")
+
+# case 1: No block devices
+if [[ -z "$DEVICES" ]]; then
+    echo "No Amazon EC2 NVMe Instance Storage devices found"
+    exit 1
+fi
+
+DEVICES_ARR=($DEVICES)
+if [[ ${#DEVICES_ARR[@]} == 1 ]]; then
+    
+    # case 2: One block device
+    blk_device=$DEVICES
+
+else
+
+    # case 3: Multiple devices available; use logical volume
+    # TODO: Ensure that all devices are empty
+    pvcreate -y $DEVICES
+    vgcreate -y vg_scratch $DEVICES
+    lvcreate -y -n vol_scratch -l 100%VG vg_scratch
+    blk_device=/dev/vg_scratch/vol_scratch
+
+fi
+
+mkfs.ext4 -j -L scratch -m 0  $blk_device
+sleep 1
+mount /scratch/
+chmod 1777 /scratch/
+df -h /scratch

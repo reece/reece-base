@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+
+"""Extract unique flowcell tags from fastq file
+
+File consists of blocks of 4 lines:
+
+    @A01311:91:H2WJ3DSX2:1:1101:1217:1000 1:N:0:TATCCAAT+GTAGATTG
+    ATTCATTTAATCCCAGCATTTATATTGACTCAGTA...
+    +
+    FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF...
+
+"""
+
+import collections
+import json
+import itertools
+import sys
+
+
+flowcells = collections.Counter()
+# read every 4th line from stdin
+for line in itertools.islice(sys.stdin, 0, None, 4):
+    assert line.startswith("@"), "Invalid format: fastq description line must start with @"
+    instr, run_id, flowcell_id, lane, _ = line.split(":", 4)
+    key = f"{instr}:{flowcell_id}:{lane}"
+    flowcells.update([key])
+
+print(json.dumps(flowcells))
+

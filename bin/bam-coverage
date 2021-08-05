@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+
+"""report coverage statistics of selected regions in a bam file"""
+
+import argparse
+import array
+import csv
+import io
+import logging
+import pathlib
+import statistics
+import subprocess
+import sys
+
+import coloredlogs
+
+_logger = logging.getLogger()
+
+
+def get_depth_for_region(xam_path, region, min_base_quality, min_mapping_quality):
+    cmd = ["samtools", "depth",
+           "-a",
+           "-q", str(min_base_quality),
+           "-Q", str(min_mapping_quality),
+           "-r", region,
+           xam_path
+           ]
+    p = subprocess.run(cmd, capture_output=True)    
+    depths = array.array("H", (int(l.split()[-1]) for l in io.StringIO(p.stdout.decode())))
+    return depths
+
+
+def parse_args(argv):
+    ap = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    ap.add_argument("--min-base-quality", "-q",
+                    default=20)
+    ap.add_argument("--min-mapping-quality", "-Q",
+                    default=20)
+    ap.add_argument("--bed", "-b",
+                    type=pathlib.Path,
+                    required=True)
+    ap.add_argument("--xam", "--sam", "--bam", "--cram", "-s",
+                    type=pathlib.Path,
+                    required=True)
+    ap.add_argument("--margin", "-m",
+                    type=int,
+                    default=0)
+    opts = ap.parse_args()
+    return opts
+
+
+def read_bed(bed_path):
+    # #gffTags
+    # track name=uta_20210129_GRCh37_splign type=bedDetail description="splign alignments from UTA (uta_20210129) visibility=3"
+    # 1   156052336   156107657   LMNA/NM_001282625.1 0   +   156052336   156107657   0   13  118,237,112...
+
+    with open(bed_path) as bed:
+        l = next(bed)
+        assert l.startswith("#")
+        l = next(bed)
+        assert l.startswith("track")
+        for l in bed:
+            contig, start, end, descr, _ = l.split("\t", 4)
+            yield (contig, int(start), int(end), descr)
+
+
+
+
+def main():
+    coloredlogs.install(level="INFO")
+    opts = parse_args(sys.argv[1:])
+    
+    out = csv.DictWriter(sys.stdout, delimiter="\t",
+                         fieldnames="gene/transcript region length mean median >=15 >=20 >=30".split())
+    out.writeheader()
+
+    for (contig, start, end, descr) in read_bed(opts.bed):
+        start -= opts.margin
+        end += opts.margin
+        region = f"{contig}:{start}-{end}"
+        depths = get_depth_for_region(
+            xam_path=opts.xam,
+            region=region,
+            min_base_quality=opts.min_base_quality,
+            min_mapping_quality=opts.min_mapping_quality)
+        length = len(depths)
+        bins = {f">={b}": sum(1 for d in depths if d>=b) / length * 100 for b in (15, 20, 30)}
+        row = {
+            "gene/transcript": descr,
+            "region": region,
+            "length": length,
+            "mean": f"{statistics.mean(depths):.1f}",
+            "median": f"{statistics.median(depths):.1f}",
+            ">=15": f"{bins['>=15']:.1f}%",
+            ">=20": f"{bins['>=20']:.1f}%",
+            ">=30": f"{bins['>=30']:.1f}%",
+            }
+        out.writerow(row)
+
+
+if __name__ == "__main__":
+    main()
