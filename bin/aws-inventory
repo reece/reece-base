@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """list assets in an AWS account
 
 Assets include:
@@ -10,16 +11,24 @@ Assets include:
 # https://blog.jverkamp.com/2018/07/15/counting-and-sizing-s3-buckets/
 
 # Usage:
+# 0. setup
+# pip install boto3 botocore humanize
+#
 # 1. Put creds in ~/.aws/credentials, like so:
-#   [myprofile1]
-#   aws_access_key_id=...
-#   aws_secret_access_key=...
-#   
-#   [myprofile2]
-#   aws_access_key_id=...
-#   aws_secret_access_key=...
-# 2. $ aws-inventory -r us-east-1,us-east-2,us-west-1,us-west-2 -p myprofile1,myprofile2
+# [myprofile1]
+# aws_access_key_id=...
+# aws_secret_access_key=...
+# 
+# [myprofile2]
+# aws_access_key_id=...
+# aws_secret_access_key=...
+#
+# 2. run
+# aws-inventory -r us-east-1,us-east-2,us-west-1,us-west-2 -p myprofile1,myprofile2
 
+
+Author: Reece Hart, reecehart@gmail.com
+License: MIT 
 """
 
 import argparse
@@ -58,6 +67,7 @@ def get_name_from_tags(o):
 
 
 def get_inventory_ec2(opts, session, region):
+    _logger.debug("{session.profile_name}@{region}: EC2 instances")
     ec2 = session.resource("ec2", region_name=region)
     for i in ec2.instances.iterator():
         yield Asset(
@@ -76,6 +86,7 @@ def get_inventory_ec2(opts, session, region):
             )
         )
 
+    _logger.debug("{session.profile_name}@{region}: EC2 volumes")
     for v in ec2.volumes.iterator():
         yield Asset(
             account=session.profile_name,
@@ -97,6 +108,7 @@ def get_inventory_ec2(opts, session, region):
 def get_inventory_s3(opts, session):
     s3 = session.resource("s3")
     for b in s3.buckets.iterator():
+        _logger.debug("{session.profile_name}: S3 bucket {b.name}")
         extra = {}
         if opts.bucket_stats:
             # WARNING: counting is expensive for large buckets
@@ -155,12 +167,13 @@ def parse_args(argv=sys.argv[1:]):
     )
     ap.add_argument("--regions", "-r",
                     action="append",
-                    default=[])
+                    default=["us-east-1", "us-east-2", "us-west-1", "us-west-2"])
     ap.add_argument("--profiles", "-p",
                     action="append",
                     default=[])
     ap.add_argument("--bucket-stats", "-b",
                     type=int,
+                    help="max number of objects to count",
                     default=None)
 
     opts = ap.parse_args(argv)
