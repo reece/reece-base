@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+
+"""make expiration rule to expire objects
+
+# Usage:
+# 0. setup
+# pip install boto3 botocore coloredlogs humanize tqdm
+#
+# 1. Put creds in ~/.aws/credentials, like so:
+# [myprofile1]
+# aws_access_key_id=...
+# aws_secret_access_key=...
+# 
+# [myprofile2]
+# aws_access_key_id=...
+# aws_secret_access_key=...
+#
+# 2. run
+# aws-s3-inventory -p myprofile1,myprofile2
+
+Author: Reece Hart, reecehart@gmail.com
+License: MIT 
+"""
+
+import argparse
+import itertools
+import json
+import logging
+import sys
+
+import boto3
+import botocore
+import humanize
+import tqdm
+
+_logger = logging.getLogger()
+
+
+def parse_args(argv=sys.argv[1:]):
+    ap = argparse.ArgumentParser(
+        description=__doc__,
+    )
+    ap.add_argument("buckets", nargs="+")
+    ap.add_argument("--profile", "-p",
+                    required=True)
+    ap.add_argument("--expiration-days", "-e",
+                    required=True,
+                    type=int)
+
+    opts = ap.parse_args(argv)
+    return opts
+
+
+if __name__ == "__main__":
+    import coloredlogs
+    coloredlogs.install(level="INFO")
+
+    opts = parse_args()
+
+    lifecycle_configuration = {
+        "Rules": [{
+            "Expiration": {"Days": opts.expiration_days},
+            "Filter": {"Prefix": ""},
+            "ID": f"Expire in {opts.expiration_days} days",
+            "Status": "Enabled",
+            "NoncurrentVersionExpiration": {"NoncurrentDays": opts.expiration_days}
+        }]}
+
+    session = boto3.session.Session(profile_name=opts.profile)
+    s3_client = session.client("s3")
+    for bucket in opts.buckets:
+        s3_client.put_bucket_lifecycle_configuration(
+            Bucket=bucket,
+            LifecycleConfiguration=lifecycle_configuration)
+            
