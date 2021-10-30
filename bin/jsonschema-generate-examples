@@ -66,16 +66,17 @@ class JSONSchemaExampleGenerator:
         if fmt == "date":
             return "2018-11-13"
         if fmt == "time":
-            return "20:20:39+00:00"
+            return "20:20:39"
         if fmt == "uri":
-            return "https://fu.bar/"
+            return "https://example.com/"
         _logger.warning(f"{fmt}: unhandled string format")
-        return "(this is wrong)"
+        return f"(format {fmt} unknown)"
 
     def generate_by_path(self, path=None):
         return self.generate(self._resolver.resolve(path)[1])
 
     def generate(self, schema, name=None):
+        # if example or examples exist, use as-is
         if "example" in schema:
             return schema["example"]
         if "examples" in schema:
