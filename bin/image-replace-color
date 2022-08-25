@@ -1,0 +1,17 @@
+#!/bin/bash
+
+
+in="$1"
+out="${1:-$in}
+
+convert \
+  "$in"
+  -level-colors rgb(237,239,242),rgb(26,150,229) \
+  +level-colors rgb(237,239,242),rgb(100%%,0,0) \
+  "$out"
+
+#convert \
+#  "$in"
+#  -level-colors rgb(237,239,242),rgb(26,150,229) \
+#  +level-colors rgb(237,239,242),rgb(100%%,0,0) \
+#  "$out"

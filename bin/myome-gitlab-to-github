@@ -1,0 +1,29 @@
+#!/bin/bash
+# migrate a repo from gitlab to github using the same name
+# based on https://github.com/piceaTech/node-gitlab-2-github
+
+
+repo=$1
+shift
+
+set -eux -o pipefail
+
+# $(mktemp -d -p ~/tmp)
+work_dir=/tmp/gitlab-to-github
+mkdir -p $work_dir
+cd $work_dir
+
+gh repo create myome/$repo --private -y </dev/null || true
+mv $repo not-$repo || true
+
+git clone --mirror git@gitlab.com:myome/$repo.git
+
+cd $repo.git
+
+git push --no-verify --mirror git@github.com:myome/$repo.git
+
+git remote set-url --push origin git@github.com:myome/$repo.git
+
+## To periodically update the repo on GitHub with what you have in GitLab
+#git fetch -p origin
+#git push --no-verify --mirror

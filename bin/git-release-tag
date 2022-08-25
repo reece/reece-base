@@ -1,0 +1,32 @@
+#!/usr/bin/python3
+"""return tag for current git repo
+
+If it's a valid release tag syntax, echo it and exit 0.
+Otherwise, exit 1.
+
+"""
+
+import re
+import subprocess
+import sys
+
+# https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+# r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
+
+release_tag_re = re.compile(r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?$")
+
+p = subprocess.run(["git", "describe", "--tags"],
+                   capture_output=True, check=False, text=True)
+
+tags = p.stdout.split()
+
+release_tags = [t for t in tags if release_tag_re.match(t)]
+
+if len(release_tags) == 0:
+    sys.exit(1)
+    
+if len(release_tags) >= 2:
+    raise RuntimeError("Multiple release tags for this commit")
+
+print(release_tags[0])
+sys.exit(0)

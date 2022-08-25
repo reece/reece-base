@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+"""given a release version tag x.y.z, create symlinks x.y → x.y.z and x → x.y
+
+If given many symlinks, it will generate all in sorted order so that the result is asserted to be
+correct.  In other words, this script works both to add a single version tag and to add/regenerate
+for a set of release tags.
+
+AUTHOR: Reece Hart <reecehart@gmail.com>
+LICENSE: MIT
+
+"""
+
+import os
+import logging
+import re
+import sys
+
+logging.basicConfig(level="INFO")
+_logger = logging.getLogger(__name__)
+
+version_re = re.compile(r"^\d+\.\d+\.\d+$")
+
+versions = sys.argv[1:]
+
+bogus_versions = [v for v in versions if not version_re.match(v)]
+if bogus_versions:
+    raise ValueError(f"{len(bogus_versions)} bogus version tags ({bogus_versions})")
+
+version_tuples = [tuple(map(int, v.split("."))) for v in versions]
+version_tuples.sort()
+
+# symlinks: a list of symlinks to make
+symlinks = {}
+for x, y, z in version_tuples:
+    f1, f2, f3 = f"{x}", f"{x}.{y}", f"{x}.{y}.{z}"
+    symlinks[f1] = f2
+    symlinks[f2] = f3
+
+for linkpath in reversed(symlinks):
+    target = symlinks[linkpath]
+    os.symlink(dst=linkpath, src=target)  # dst -> src
+    _logger.info(f"{linkpath} → {target}")

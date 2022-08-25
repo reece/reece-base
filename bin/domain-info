@@ -1,0 +1,20 @@
+#!/usr/bin/python3
+
+import logging
+import sys
+
+import coloredlogs
+import whois
+
+_logger = logging.getLogger()
+
+if __name__ == "__main__":
+    coloredlogs.install(level="INFO")
+    
+    for dn in sys.argv[1:]:
+        w = whois.whois(dn)
+        if w.domain_name:
+            print(f"{dn} {w.name} {w.registrar}")
+            #print(f"{dn} {w.name} {w.registrar} {w.name_servers} ")
+        else:
+            _logger.warning("%s unregistered", dn)

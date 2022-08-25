@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+"""convert toml to yaml, because toml is unhelpful"""
+
+import sys
+
+import toml
+import yaml
+
+print(yaml.dump(toml.load(sys.stdin)))

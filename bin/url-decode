@@ -1,20 +1,12 @@
-#!/usr/bin/perl
+#!/usr/bin/env python3
 
-use strict;
-use warnings;
+import urllib.parse
+import sys
 
-use URI::Escape;
-#use HTTP::Decode;
-use HTML::Entities;
+url = sys.argv[1]
 
-@ARGV = map { chomp; $_ } <> unless @ARGV;
-
-while( my $u = shift ) {
-  chomp $u;
-  #$u =~ s/%(..)/chr(hex($1))/eg;
-  #$u =~ s/\?r=\d+//;
-  #$u =~ s/&amp;/&/g;
-  print(uri_unescape($u),"\n");
-  print(decode_entities($u),"\n");
-}
+print(url)
+while '%' in url:
+    url = urllib.parse.unquote(url)
+    print("-> " + url)
 

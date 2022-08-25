@@ -1,0 +1,6 @@
+#!/bin/sh
+
+sudo sh -x <<EOF
+resolvectl domain tun0 myome.info
+resolvectl dns tun0 205.251.198.47
+EOF

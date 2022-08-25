@@ -1,0 +1,12 @@
+#!/bin/sh
+# run htop on ip addresses provided on command line
+# terminator needs to be running already
+
+terminator &
+sleep 1
+
+while read host; do
+    terminator --new-tab -e "exec ssh $host $*" 
+done
+
+# echo -en '\e]0;echo works too\a'
