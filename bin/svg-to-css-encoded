@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+"""read svg on stdin, output url-encoded svg for css on stdout"""
+
+
+import urllib.parse
+import re
+import sys
+
+svg = sys.stdin.read().strip()
+svg = re.sub(r"<!--.*?-->", "", svg)
+
+enc_svg = urllib.parse.quote(svg, safe=' ="/:')
+url_svg = f"url('data:image/svg+xml;charset=utf8,{enc_svg}');"
+
+print(
+    enc_svg + "\n"
+    + "background-image: " + url_svg + "\n"
+    + "-webkit-background-image: " + url_svg + "\n"
+    + "mask-image: " + url_svg + "\n"
+    + "-webkit-mask-image: " + url_svg + "\n"
+)
