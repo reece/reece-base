@@ -1,0 +1,10 @@
+#!/bin/bash
+# convert symlink to hardlink in-place
+# silently ignores non-symlinks
+
+set -euo pipefail
+
+for p in "$@"; do
+    s="$(readlink -m "$p")"
+    [ -L "$p" ] && ln -fv "$s" "$p"
+done 

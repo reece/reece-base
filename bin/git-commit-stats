@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+
+"""generate tsv for commit stats for the current repo
+
+snafu$ git log --no-merges --format=format:"%aI %h %aE %cE %s" --shortstat | git-commit-stats 
+2019-05-21T15:24:18-05:00	8172807	awagner24@wustl.edu	awagner24@wustl.edu	3	2	24	remove non-1.0 tests from schema tests
+2019-05-21T15:15:48-05:00	0247314	awagner24@wustl.edu	awagner24@wustl.edu	2	1	503	remove non-1.0 features from schema
+2019-05-10T22:11:12-07:00	212675e	reecehart@gmail.com	reecehart@gmail.com	1	1		set master_doc in conf.py to support older sphinx used on RTD
+2019-05-10T22:00:48-07:00	978d375	reecehart@gmail.com	reecehart@gmail.com	12	146	19	added skeleton for documentation
+2019-05-10T19:03:44-07:00	5af5741	reecehart@gmail.com	reecehart@gmail.com	4	126		Added documentation scaffold
+"""
+
+import csv
+import logging
+import re
+import sys
+
+_logger = logging.getLogger()
+
+
+block_re = re.compile(r"""
+                      (20.+\n)*      # skip interstitial commits with 0 changes
+                      (?P<ts>20\S+)
+                      \s
+                      (?P<hash>[0-9a-f]+)
+                      \s
+                      (?P<author_email>\S+)
+                      \s
+                      (?P<committer_email>\S+)
+                      \s
+                      (?P<subject>.*)
+                      \n\s+
+                      (?P<files_changed>\d+) \s files? \s changed
+                      (?:, \s (?P<insertions>\d+) \s insertions?\(\+\))?
+                      (?:, \s (?P<deletions>\d+) \s deletions?\(\-\))?
+                      """, flags=re.VERBOSE)
+
+
+attributes = "ts hash author_email committer_email files_changed insertions deletions subject".split()
+
+#def generate_commits():
+#    cmd = ["git", "log", "--no-merges", "--format=format:'%aI %h %aE %cE %s'", "--shortstat"]
+
+
+def parse_block(block):
+    m = block_re.match(block)
+    return m.groupdict()
+     
+def yield_blocks(stream):
+    """emit groups of lines that are separated by \n\n"""
+    block = ""
+    for line in stream:
+        if line == "\n":
+            if block:
+                yield block
+            block = ""
+        else:
+            block += line
+    if block:
+        yield block
+        
+
+defaults = {"files_changed": 0, "insertions": 0, "deletions": 0}
+
+if __name__ == "__main__":
+    import coloredlogs
+    coloredlogs.install()
+    
+    tsv_out = csv.DictWriter(sys.stdout, fieldnames=attributes, delimiter="\t")
+    tsv_out.writeheader()
+    
+    for block in yield_blocks(sys.stdin):
+        try:
+            d = defaults | parse_block(block)
+            tsv_out.writerow(d)
+        except AttributeError:
+            _logger.critical(f"Failed to parse: {block}")
+            #raise

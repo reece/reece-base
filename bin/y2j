@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+
+"""convert yaml to json
+
+Reece Hart, reece@harts.net
+LICENSE: MIT
+
+"""
+
+import json
+import sys
+import yaml
+
+json.dump(yaml.load(sys.stdin, Loader=yaml.SafeLoader), sys.stdout, indent=3, sort_keys=True)

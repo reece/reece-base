@@ -1,0 +1,17 @@
+#!/bin/bash
+# dconf-file -- run dconf on a file
+#
+# Usage: 
+# dconf-file path-to-dconf-file dconf-expression
+# 
+# dconf provides no mechanism to specify a dconf file on the command line
+# This script is a hack to fix that
+
+dconf_path="$1"
+shift
+
+xdg_config_home=$(mktemp -d)
+mkdir $xdg_config_home/dconf
+ln -fns "$(realpath $dconf_path)" $xdg_config_home/dconf/user
+XDG_CONFIG_HOME=$xdg_config_home dconf "$@" 
+rm -fr "$tmpdir"

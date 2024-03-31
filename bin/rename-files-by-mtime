@@ -7,14 +7,14 @@ import logging
 import os
 import sys
 
-fmt = "%Y/%m"
+fmt = "%Y"
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
     for path in sys.argv[1:]:
-        s = os.stat(path)
+        s = os.lstat(path)
         dd = datetime.datetime.strftime(datetime.datetime.fromtimestamp(s.st_mtime), fmt)
         if not os.path.isdir(dd):
             os.makedirs(dd)

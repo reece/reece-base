@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+# given a tsv file with tx and ac pairs,l return
+# return tsv with acs classified by which assembly they're in
+
+import collections
+import fileinput
+
+import bioutils.assemblies
+
+
+def _get_assy_acs(assy_name) -> list:
+    assy = bioutils.assemblies.get_assembly(assy_name)
+    return [
+        s["refseq_ac"]
+        for s in assy["sequences"]
+        if (
+            s["assembly_unit"] == "Primary Assembly"
+            and s["sequence_role"] == "assembled-molecule"
+        )
+    ]
+
+
+a37seqs = set(_get_assy_acs("GRCh37"))
+a38seqs = set(_get_assy_acs("GRCh38"))
+
+tx_acs = collections.defaultdict(list)
+for line in fileinput.input():
+    (tx, ac) = line.strip().split()
+    tx_acs[tx].append(ac)
+
+for tx in tx_acs:
+    acs = set(tx_acs[tx])
+    a37 = acs & a37seqs
+    a38 = acs & a38seqs
+    other = acs - a37seqs - a38seqs
+    print("\t".join([tx, ",".join(a37), ",".join(a38), ",".join(other)]))
+    

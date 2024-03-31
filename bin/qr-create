@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+
+import io
+import sys
+
+import click
+import pyqrcode
+
+
+@click.command()
+@click.argument("text")
+@click.option("--color", default="#000")
+def create_qr_code(text: str, color: str):
+    qr = pyqrcode.create(content=text)
+    buf = io.BytesIO()
+    qr.svg(buf, module_color=color, scale=8)
+    print(buf.getvalue().decode())
+
+if __name__ == '__main__':
+    create_qr_code()

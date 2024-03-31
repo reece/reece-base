@@ -1,0 +1,11 @@
+#!/usr/bin/sudo sh
+# 
+# # My XPS-13 7390 Killer wifi dies sporadically in one wifi environment
+# The first symptom is total wifi loss with oodles of these messages:
+# Jan 27 08:25:52 snafu kernel: [89220.635236] ath11k_pci 0000:71:00.0: failed to transmit frame -108
+
+set -x
+
+rmmod ath11k_pci
+modprobe ath11k_pci
+systemctl restart network-manager.service

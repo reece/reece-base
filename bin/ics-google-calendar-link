@@ -17,7 +17,9 @@ def process_event(ev):
     gcal_datetime_fmt = "%Y%m%dT%H%M%SZ"
     begin = ev.begin.to("UTC").strftime(gcal_datetime_fmt)
     end = ev.end.to("UTC").strftime(gcal_datetime_fmt)
-    url = f"https://www.google.com/calendar/render?action=TEMPLATE&text={ev.name}&dates={begin}/{end}&details={ev.description}&location={ev.location}"
+    name = ev.name.replace("\\", "")
+    description = ev.description.replace("\\", "")
+    url = f"https://www.google.com/calendar/render?action=TEMPLATE&text={name}&dates={begin}/{end}&details={description}&location={ev.location}"
     webbrowser.open(url)
 
 
