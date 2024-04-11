@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+
+
+# ##gff-version 3
+# #!gff-spec-version 1.21
+# #!processor NCBI annotwriter
+# NC_000002.11    RefSeq  cDNA_match  179671939   179672150   212 -   .   ID=532c54a1-bcf7-470e-aebd-30534fa2df66;Target=NM_001267550.2 1 212 +;
+
+import collections
+import fileinput
+import logging
+import re
+
+_logger = logging.getLogger()
+
+line_re = re.compile(r"(?P<nc>\S+).+Target=(?P<tx>\S+)")
+
+seen = collections.Counter()
+
+for line in fileinput.input():
+    line = line.strip()
+    if line.startswith("#"):
+        continue
+    m = line_re.match(line)
+    if not m:
+        _logger.warn("Line not matched: ", line)
+        continue
+    nc_tx = m.groups()
+    if seen[nc_tx] == 0:
+        print("\t".join(nc_tx))
+    seen[nc_tx] += 1
+    

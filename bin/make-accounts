@@ -1,0 +1,23 @@
+#!/bin/bash -eu
+# make accounts from tsv file of realname, username, ssh key
+# -Reece Hart, 2023
+
+IFS=$'\t'
+while read realname username sshkey; do
+    home=/home/$username
+    if [ -d $home ]; then
+        echo "$username exists: skipping" 1>&2
+        continue
+    fi
+
+    (
+        set -x
+        useradd -c "$realname" -m -s /bin/bash $username
+
+        mkdir $home/.ssh
+        echo "$sshkey" >$home/.ssh/authorized_keys
+
+        chmod o+rX $home $home/.ssh $home/.ssh/authorized_keys
+        chown -R $username:$username $home/.ssh
+    )
+done
