@@ -1,0 +1,17 @@
+#!/bin/sh
+# summarize a pr (open or merged) like so:
+#
+# $ git-pr-summary 45
+# 
+
+tmpf=$(mktemp)
+
+for pr in "$@"; do
+    gh pr view $pr --json state,title,mergeCommit,mergedAt,headRefName,number >$tmpf
+
+    echo \
+        "$(jq -re '"\(.number)\t\(.state)"' <$tmpf)" \
+        "$(gh pr diff $pr | diffstat -s)" \
+        "$(jq -re '"\(.title)"' <$tmpf)"
+done
+

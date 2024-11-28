@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+
+import asyncio
+from collections import Counter
+from datetime import datetime
+import json
+import logging
+import os
+from pathlib import Path
+
+from bs4 import BeautifulSoup
+import coloredlogs
+from playwright.async_api import async_playwright
+import requests
+
+
+# Configuration block
+top_url = "https://app.townsq.io/w/5ea211c1cf431c082e2356d6/documents/community?sort=Date&direction=asc"
+townsq_date_format = '%m/%d/%Y %I:%M %p'
+doc_dir = Path("TownSq Downloads")
+doc_dir.mkdir(exist_ok=True)
+
+# Set up logging
+logger = logging.getLogger(__name__)
+coloredlogs.install(level="INFO", logger=logger)
+
+async def scroll_to_bottom_in_element(page):
+    """Scroll within the element with class 'tsq-scroll-y' using scrollTop to simulate scrolling behavior."""
+    logger.info("Starting infinite scroll")
+
+    # Define the selector based on the class
+    element_selector = '.tsq-scroll-y.root-scrollable-content'
+
+    # Locate the container element by its selector
+    container_element = await page.query_selector(element_selector)
+
+    if container_element is None:
+        logger.error(f"Element {element_selector} not found.")
+        return
+
+    previous_height = await container_element.evaluate("el => el.scrollHeight")
+
+    while True:
+        # Scroll the element by increasing its scrollTop value
+        await container_element.evaluate("el => el.scrollTop += 10000")
+
+        # Wait for the element to load more content (adjust the timeout as needed)
+        await page.wait_for_timeout(200)
+
+        # Check if the scroll height has changed within the container
+        new_height = await container_element.evaluate("el => el.scrollHeight")
+        if new_height == previous_height:
+            logger.info("Reached the bottom of the container")
+            break
+        previous_height = new_height
+
+
+async def main():
+    # Load cookies from JSON file
+    try:
+        with open("cookies.json", mode="r", encoding="utf8") as f:
+            cookies = json.load(f)
+        logger.info("Cookies loaded from cookies.json")
+    except FileNotFoundError:
+        logger.error("Error: 'cookies.json' file not found.")
+        return 1  # Return error code 1 for missing file
+
+    # Ensure all sameSite keys are capitalized and valid, default to 'Lax' if invalid or missing
+    for cookie in cookies:
+        if "sameSite" not in cookie or not cookie["sameSite"]:
+            cookie["sameSite"] = (
+                "Lax"  # Default to 'Lax' if sameSite is missing or None
+            )
+        else:
+            # Capitalize and validate the sameSite value
+            sameSite_value = cookie["sameSite"].capitalize()
+            if sameSite_value not in ["Strict", "Lax", "None"]:
+                cookie["sameSite"] = "Lax"  # Default to 'Lax' if the value is invalid
+            else:
+                cookie["sameSite"] = sameSite_value
+
+    logger.info("Cookies validated and processed")
+
+    async with async_playwright() as p:
+        logger.info("Launching browser")
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context()
+
+        await context.add_cookies(cookies)
+        logger.info("Cookies added to the browser context")
+        page = await context.new_page()
+
+        n = 0
+        while True:
+            logger.info("Navigating to %s", top_url)
+            response = await page.goto(top_url)
+            await page.wait_for_timeout(1000)
+            if response.status != 200:
+                logger.error("Failed to authenticate. HTTP Status: %s", response.status)
+                await browser.close()
+                return 2  # Return error code 2 for authentication failure
+
+            # await scroll_to_bottom(page)
+            await scroll_to_bottom_in_element(page)
+            document_links = list(await page.locator(".documents-name").element_handles())
+            titles = Counter(await asyncio.gather(*(dl.inner_text() for dl in document_links)))
+            dup_titles = [k for k,v in titles.items() if v > 1]
+            logger.info("Found %d document links (%d unique titles, %d duplicate)", 
+                        len(document_links), len(titles), len((dup_titles)))
+
+            # look for the next file that hasn't been downloaded yet
+            while n < len(document_links):
+                link = document_links[n]
+                dt_elem = await link.evaluate_handle("el => el.nextElementSibling")
+                dt = datetime.strptime(await dt_elem.inner_text(), townsq_date_format)
+                title = await link.inner_text()
+                dst_path = doc_dir / title
+                if title in dup_titles:
+                    dst_path.unlink(missing_ok=True)   # remove undated duplicate title
+                    dst_path = doc_dir / (title + "-" + dt.isoformat())
+                if not dst_path.exists():
+                    break
+                logger.info("Exists: %s", dst_path)
+                n += 1
+
+            if n == len(document_links):
+                break
+
+            logger.info(f"{title=}")
+
+            await link.click()
+            await page.wait_for_timeout(1000)
+
+            body_content = await page.evaluate("document.body.outerHTML")
+            soup = BeautifulSoup(body_content, "lxml")
+            iframe = soup.find("iframe", {"title": "Preview"})
+            pdf_url = iframe.get("src")
+
+            resp = requests.get(pdf_url)
+            resp.raise_for_status()
+            dst_path.open(mode="wb").write(resp.content)
+            os.utime(dst_path, (dt.timestamp(), dt.timestamp()))
+            logger.info("Wrote %s (%s)", dst_path, dt)
+            n += 1
+
+        await browser.close()
+        logger.info("Browser closed")
+
+    return 0
+
+
+# Run the main function
+if __name__ == "__main__":
+    asyncio.run(main())

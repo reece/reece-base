@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-"""bin top-level files and directories into %Y-%m directories"""
+"""bin files and directories into dated directories"""
 
 import datetime
 import logging
 import os
 import sys
 
-fmt = "%Y"
+fmt = "%Y/%m"
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -16,11 +16,11 @@ if __name__ == "__main__":
     for path in sys.argv[1:]:
         s = os.lstat(path)
         dd = datetime.datetime.strftime(datetime.datetime.fromtimestamp(s.st_mtime), fmt)
-        if not os.path.isdir(dd):
+        if not os.path.exists(dd):
             os.makedirs(dd)
         dp = os.path.join(dd, os.path.basename(path))
         try:
             os.rename(path, dp)
-            logger.info("{path} -> {dd}".format(path=path, dd=dd))
+            logger.info(f"{path} -> {dp}")
         except OSError as e:
             logger.exception(e)

@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+
+import boto3
+import json
+from pathlib import Path
+
+# SSO parameters
+SSO_START_URL = "https://myome.awsapps.com/start/"
+SSO_REGION = "us-east-2"
+DEFAULT_REGION = "us-east-2"
+SSO_SESSION_NAME = "myome-sso"
+
+# Mapping of account IDs to account abbreviations
+ACCOUNT_ABBREVIATIONS = {
+    "152010269485": "tst",
+    "262856205307": "dev",
+    "278950914148": "root",
+    "375661088308": "biocommons",
+    "518606203777": "mgt",
+    "611035778112": "stg",
+    "651250065704": "log",
+    "654122908492": "shr",
+    "776364490942": "prd",
+    "811350051402": "res",
+    "851685026544": "sbx",
+}
+
+
+# Function to format the SSO session block for stdout
+def format_sso_session(session_name):
+    return (
+        f"[sso-session {session_name}]\n"
+        f"sso_start_url = {SSO_START_URL}\n"
+        f"sso_region = {SSO_REGION}\n"
+        f"sso_registration_scopes = sso:account:access\n\n"
+    )
+
+
+# Function to format individual profiles for stdout
+def format_profile(profile_name, account_id, role_name):
+    return (
+        f"[profile {profile_name}]\n"
+        f"sso_session = {SSO_SESSION_NAME}\n"
+        f"sso_account_id = {account_id}\n"
+        f"sso_role_name = {role_name}\n"
+        f"region = {DEFAULT_REGION}\n\n"
+    )
+
+
+# Fetch the SSO access token from AWS CLI cache
+def get_sso_access_token(sso_start_url):
+    cache_dir = Path.home() / ".aws" / "sso" / "cache"
+    for token_file in cache_dir.glob("*.json"):
+        with open(token_file, "r") as f:
+            token_data = json.load(f)
+            if token_data.get("startUrl") == sso_start_url:
+                return token_data.get("accessToken")
+    raise ValueError("SSO access token not found. Please log in using `aws sso login`.")
+
+
+# Initialize AWS SSO client
+session = boto3.Session()
+sso_client = session.client("sso", region_name=SSO_REGION)
+access_token = get_sso_access_token(SSO_START_URL)
+
+# # Output the SSO session configuration to stdout
+# print(format_sso_session(SSO_SESSION_NAME))
+
+# Fetch all accounts accessible through SSO
+accounts = sso_client.list_accounts(accessToken=access_token, maxResults=100)
+for account in accounts["accountList"]:
+    account_id = account["accountId"]
+
+    # Determine profile name based on account abbreviation or account ID
+    account_name = ACCOUNT_ABBREVIATIONS.get(account_id, account_id)
+
+    # Fetch roles for each account
+    roles = sso_client.list_account_roles(
+        accessToken=access_token, accountId=account_id, maxResults=100
+    )
+    for role in roles["roleList"]:
+        role_name = role["roleName"]
+        profile_name = f"{account_name}-{role_name}"
+
+        # Output each profile configuration to stdout
+        print(format_profile(profile_name, account_id, role_name))

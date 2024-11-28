@@ -1,0 +1,8 @@
+#!/bin/bash
+# render text objects as paths
+# ...so that fonts are not required by viewer, but resulting file no longer has text objects
+
+in_fn="$1"
+out_fn=${2:-${in_fn%.svg}-textaspaths.svg}
+
+inkscape "--actions=select-by-element:text;object-to-path;export-filename:${out_fn};export-do" "$in_fn"

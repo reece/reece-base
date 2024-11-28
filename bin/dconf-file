@@ -10,8 +10,8 @@
 dconf_path="$1"
 shift
 
-xdg_config_home=$(mktemp -d)
-mkdir $xdg_config_home/dconf
-ln -fns "$(realpath $dconf_path)" $xdg_config_home/dconf/user
-XDG_CONFIG_HOME=$xdg_config_home dconf "$@" 
+tmpdir=$(mktemp -d)
+mkdir $tmpdir/dconf
+ln -fns "$(realpath $dconf_path)" $tmpdir/dconf/user
+XDG_CONFIG_HOME=$tmpdir dconf "$@" 
 rm -fr "$tmpdir"

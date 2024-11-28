@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Get list of local branches
+local_branches=$(git branch --format="%(refname:short)")
+
+# Get list of remote branches
+remote_branches=$(git branch -r --format="%(refname:short)" | sed 's/origin\///')
+
+# Combine both lists, sort them, and remove duplicates
+all_branches=$(echo -e "$local_branches\n$remote_branches" | sort | uniq)
+
+# Loop through each branch and determine its type
+for branch in $all_branches; do
+    local_exists=$(echo "$local_branches" | grep -w "$branch")
+    remote_exists=$(echo "$remote_branches" | grep -w "$branch")
+
+    prefix="  "
+
+    if [ -n "$local_exists" ] && [ -n "$remote_exists" ]; then
+        prefix="LR"
+    elif [ -n "$local_exists" ]; then
+        prefix="L "
+    elif [ -n "$remote_exists" ]; then
+        prefix=" R"
+    fi
+
+    echo "$prefix $branch"
+done

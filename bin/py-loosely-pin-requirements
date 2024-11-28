@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+import re
+import subprocess
+from packaging.utils import canonicalize_name
+
+def read_requirements(filename):
+    """Read requirements file, stripping comments and empty lines."""
+    with open(filename) as f:
+        return [line.strip() for line in f if line.strip() and not line.startswith('#')]
+
+def get_freeze():
+    """Run pip freeze and return the output lines."""
+    result = subprocess.run(['pip', 'freeze'], capture_output=True, text=True)
+    return result.stdout.splitlines()
+
+def parse_freeze(freeze_lines):
+    """Parse pip freeze output into a dict of {canonical_name: full_spec}."""
+    versions = {}
+    for line in freeze_lines:
+        # Split on first occurrence of ==
+        parts = line.split('==', 1)
+        if len(parts) == 2:
+            name = canonicalize_name(parts[0])
+            version = parts[1]
+            # Extract major.minor version
+            match = re.match(r'(\d+\.\d+)', version)
+            if match:
+                versions[name] = f"~={match.group(1)}"
+    return versions
+
+def main():
+    # Read requirements file and get pip freeze output
+    requirements = read_requirements('requirements.txt')
+    freeze = get_freeze()
+    
+    # Parse freeze into a lookup dictionary
+    versions = parse_freeze(freeze)
+    
+    # Process each requirement
+    for req in requirements:
+        # Get canonical name for lookup
+        canonical_name = canonicalize_name(req)
+        
+        # Output with version if found, otherwise just the requirement
+        if canonical_name in versions:
+            print(f"{req}{versions[canonical_name]}")
+        else:
+            print(req)
+
+if __name__ == '__main__':
+    main()
