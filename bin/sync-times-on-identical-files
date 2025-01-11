@@ -1,0 +1,232 @@
+#!/usr/bin/env python3
+
+"""Generate commands to normalize timestamps of files with identical content.
+
+This script identifies files with identical content and generates touch commands
+to make their timestamps match. It uses a two-pass hashing strategy:
+1. Fast sparse hashing (first/last blocks) to identify potential matches
+2. Full content hashing to confirm identical files
+
+Usage:
+    find . -type f -printf '%s\t%i\t%T@\t%C@\t%p\n' | sort -n | sync-times-on-identical-files [-v]
+    
+    or with input file:
+    find . -type f -printf '%s\t%i\t%T@\t%C@\t%p\n' | sort -n > files.txt
+    sync-times-on-identical-files -i files.txt [-v]
+
+The find command provides:
+    %s    - file size in bytes
+    %i    - inode number
+    %T@   - mtime in seconds since epoch
+    %C@   - ctime in seconds since epoch
+    %p    - file path
+
+The script outputs a series of touch commands that can be reviewed and then
+executed to normalize timestamps. Only files with identical content but
+different timestamps will have commands generated.
+
+Example output:
+    # Files of size 1.5GB with hash 3f7d2e8b9a1c5f0d...
+    touch -r 'reference/file.txt' 'copy1.txt'
+    touch -r 'reference/file.txt' 'copy2.txt'
+"""
+
+import sys
+import argparse
+import itertools
+import hashlib
+import shlex
+import logging
+import coloredlogs
+from collections import defaultdict
+from pathlib import Path
+from typing import NamedTuple, Iterator
+from tqdm import tqdm
+
+
+# Configure logging
+logger = logging.getLogger(__name__)
+coloredlogs.install(
+    level="INFO",
+    logger=logger,
+    fmt="%(levelname)s: %(message)s",
+    level_styles={
+        "info": {"color": "white"},
+        "warning": {"color": "yellow"},
+        "error": {"color": "red", "bold": True},
+    }
+)
+
+
+class FileInfo(NamedTuple):
+    size: int
+    inode: int
+    mtime: float
+    ctime: float
+    path: Path
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Generate commands to normalize timestamps of identical files")
+    parser.add_argument("-i", "--input", type=argparse.FileType("r"), default=sys.stdin,
+                       help="Input file (default: stdin)")
+    parser.add_argument("-v", "--verbose", action="store_const",
+                       const="DEBUG", dest="log_level", default="INFO",
+                       help="Enable verbose logging")
+    return parser.parse_args()
+
+
+def parse_find_output(lines: Iterator[str]) -> Iterator[FileInfo]:
+    """Parse lines of form 'size\tinode\tmtime\tctime\tpath'"""
+    for line in lines:
+        size, inode, mtime, ctime, path = line.strip().split("\t")
+        yield FileInfo(int(size), int(inode), float(mtime), float(ctime), Path(path))
+
+
+def get_fs_block_size(path: Path) -> int:
+    """Get filesystem block size for the given path."""
+    import os
+    fs_stats = os.statvfs(path)
+    return fs_stats.f_bsize
+
+
+def hash_file(path: Path, density: float = 1.0, block_size: int = None) -> str:
+    """Compute SHA-512 hash of file with configurable sampling density.
+    
+    Args:
+        path: File path to hash
+        density: Fraction of file to hash, from 0.0 to 1.0:
+            0.0 = hash only first and last blocks
+            1.0 = hash entire file
+            Values in between = sample every 1/density blocks
+    """
+    h = hashlib.sha512()
+    size = path.stat().st_size
+    
+    with open(path, "rb") as f:
+        # Calculate number of blocks to read
+        num_blocks = size // block_size + (1 if size % block_size else 0)
+        
+        if density == 0.0:
+            # Just read first and last blocks
+            h.update(f.read(block_size))
+            if num_blocks > 1:
+                f.seek(-block_size, 2)  # Seek from end
+                h.update(f.read(block_size))
+        else:
+            # Calculate stride based on density
+            stride = int(1 / density)
+            for i in range(0, num_blocks, stride):
+                f.seek(i * block_size)
+                h.update(f.read(block_size))
+    
+    return h.hexdigest()
+
+
+def format_size(size: int) -> str:
+    """Format size in human readable format"""
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if size < 1024:
+            return f"{size:.1f}{unit}"
+        size /= 1024
+    return f"{size:.1f}PB"
+
+
+def main():
+    args = parse_args()
+    
+    # Initialize statistics
+    total_files = 0
+    sparse_matches = 0
+    full_matches = 0
+    files_to_touch = 0
+    
+    # Set log level based on args
+    coloredlogs.set_level(args.log_level)
+    
+    logger.debug("Reading file list...")
+    files = list(parse_find_output(args.input))
+    
+    logger.info(f"Found {len(files)} files")
+    
+    # Get block size from first file's filesystem
+    if files:
+        block_size = get_fs_block_size(files[0].path)
+        logger.info(f"Filesystem block size: {format_size(block_size)}")
+    else:
+        logger.error("No files found")
+        sys.exit(0)
+    
+    # Group by inode first to get canonical paths
+    by_inode = defaultdict(list)
+    for f in files:
+        by_inode[f.inode].append(f)
+    
+    # Keep just one file per inode
+    canonical_files = [group[0] for group in by_inode.values()]
+    
+    logger.info(f"Reduced to {len(canonical_files)} unique inodes")
+    
+    # Group canonical paths by size
+    size_groups = itertools.groupby(
+        sorted(canonical_files, key=lambda f: f.size),
+        key=lambda f: f.size
+    )
+    
+    # For each size group, hash files and group by hash
+    for size, group in size_groups:
+        group = list(group)
+        if len(group) < 2:  # Skip singleton groups
+            continue
+            
+        # Track files in this size group
+        total_files += len(group)
+        
+        logger.debug(f"Processing {len(group)} files of size {format_size(size)}...")
+        
+        # First group by sparse hash
+        sparse_groups = defaultdict(list)
+        for f in tqdm(group, disable=not args.log_level == "DEBUG", desc="Sparse hashing"):
+            h = hash_file(f.path, density=0.0, block_size=block_size)
+            sparse_groups[h].append(f)
+        
+        # Count files that matched in sparse hashing
+        sparse_matches += sum(len(g) - 1 for g in sparse_groups.values() if len(g) >= 2)
+        
+        # Then full hash the groups that matched sparse hash
+        for sparse_group in sparse_groups.values():
+            if len(sparse_group) < 2:
+                continue
+                
+            # Compute full hashes
+            by_hash = defaultdict(list)
+            for f in tqdm(sparse_group, disable=not args.log_level == "DEBUG", desc="Full hashing"):
+                h = hash_file(f.path, density=1.0, block_size=block_size)
+                by_hash[h].append(f)
+            
+            # For each group of identical files
+            for h, hash_group in by_hash.items():
+                if len(hash_group) < 2:
+                    continue
+                    
+                # Use first file as reference
+                ref = hash_group[0]
+                
+                # Count full matches
+                full_matches += len(hash_group) - 1
+                
+                print(f"\n# Files of size {format_size(size)} with hash {h[:16]}...")
+                for f in hash_group[1:]:
+                    if f.mtime != ref.mtime or f.ctime != ref.ctime:
+                        files_to_touch += 1
+                        print(f"touch -r {shlex.quote(str(ref.path))} {shlex.quote(str(f.path))}")
+
+    logger.info("\nStatistics:")
+    logger.info(f"Total files processed: {total_files}")
+    logger.info(f"Files matching sparse hash: {sparse_matches} ({sparse_matches/total_files:.1%})")
+    logger.info(f"Files confirmed identical: {full_matches} ({full_matches/total_files:.1%})")
+    logger.info(f"Files needing timestamp updates: {files_to_touch}")
+
+
+if __name__ == "__main__":
+    main()
