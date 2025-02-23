@@ -1,0 +1,196 @@
+#!/usr/bin/env python3
+"""
+Randomly write data to (rotational) HDD device
+
+Usage:
+
+» sudo `w python3` `w wipe-device-randomly` /dev/sda
+Starting HDD random writer with the following parameters:
+  Device: /dev/sda
+    disk_info.sector_size=4.0 KiB
+    disk_info.n_sectors=976746240
+  args.sectors_per_region=8192
+  region_size=32.0 MiB blocks
+  len(regions)=119232
+  args.dry_run=False
+Writing:   0%|               | 15/119232 [00:14<32:19:48,  1.02region/s, seek_offset=2051752853504]
+
+"""
+
+from dataclasses import dataclass
+import stat
+from typing import Iterator
+import argparse
+import array
+import logging
+import math
+import mmap
+import os
+import random
+import signal
+
+import humanize
+from tqdm import tqdm
+
+default_spr = 2**13
+
+logger = logging.getLogger("DiskWiper")
+
+
+@dataclass
+class DiskInfo:
+    device_path: str
+    n_sectors: int
+    sector_size: int
+
+def naturalsize(s):
+    return humanize.naturalsize(s, binary=True)
+
+def get_disk_info(device: str) -> DiskInfo:
+    """Retrieves disk properties."""
+    logger.info(f"Fetching disk information for {device}...")
+    device_name = os.path.basename(device)
+    sector_size = int(open(f"/sys/block/{device_name}/queue/physical_block_size").read().strip())
+    n_sectors = int(open(f"/sys/block/{device_name}/size").read().strip()) * 512 // sector_size
+    return DiskInfo(device_path=device, 
+                    sector_size=sector_size,
+                    n_sectors=n_sectors,
+                    )
+
+def is_block_device(path: str) -> bool:
+    """Checks if the given path is a block device."""
+    return os.path.exists(path) and stat.S_ISBLK(os.stat(path).st_mode)
+
+def is_rotational_disk(device: str) -> bool:
+    """Ensures the target device is an HDD."""
+    rotational_path = f"/sys/block/{os.path.basename(device)}/queue/rotational"
+    if os.path.exists(rotational_path):
+        with open(rotational_path, "r") as f:
+            return f.read().strip() == "1"
+    return False
+
+def is_mounted_device(device: str) -> bool:
+    """Checks if the given block device is mounted."""
+    with open("/proc/mounts", "r") as f:
+        return any(line.split()[0].startswith(device) for line in f)
+
+def main(args):
+    if not is_block_device(args.device):
+        logger.error(f"{args.device}: Not a block device")
+        exit(1)
+    
+    if not is_rotational_disk(args.device):
+        logger.error(f"{args.device}: Not an HDD.")
+        exit(1)
+    
+    if is_mounted_device(args.device):
+        logger.error(f"{args.device}: Is mounted")
+        exit(1)
+    
+    disk_info = get_disk_info(args.device)
+    # disk_info.n_sectors = args.sectors_per_region * 1000
+
+    # region_size must be a multiple of the sector_size
+    region_size = disk_info.sector_size * args.sectors_per_region
+
+    n_regions = math.ceil(disk_info.n_sectors / args.sectors_per_region)
+    regions = array.array("I", range(n_regions))
+    random.shuffle(regions)
+
+    print("Starting HDD random writer with the following parameters:")
+    print(f"  Device: {args.device}")
+    print(f"    disk_info.sector_size={naturalsize(disk_info.sector_size)}")
+    print(f"    {disk_info.n_sectors=}")
+    print(f"  {args.sectors_per_region=}")
+    print(f"  region_size={naturalsize(region_size)} blocks")
+    print(f"  {len(regions)=}")
+    print(f"  {args.dry_run=}")
+    
+    if not args.dry_run:
+        fd = os.open(args.device, os.O_WRONLY | os.O_DIRECT)
+    aligned_buf = mmap.mmap(-1, region_size, flags=mmap.MAP_PRIVATE, prot=mmap.PROT_WRITE)
+    
+    stop_flag = False
+    def handle_signal(sig, frame):
+        nonlocal stop_flag
+        stop_flag = True
+    signal.signal(signal.SIGINT, handle_signal)
+    
+    with tqdm(iterable=regions, desc="Writing", unit="region", colour="cyan") as pbar:
+        for region in pbar: 
+            if stop_flag:
+                break
+
+            seek_offset = region * region_size
+            assert seek_offset % disk_info.sector_size == 0, "seek offset is not aligned"
+            assert seek_offset < disk_info.n_sectors * disk_info.sector_size, "attempt to seek beyond end of disk"
+            pbar.set_postfix(region=f"{region}") # seek_offset=f"{seek_offset:16}")
+            logger.info(f"Seek {seek_offset}, write {naturalsize(region_size)}")
+            if not args.dry_run:
+                os.lseek(fd, seek_offset, os.SEEK_SET)
+            aligned_buf[:] = os.urandom(region_size)
+            if not args.dry_run:
+                os.write(fd, aligned_buf)
+
+    if not args.dry_run:
+        os.close(fd)
+    aligned_buf.close()
+    
+
+if __name__ == "__main__":
+    import coloredlogs
+
+    # Configure argument parser
+    def parse_args():
+        parser = argparse.ArgumentParser(description="Randomly overwrite disk regions until interrupted.")
+        parser.add_argument("device", help="Target block device (e.g., /dev/sdX)")
+        parser.add_argument("--sectors-per-region", "--spr", type=int, default=default_spr, help=f"Number of blocks per region (default: {default_spr})")
+        parser.add_argument("--verbosity", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="WARNING", help="Set logging verbosity")
+        parser.add_argument("--dry-run", "-n", action="store_true", help="Show actions without writing to disk")
+        return parser.parse_args()
+
+    args = parse_args()
+    coloredlogs.install(level=args.verbosity, logger=logger)
+    
+    main(args)
+
+
+
+#     disk
+#     ---------------------------------------  
+
+#     blocks:
+#     --- --- --- --- --- --- --- --- --- ---  psz, eg 4096B
+#      0   1   2   3   4   5   6   7   8   9   block #, 0..n_sectors
+ 
+#     regions:
+#     =========== =========== =========== ===  
+#          0           1           2       3   region #, 0..n_regions
+
+# sectors = physical blocks = smallest write units, determined by device
+# logical blocks, determined by OS
+
+# params from disk:
+# - device_size (blockdev --getsz $DEVICE)
+# - block_size (blockdev --getpsz $DEVICE)
+
+# script params:
+# - sectors_per_region (10000)
+
+# root@snafu:~# sfdisk -l $DEVICE 
+# Disk /dev/sda: 3.64 TiB, 4000752599040 bytes, 976746240 sectors
+# Disk model: My Book 1230    
+# Units: sectors of 1 * 4096 = 4096 bytes
+# Sector size (logical/physical): 4096 bytes / 4096 bytes
+# I/O size (minimum/optimal): 4096 bytes / 4096 bytes
+
+# # 512-byte sectors
+# root@snafu:~# expr $( blockdev --getsize64 $DEVICE ) / 512
+# 7813969920
+
+# # pbsz sectors
+# root@snafu:~# expr $( blockdev --getsize64 $DEVICE ) / $(blockdev --getpbsz $DEVICE )
+# 976746240
+
+# n_regions = ceil(n_sectors / sectors_per_region)  # last region might be fractional
+# region_size = sector_size * sectors_per_region

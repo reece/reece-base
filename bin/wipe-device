@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# echo=echo
+
+set -e # Exit immediately if a command fails
+
+if [ "$EUID" -ne 0 ]; then
+    echo "Please run as root."
+    exit 1
+fi
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 /dev/sdX"
+    exit 1
+fi
+
+DEVICE="$1"
+
+if ! lsblk "$DEVICE" &>/dev/null; then
+    echo "Error: Device $DEVICE not found."
+    exit 1
+fi
+
+if findmnt "$DEVICE" &>/dev/null; then
+    echo "Error: Device $DEVICE is mounted."
+    exit 1
+fi
+
+echo "WARNING: This will wipe all data on $DEVICE!"
+read -p "Type 'yes' to proceed: " confirm
+if [ "$confirm" != "yes" ]; then
+    echo "Aborted."
+    exit 1
+fi
+
+# Step 1: Identify and wipe all partitions
+PARTITIONS=$(lsblk -ln -o NAME "$DEVICE" | grep -E "^$(basename $DEVICE)[0-9]+")
+
+for PART in $PARTITIONS; do
+    PARTITION="/dev/$PART"
+    echo "Wiping partition: $PARTITION"
+    $echo wipefs --all "$PARTITION"
+    $echo dd if=/dev/urandom of="$PARTITION" bs=1M count=10 status=progress
+    $echo dd if=/dev/urandom of="$PARTITION" bs=1M count=10 seek=$(($(blockdev --getsz "$PARTITION") / 2048 - 10)) status=progress
+done
+
+echo "Scrambling the partition table on $DEVICE"
+$echo dd if=/dev/urandom of="$DEVICE" bs=1M count=10 status=progress
+$echo dd if=/dev/urandom of="$DEVICE" bs=1M count=10 seek=$(($(blockdev --getsz "$DEVICE") / 2048 - 10)) status=progress
+$echo partprobe "$DEVICE" || echo "Warning: Could not reload partition table."
+
+echo "First pass wipe is complete. Now writing randomly until ctrl-c"
