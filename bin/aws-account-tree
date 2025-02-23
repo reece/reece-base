@@ -1,0 +1,67 @@
+import boto3
+
+# Unicode tree drawing characters
+BRANCH = "├── "
+LAST_BRANCH = "└── "
+PIPE = "│   "
+SPACE = "    "
+
+# Initialize AWS Organizations client
+org_client = boto3.client("organizations")
+
+
+def get_root_id():
+    """Retrieve the root ID of the AWS organization."""
+    roots = org_client.list_roots()
+    return roots["Roots"][0]["Id"]
+
+
+def get_children(parent_id, child_type):
+    """Retrieve children of a given parent (either OUs or accounts)."""
+    children = []
+    paginator = org_client.get_paginator("list_children")
+    for page in paginator.paginate(ParentId=parent_id, ChildType=child_type):
+        children.extend(page["Children"])
+    return children
+
+
+def get_ou_name(ou_id):
+    """Retrieve the name of an Organizational Unit."""
+    ou_info = org_client.describe_organizational_unit(OrganizationalUnitId=ou_id)
+    return ou_info["OrganizationalUnit"]["Name"]
+
+
+def get_account_name(account_id):
+    """Retrieve the name of an AWS account."""
+    account_info = org_client.describe_account(AccountId=account_id)
+    return account_info["Account"]["Name"]
+
+
+def print_tree(parent_id, prefix=""):
+    """Recursively print the AWS organization structure as a tree."""
+    # Fetch OUs and Accounts under the current parent
+    ou_list = get_children(parent_id, "ORGANIZATIONAL_UNIT")
+    account_list = get_children(parent_id, "ACCOUNT")
+
+    # Total number of children to determine branch drawing
+    total_children = len(ou_list) + len(account_list)
+    
+    for index, ou in enumerate(ou_list):
+        is_last = index == total_children - 1
+        connector = LAST_BRANCH if is_last else BRANCH
+        new_prefix = prefix + (SPACE if is_last else PIPE)
+
+        ou_name = get_ou_name(ou["Id"])
+        print(f"{prefix}{connector}📂 {ou_name} ({ou['Id']})")
+        print_tree(ou["Id"], new_prefix)
+
+    for index, account in enumerate(account_list):
+        is_last = index == len(account_list) - 1
+        connector = LAST_BRANCH if is_last else BRANCH
+        print(f"{prefix}{connector}📄 {get_account_name(account['Id'])} ({account['Id']})")
+
+
+if __name__ == "__main__":
+    root_id = get_root_id()
+    print(f"AWS Account Structure:\n📂 Root OU ({root_id})")
+    print_tree(root_id)
