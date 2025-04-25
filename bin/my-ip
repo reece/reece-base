@@ -1,0 +1,5 @@
+#!/bin/sh
+# return ip4 and ip6 addresses by using external web services
+
+echo ip4: $(curl -4s icanhazip.com)
+echo ip6: $(curl -6s icanhazip.com)

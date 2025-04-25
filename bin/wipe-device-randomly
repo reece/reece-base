@@ -4,7 +4,7 @@ Randomly write data to (rotational) HDD device
 
 Usage:
 
-» sudo `w python3` `w wipe-device-randomly` /dev/sda
+» sudo `w python3` `w wipe-device-randomly` /dev/sdX
 Starting HDD random writer with the following parameters:
   Device: /dev/sda
     disk_info.sector_size=4.0 KiB
@@ -75,6 +75,8 @@ def is_mounted_device(device: str) -> bool:
         return any(line.split()[0].startswith(device) for line in f)
 
 def main(args):
+    random.seed(args.random_seed)
+
     if not is_block_device(args.device):
         logger.error(f"{args.device}: Not a block device")
         exit(1)
@@ -96,6 +98,7 @@ def main(args):
     n_regions = math.ceil(disk_info.n_sectors / args.sectors_per_region)
     regions = array.array("I", range(n_regions))
     random.shuffle(regions)
+    # regions = regions[:100]
 
     print("Starting HDD random writer with the following parameters:")
     print(f"  Device: {args.device}")
@@ -110,25 +113,29 @@ def main(args):
         fd = os.open(args.device, os.O_WRONLY | os.O_DIRECT)
     aligned_buf = mmap.mmap(-1, region_size, flags=mmap.MAP_PRIVATE, prot=mmap.PROT_WRITE)
     
-    stop_flag = False
+    abort = False
     def handle_signal(sig, frame):
-        nonlocal stop_flag
-        stop_flag = True
+        nonlocal abort
+        abort = True
     signal.signal(signal.SIGINT, handle_signal)
-    
-    with tqdm(iterable=regions, desc="Writing", unit="region", colour="cyan") as pbar:
+
+    with tqdm(iterable=regions[args.skip_regions:], initial=args.skip_regions, total=len(regions), desc="Writing", unit="region", colour="cyan", dynamic_ncols=True) as pbar:
         for region in pbar: 
-            if stop_flag:
+            if abort:
                 break
 
             seek_offset = region * region_size
+            pbar.set_postfix_str(f"region={region}".rjust(14))
+            logger.debug(f"Seek {seek_offset}, write {naturalsize(region_size)}")
+
             assert seek_offset % disk_info.sector_size == 0, "seek offset is not aligned"
             assert seek_offset < disk_info.n_sectors * disk_info.sector_size, "attempt to seek beyond end of disk"
-            pbar.set_postfix(region=f"{region}") # seek_offset=f"{seek_offset:16}")
-            logger.info(f"Seek {seek_offset}, write {naturalsize(region_size)}")
+
             if not args.dry_run:
                 os.lseek(fd, seek_offset, os.SEEK_SET)
+            
             aligned_buf[:] = os.urandom(region_size)
+            
             if not args.dry_run:
                 os.write(fd, aligned_buf)
 
@@ -145,8 +152,10 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description="Randomly overwrite disk regions until interrupted.")
         parser.add_argument("device", help="Target block device (e.g., /dev/sdX)")
         parser.add_argument("--sectors-per-region", "--spr", type=int, default=default_spr, help=f"Number of blocks per region (default: {default_spr})")
-        parser.add_argument("--verbosity", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="WARNING", help="Set logging verbosity")
+        parser.add_argument("--verbosity", "-v", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="WARNING", help="Set logging verbosity")
         parser.add_argument("--dry-run", "-n", action="store_true", help="Show actions without writing to disk")
+        parser.add_argument("--random-seed", "-R", default=0, type=int, help="random number seed")
+        parser.add_argument("--skip-regions", "-S", default=0, type=int, help="number of regions to skip (with same random seed, enables restart)")
         return parser.parse_args()
 
     args = parse_args()
