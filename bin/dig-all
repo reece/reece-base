@@ -1,0 +1,19 @@
+#!/bin/bash
+# use dig to find all common record types for a domain
+# RFC 8482 deprecates ANY, so we need to iterate over types to get something
+# comparable
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <domain_name>"
+    exit 1
+fi
+
+DOMAIN=$1
+
+RECORD_TYPES=("A" "AAAA" "MX" "NS" "TXT" "CNAME" "SOA" "PTR" "SRV" "DMARC" "SPF")
+
+for type in "${RECORD_TYPES[@]}"; do
+    # The '+noall +answer' options give a clean output
+    echo ===========================================
+    (set -x; dig $DOMAIN $type +noall +answer)
+done

@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+
+import logging
+import requests
+
+_logger = logging.get_logger()
+
+curl 'https://logbook.global-prod.padi.com/api/Logbook' \
+  -H 'accept: application/json, text/plain, */*' \
+  -H 'accept-language: en-US,en;q=0.9,fr-FR;q=0.8,fr;q=0.7,es-US;q=0.6,es;q=0.5' \
+  -H 'affiliate-id: 28919283' \
+  -H 'authorization: Bearer eyJraWQiOiJXQ1d2UjhnekV2cXR4RFZIMUxNRmdidWEyS3MwVUd4OEx1Q3puU2x5Sjl3PSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJmOTljNDRmZi0xN2RmLTQ3Y2ItOTI3YS0zODYyMWMwMTQ2ZDEiLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiYmlydGhkYXRlIjoiMTk2OC0xMS0yMiIsImdlbmRlciI6Ik0iLCJjdXN0b21fcmVkaXJlY3QiOiJmYWxzZSIsImlzcyI6Imh0dHBzOlwvXC9jb2duaXRvLWlkcC51cy13ZXN0LTIuYW1hem9uYXdzLmNvbVwvdXMtd2VzdC0yX2hHd0ppd3RjSSIsImNvZ25pdG86dXNlcm5hbWUiOiJmOTljNDRmZi0xN2RmLTQ3Y2ItOTI3YS0zODYyMWMwMTQ2ZDEiLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiIyODkxOTI4MyIsImNvbnRhY3RfaWQiOiIwMDM1cDAwMDAzamVWa3lBQUUiLCJnaXZlbl9uYW1lIjoiUmVlY2UiLCJnbG9iYWxfdXVpZCI6IjY3NzI1ODZhLWIwMzMtNGU1My1hODBkLTRlMzg4NGNiZjBmOSIsImN1c3RvbTphZmZpbGlhdGVfdHlwZV9pZCI6IjEiLCJhdWQiOiIyYXJuNXIyM3AwdWdjZTg5YTVtb2U5NXYxbCIsImV2ZW50X2lkIjoiMmI1OTY4MzgtM2U0Zi00MTU0LTgxYzgtODZmOGVjM2U2YTlhIiwiY3VzdG9tOmxhbmd1YWdlIjoiZW4tVVMiLCJ0b2tlbl91c2UiOiJpZCIsImN1c3RvbTphZmZpbGlhdGVfaWQiOiIyODkxOTI4MyIsImF1dGhfdGltZSI6MTc0NjQxNTQ0OSwiZXhwIjoxNzQ2OTgzNTU3LCJpYXQiOjE3NDY5Nzk5NTcsImZhbWlseV9uYW1lIjoiSGFydCIsImVtYWlsIjoicmVlY2VAaGFydHMubmV0In0.QsjQhoNk3HPNJaSohC6aHu--Flyjpsg16SP-aIesoYE99oP1lm8rSS0ay6cI5BcPUZV5fuDQG9SJ9C9gMV1A-sFTIosx9OmIVRdMHmVwsW-e0xOVvJmmICC0zMUmCxTpLlL-MN9to1oxGdpnB50qBkhZ24dizFUN0NRM-TKZq2YT9BN-icoA_Ly4lrZnpzcjT24agw3snqXWJDCa17gtnZNyV8ofQ4B4zbQ6XROIDZK0o7GGJib-aRvrtfYfHR5EDPrY_67ogt09TH2zPmhTDgCyM8hy05-Svt7pAOasn5rTZPG6rMKL83tWDv_unls30MSlKSokg8_t973yTsxbBw' \
+  -H 'content-type: application/json' \
+  -H 'dnt: 1' \
+  -H 'origin: https://learning.padi.com' \
+  -H 'priority: u=1, i' \
+  -H 'referer: https://learning.padi.com/' \
+  -H 'sec-ch-ua: "Google Chrome";v="135", "Not-A.Brand";v="8", "Chromium";v="135"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  -H 'sec-fetch-site: same-site' \
+  -H 'sec-gpc: 1' \
+  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36' \
+  -H 'x-platform: web' \
+  --data-raw $'{"query":" query logbook_logs($affiliate_id: Int\u0021, $limit: Int, $offset: Int) {\\n  logbook_logs(\\n    where: {affiliate_id: {_eq: $affiliate_id}}\\n    order_by: {dive_date: desc, id: desc}\\n    limit: $limit\\n    offset: $offset\\n  ) {\\n    id\\n    log_type\\n    log_course\\n    log_number\\n    dive_title\\n    dive_date\\n    dive_location\\n    status\\n  }\\n}","variables":{"affiliate_id":"28919283","limit":15,"offset":0}}'
+
+
+
+  curl 'https://logbook.global-prod.padi.com/api/Logbook' \
+  -H 'accept: application/json, text/plain, */*' \
+  -H 'accept-language: en-US,en;q=0.9,fr-FR;q=0.8,fr;q=0.7,es-US;q=0.6,es;q=0.5' \
+  -H 'affiliate-id: 28919283' \
+  -H 'authorization: Bearer eyJraWQiOiJXQ1d2UjhnekV2cXR4RFZIMUxNRmdidWEyS3MwVUd4OEx1Q3puU2x5Sjl3PSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJmOTljNDRmZi0xN2RmLTQ3Y2ItOTI3YS0zODYyMWMwMTQ2ZDEiLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiYmlydGhkYXRlIjoiMTk2OC0xMS0yMiIsImdlbmRlciI6Ik0iLCJjdXN0b21fcmVkaXJlY3QiOiJmYWxzZSIsImlzcyI6Imh0dHBzOlwvXC9jb2duaXRvLWlkcC51cy13ZXN0LTIuYW1hem9uYXdzLmNvbVwvdXMtd2VzdC0yX2hHd0ppd3RjSSIsImNvZ25pdG86dXNlcm5hbWUiOiJmOTljNDRmZi0xN2RmLTQ3Y2ItOTI3YS0zODYyMWMwMTQ2ZDEiLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiIyODkxOTI4MyIsImNvbnRhY3RfaWQiOiIwMDM1cDAwMDAzamVWa3lBQUUiLCJnaXZlbl9uYW1lIjoiUmVlY2UiLCJnbG9iYWxfdXVpZCI6IjY3NzI1ODZhLWIwMzMtNGU1My1hODBkLTRlMzg4NGNiZjBmOSIsImN1c3RvbTphZmZpbGlhdGVfdHlwZV9pZCI6IjEiLCJhdWQiOiIyYXJuNXIyM3AwdWdjZTg5YTVtb2U5NXYxbCIsImV2ZW50X2lkIjoiMmI1OTY4MzgtM2U0Zi00MTU0LTgxYzgtODZmOGVjM2U2YTlhIiwiY3VzdG9tOmxhbmd1YWdlIjoiZW4tVVMiLCJ0b2tlbl91c2UiOiJpZCIsImN1c3RvbTphZmZpbGlhdGVfaWQiOiIyODkxOTI4MyIsImF1dGhfdGltZSI6MTc0NjQxNTQ0OSwiZXhwIjoxNzQ2OTgzODg1LCJpYXQiOjE3NDY5ODAyODUsImZhbWlseV9uYW1lIjoiSGFydCIsImVtYWlsIjoicmVlY2VAaGFydHMubmV0In0.K4YIrGv1oiinh3pOoSfvzKw6-zcgrRDc-RVxBxvuKw2Bi1JIqe9wqjwEx8c5kBLZh-SOBJxCOypIKa5sbkPROkP8Pugcg2miyHqxJ4EfXH8yiMK26WLUXJJWnyBNYNZ3bRxWoa9VJxsbTrHeRd9jzhyLIomtf0ezctHc5t6l8gt8bT2oxhuFIU4GLylsPDBnxWk010TZr-Hb16YqDbn5gml-kq4iUg0IIRpVx6MrS7fQDen15Z-bXuW0VGJXzxzv6V4n_V-Tn2Yey64p1UP-_TWPXMc7yUwtPyCZcBCus4Bik69kmeoYn-hBaU_d9P2TdDSEKNjJvCTAxObbdDKDig' \
+  -H 'content-type: application/json' \
+  -H 'dnt: 1' \
+  -H 'origin: https://learning.padi.com' \
+  -H 'priority: u=1, i' \
+  -H 'referer: https://learning.padi.com/' \
+  -H 'sec-ch-ua: "Google Chrome";v="135", "Not-A.Brand";v="8", "Chromium";v="135"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  -H 'sec-fetch-site: same-site' \
+  -H 'sec-gpc: 1' \
+  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36' \
+  -H 'x-platform: web' \
+  --data-raw $'{"query":" query logbook_logs($affiliate_id: Int\u0021, $id: Int\u0021) {\\n  logbook_logs(\\n    where: {affiliate_id: {_eq: $affiliate_id}, _and: {id: {_eq: $id}}}\\n  ) {\\n    id\\n    log_type\\n    log_course\\n    log_number\\n    dive_type\\n    dive_title\\n    dive_date\\n    dive_location\\n    memsys_member_number\\n    status\\n    adventure_dive\\n    depth_times {\\n      max_depth\\n      bottom_time\\n      time_in\\n      time_out\\n    }\\n    skills {\\n      dive_skills\\n    }\\n    conditions {\\n      water_type\\n      body_of_water\\n      weather\\n      air_temp\\n      surface_water_temp\\n      bottom_water_temp\\n      visibility\\n      visibility_distance\\n      wave_condition\\n      current\\n      surge\\n    }\\n    equipment {\\n      suit_type\\n      weight\\n      weight_type\\n      additional_equipment\\n      cylinder_type\\n      cylinder_size\\n      gas_mixture\\n      oxygen\\n      nitrogen\\n      helium\\n      starting_pressure\\n      ending_pressure\\n    }\\n    experiences {\\n      feeling\\n      notes\\n      buddies\\n      dive_center\\n    }\\n  }\\n}","variables":{"affiliate_id":"28919283","id":"14730132"}}'
+
+  

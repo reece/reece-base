@@ -27,16 +27,18 @@ if bogus_versions:
     raise ValueError(f"{len(bogus_versions)} bogus version tags ({bogus_versions})")
 
 version_tuples = [tuple(map(int, v.split("."))) for v in versions]
-version_tuples.sort()
 
-# symlinks: a list of symlinks to make
+# symlinks: a list of symlinks to make (x -> xy, xy -> xyz)
 symlinks = {}
-for x, y, z in version_tuples:
-    f1, f2, f3 = f"{x}", f"{x}.{y}", f"{x}.{y}.{z}"
-    symlinks[f1] = f2
-    symlinks[f2] = f3
+for x, y, z in sorted(version_tuples):
+    x, xy, xyz = f"{x}", f"{x}.{y}", f"{x}.{y}.{z}"
+    symlinks[x] = xy
+    symlinks[xy] = xyz
 
-for linkpath in reversed(symlinks):
-    target = symlinks[linkpath]
-    os.symlink(dst=linkpath, src=target)  # dst -> src
-    _logger.info(f"{linkpath} → {target}")
+for linkname, target in symlinks.items():
+    try:
+        os.unlink(linkname)
+    except FileNotFoundError:
+        pass
+    os.symlink(dst=linkname, src=target)  # dst -> src
+    _logger.info(f"{linkname} → {target}")

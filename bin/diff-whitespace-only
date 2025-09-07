@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+"""read diff and return new diff to revert whitespace-only changes
+
+The intended use is on a clean PR branch, like this:
+
+$ git diff -U0 $(git merge-base main HEAD)..HEAD | diff-whitespace-only | patch -p0
+
+Whitespace includes newlines, so multi-line reformatting is also reverted.
+
+Requires unidiff Python package
+
+"""
+
+import fileinput
+
+from unidiff import PatchSet, Hunk
+
+
+def is_whitespace_only(h: Hunk) -> bool:
+    """identify diff hunks that represent only whitespace changes (including newline)
+
+    Args:
+        h (Hunk): A single diff hunk
+
+    Returns:
+        bool: True if the differences are whitespace-only
+    """
+
+    source = " ".join(line.value.strip() for line in h.source_lines())
+    target = " ".join(line.value.strip() for line in h.target_lines())
+    return source == target
+
+patch_set = PatchSet("".join(fileinput.input()))
+
+for patched_file in patch_set:
+    for hunk in patched_file:
+        if not is_whitespace_only(hunk):
+            patched_file.remove(hunk)
+
+print(patch_set)
