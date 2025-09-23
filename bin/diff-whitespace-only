@@ -3,7 +3,7 @@
 
 The intended use is on a clean PR branch, like this:
 
-$ git diff -U0 $(git merge-base main HEAD)..HEAD | diff-whitespace-only | patch -p0
+$ git diff -U0 $(git merge-base main HEAD)..HEAD | diff-whitespace-only | patch -R
 
 Whitespace includes newlines, so multi-line reformatting is also reverted.
 
@@ -12,9 +12,16 @@ Requires unidiff Python package
 """
 
 import fileinput
+import logging
+import re
 
 from unidiff import PatchSet, Hunk
 
+_logger = logging.getLogger()
+
+
+def normalize_whitespace(s: str) -> str:
+    return re.sub(r"\s*([(),=])\s*", r"\1", s.strip())
 
 def is_whitespace_only(h: Hunk) -> bool:
     """identify diff hunks that represent only whitespace changes (including newline)
@@ -28,13 +35,37 @@ def is_whitespace_only(h: Hunk) -> bool:
 
     source = " ".join(line.value.strip() for line in h.source_lines())
     target = " ".join(line.value.strip() for line in h.target_lines())
-    return source == target
+    source_n = normalize_whitespace(source)
+    target_n = normalize_whitespace(target)
+    return source_n == target_n
 
-patch_set = PatchSet("".join(fileinput.input()))
 
-for patched_file in patch_set:
-    for hunk in patched_file:
-        if not is_whitespace_only(hunk):
+if __name__ == "__main__":
+    import coloredlogs
+
+    coloredlogs.install(level="INFO")
+
+    patch_set = PatchSet("".join(fileinput.input()))
+
+    tot_hunks_removed = 0
+    for patched_file in patch_set:
+        n_hunks_before = len(patched_file)
+        hunks_to_remove = [
+            hunk for hunk in patched_file if not is_whitespace_only(hunk)
+        ]
+
+        for hunk in hunks_to_remove:
             patched_file.remove(hunk)
 
-print(patch_set)
+        n_hunks_after = len(patched_file)
+        n_hunks_removed = n_hunks_before - n_hunks_after
+        tot_hunks_removed += n_hunks_removed
+        _logger.info("%s: removed %s hunks; %s remain" % (patched_file.path, n_hunks_before, n_hunks_removed))
+
+    files_to_remove = [pf for pf in patch_set if len(pf) == 0]
+    for patched_file in files_to_remove:
+        patch_set.remove(patched_file)
+
+    _logger.info("%s hunks and %s files removed" % (tot_hunks_removed, len(files_to_remove)))
+
+    print(patch_set)
