@@ -1,0 +1,13 @@
+#!/bin/bash
+# remove files and directories that 
+
+set -eu -o pipefail
+
+for d in "$@"; do 
+    cd "$d"
+    if [[ `pwd` = / ]]; then
+        echo "ABORT: still in /" 1>&2
+        exit 1
+    fi
+    echo rm -frv ./{bin,boot,cdrom,initrd*,lib*,lost+found,run,sbin,snap,srv,var,usr,usr/{bin,games,include,lib*,locale,sbin,share,src,vmlinuz*}}
+done

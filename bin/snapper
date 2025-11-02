@@ -44,8 +44,8 @@ echo '# ' "$@"
 mkdir -v "$snap_pfx.tmp"
 rsync -HRavx "$@" "$snap_pfx.tmp" \
 	--link-dest="$SNAPPER_ROOT/latest/." \
-	--exclude-from=$top/rsync/patterns/snapper \
-	--exclude-from=$top/rsync/patterns/never
+	--exclude-from=$top/rsync/patterns/user \
+	--exclude-from=$top/rsync/patterns/system
 mv -v "$snap_pfx.tmp" "$snap_pfx"
 ln -fnsv "$ts" "$SNAPPER_ROOT/latest"
 date '+# Finished: %F-%T'

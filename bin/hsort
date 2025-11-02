@@ -1,0 +1,39 @@
+#!/bin/bash
+# hsort [SORT_OPTIONS] [FILE...]
+# sorts a file while preserving initial # header lines
+
+sort_options=()
+input_files=()
+is_stdin=true
+
+# 1. Separate options and files
+for arg in "$@"; do
+    if [[ "$arg" == -* ]]; then
+        # Argument is a sort option (e.g., -u, -t,)
+        sort_options+=("$arg")
+    else
+        # Argument is a file name
+        input_files+=("$arg")
+        is_stdin=false
+    fi
+done
+
+# 2. Process Input (STDIN or Files)
+if $is_stdin; then
+    # Handle STDIN (Piped input)
+    # Use awk to separate header and pipe body to sort
+    awk '
+        /^#/ { print; next }
+        { print | "sort " ARGV[1] } 
+    ' - "${sort_options[@]}"
+    
+else
+    # Handle one or more FILES
+    for file in "${input_files[@]}"; do
+        # Print the header lines (starting with #)
+        grep '^\#' "$file"
+
+        # Pipe the data lines (not starting with #) to the real sort command
+        grep -v '^\#' "$file" | sort "${sort_options[@]}"
+    done
+fi

@@ -1,0 +1,14 @@
+/cdrom
+/dev/
+/lib*
+/lost+found/
+/media/
+/mnt/
+/proc
+/proc/
+/run/
+/sbin
+/snap/
+/swap*
+/sys
+/var/

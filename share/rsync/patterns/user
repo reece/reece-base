@@ -1,0 +1,125 @@
+# Python
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.Python
+.ruff_cache/
+.tox/
+.venv/
+*.egg-info/
+*.pyc
+*.pyd
+*.pyo
+*.so
+build/
+dist/
+pip-delete-this-directory.txt
+pip-log.txt
+venv/
+
+# Rust
+*.rlib
+*.rmeta
+Cargo.lock  # (exclude if library, keep if binary)
+target/
+
+# JavaScript/Node
+.next/
+.npm/
+.nuxt/
+.pnp.*
+.yarn/
+build/
+dist/
+node_modules/
+npm-debug.log*
+yarn-error.log
+
+# VSCode
+.vscode/.ropeproject/
+.vscode/extensions/
+*.code-workspace.backup
+
+# General IDE/Editor
+.idea/
+*.iml
+*.swo
+*.swp
+*~
+
+# Build artifacts & compiled files
+*.a
+*.app
+*.class
+*.dll
+*.exe
+*.o
+*.out
+core
+
+# Logs
+*.log
+*.log.*
+logs/
+
+# Databases (local dev)
+*.db
+*.sqlite
+*.sqlite3
+
+# OS/System
+.DS_Store
+.gvfs/
+.local/share/Trash/
+.Trash-*/
+.Trash/
+.X11-unix/
+lost+found/
+Trash/
+
+# Ubuntu/Snap/App specific caches
+.beagle/
+.cache/
+.config/*/Cache/
+.config/*/GPUCache/
+.config/Code/Cache/
+.config/Code/CachedData/
+.config/Code/Code Cache/
+.config/Slack/Cache/
+.config/Slack/Code Cache/
+.dropbox.cache/
+.shotwell/
+.thumbnails/
+cache/
+Cache/
+CacheStorage/
+snap/*/common/cache/
+snap/*/common/Cache/
+snap/common/.cache/
+
+# Browser caches
+.config/chromium/*/Cache/
+.config/google-chrome/*/Cache/
+.mozilla/firefox/*/cache2/
+
+# Large replaceable data
+.cargo/git/
+.cargo/registry/
+.ivy2/
+.local/share/akonadi/
+.local/share/baloo/
+.m2/
+.rustup/toolchains/
+.steam/
+
+# Temporary files
+*.bak
+*.pid
+*.sock
+*.tmp
+*~
+Downloads/
+tmp/
+
+# Miscellaneous
+*.toc.bin

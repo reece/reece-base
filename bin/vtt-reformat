@@ -1,0 +1,93 @@
+#!/usr/bin/env python
+
+import fileinput
+import itertools
+import sys
+from typing import Generator, List, Optional
+
+from loguru import logger
+from tabulate import tabulate
+import webvtt
+
+from dataclasses import dataclass, field
+
+
+format = "tsv"
+
+@dataclass(slots=True)
+class Caption:
+    """
+    A lightweight data class that mimics the essential properties of a
+    webvtt.Caption and explicitly adds a settable 'speaker' field.
+    """
+
+    identifier: Optional[str] = field(default=None)  # The optional cue ID (string)
+    start: str = field(default="")  # The start timestamp string (e.g., "00:00:01.000")
+    end: str = field(default="")  # The end timestamp string (e.g., "00:00:04.000")
+    text: str = field(default="")  # The cue payload text
+    voice: Optional[str] = field(default=None)  # The extracted speaker name/identifier
+
+
+def convert_captions(captions: List[webvtt.Caption]) -> List[Caption]:
+    """convert webvtt Captions to internal Captions, and parse speaker
+
+    Args:
+        captions (List[webvtt.Caption]): List of Captions
+    """
+
+    def convert1(caption: webvtt.Caption) -> Caption:
+        voice, text = caption.text.split(":", 1)
+        if caption.voice:
+            if caption.voice != voice:
+                # warn about mismatch of voices
+                pass
+            voice = caption.voice
+        return Caption(
+            start=caption.start,
+            end=caption.end,
+            text=text,
+            identifier=caption.identifier,
+            voice=voice,
+        )
+
+    return [convert1(wc) for wc in captions]
+
+
+def consolidate_captions(captions: List[Caption]) -> Generator[Caption]:
+    grouper = itertools.groupby(captions, key=lambda c: c.voice)
+    for voice, caption_i in grouper:
+        captions = list(caption_i)
+        c = captions[0]
+        if len(captions) > 1:
+            last_c = captions[-1]
+            c.end = last_c.end
+            if c.identifier and last_c.identifier:
+                c.identifier = f"{c.identifier}-{last_c.identifier}"
+            c.text = " ".join([_c.text for _c in captions])
+        yield c
+
+if __name__ == "__main__":
+    vs = webvtt.from_buffer(fileinput.input())
+    logger.info(f"read {len(vs)} segments")
+    captions = convert_captions(vs.captions)
+    ccaptions = consolidate_captions(captions)
+    
+    if format == "tsv":
+        import csv
+        writer = csv.writer(sys.stdout, delimiter="\t")
+        headers = "voice sequence start end transcription".split()
+        writer.writerow(headers)
+        data = [ ((ccap.voice or '').upper(), ccap.identifier, ccap.start, ccap.end, ccap.text) for ccap in ccaptions]
+        writer.writerows(data)
+    elif format == "html":
+        print(tabulate(
+            [(f"<b>{(ccap.voice or '').upper()}</b><br/>[{ccap.identifier}; {ccap.start}]", ccap.text) for ccap in ccaptions],
+            ["voice<br/>[sequence, start time]", "transcription"],
+            tablefmt=format,
+            disable_numparse=[1]))
+    else:
+        for ccap in ccaptions:
+            voice = ccap.voice or "" 
+            print(f"**{voice.upper()}:** {ccap.text} [{ccap.identifier}; {ccap.start}]\n")
+    
+    
