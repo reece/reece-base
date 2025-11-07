@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""create issues in GitLab from tsv file
+
+tsv file has columns:
+- project
+- title
+- description (markdown)
+- epic
+- milestone
+- owner
+- iteration
+
+
+"""
+
+
+import argparse
+import csv
+import logging
+import pathlib
+
+import coloredlogs
+import gitlab
+import smart_open
+
+
+_logger = logging.getLogger()
+
+
+def parse_args():
+    ap = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    ap.add_argument(
+        "--group", "-g",
+        required=True,
+        help="Group in which to find projects")
+    ap.add_argument(
+        "--issues-file", "-i",
+        required=False,
+        default="-",
+        type=pathlib.Path
+        )
+    ap.add_argument(
+        "--project", "-p",
+        required=False,
+        default=None,
+        help="default project if not specified in issues files"
+        )
+    ap.add_argument(
+        "--server-name", "-s",
+        required=True,
+        help="gitlab server name in ~/.python-gitlab.cfg; see https://python-gitlab.readthedocs.io/en/stable/cli-usage.html#cli-configuration")
+
+    opts = ap.parse_args()
+    return opts
+
+
+class GitLabHelper:
+    def __init__(self, gl):
+        self.gl = gl
+        self._collect_info()
+
+    def _collect_info(self):
+        self.group = group = gl.groups.get(opts.group)
+        projects = group.projects.list()
+        self.project_map = {p.path: gl.projects.get(p.id, lazy=True) for p in projects}
+        epics = group.epics.list()
+        self.epic_map = {e.title: group.epics.get(e.id, lazy=True) for e in epics if not e.closed_at}
+        milestones = group.milestones.list()
+        self.milestone_map = {m.title: group.milestones.get(m.id, lazy=True) for m in milestones if m.state == "active"}
+        members = group.members.list()
+        self.member_map = {m.username: group.members.get(m.id, lazy=True) for m in members}
+        labels = group.labels.list()
+        self.label_map = {l.name: l.id for l in labels}
+
+        _logger.info(f"Fetched {len(self.project_map)} projects, {len(self.epic_map)} epics, {len(self.milestone_map)} milestones, {len(self.label_map)} labels, {len(self.member_map)} members")
+    
+    def create_issue(self, issue):
+        project = issue.get("project")
+        if project is None:
+            raise RuntimeError(f"No project specified for {issue.title}")
+        p = self.project_map[project]
+        body = dict(
+            title=issue["title"],
+            description=issue["description"] or None,
+            assignee_id=self.member_map[issue["assignee"]].id,
+            milestone_id=self.milestone_map[issue["milestone"]].id,
+            epic_id=self.epic_map[issue["epic"]].iid)
+        resp = p.issues.create(body)
+        return resp
+
+
+
+if __name__ == "__main__":
+    coloredlogs.install(level="INFO")
+
+    opts = parse_args()
+
+    gl = gitlab.Gitlab.from_config(opts.server_name)
+    gl.auth()
+
+    glh = GitLabHelper(gl)
+
+    if opts.issues_file:
+        issues_in = csv.DictReader(smart_open.open(opts.issues_file), delimiter="\t")
+        for n,issue in enumerate(issues_in):
+            if issue["project"] == "bfxops":
+                iss = glh.create_issue(issue)
+                _logger.info(f"{issue['project']}#{iss.iid}: {iss.title}")
+            

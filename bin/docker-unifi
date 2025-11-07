@@ -13,6 +13,7 @@ echo "unifi starting at http://localhost:8080/"
 cd /tmp
 mkdir -p $UNIFI_DIR/unifi/data $UNIFI_DIR/unifi/log
 exec docker run \
+     --rm \
        -d \
        -e RUNAS_UID0=false \
        -e UNIFI_UID=$(id -u unifi) \
@@ -23,7 +24,7 @@ exec docker run \
        --init \
        --net=host \
        --name=unifi-controller \
-       jacobalberty/unifi:stable
+       jacobalberty/unifi:stable-6
 
 
 # TODO: consider two modes: "discovery" (w/--net=host) and "monitoring" (with ports)
